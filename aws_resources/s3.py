@@ -1,7 +1,11 @@
 import os
+from subprocess import call
 
 import curses
+from sys import prefix
+import tempfile
 import boto3
+from botocore.retries import bucket
 from colored.colored import fg
 
 from components.custom_string import String
@@ -9,6 +13,7 @@ from components.table import ColSettings, Table
 
 
 IS_LOCAL = os.environ.get('LOCAL', 'false').lower() == 'true'
+EDITOR = os.environ.get('EDITOR', 'vim')
 
 
 class S3Table(Table):
@@ -46,6 +51,16 @@ class S3Table(Table):
                 self.paths.append(data['Key'])
                 self.headers, self.data = self.list_bucket()
                 self.filter = ""
+            
+            else:  # we are a file
+                full_key = self.prefix + data['Key']
+                resp = self.client.get_object(Bucket=self.bucket, Key=full_key)
+                with tempfile.NamedTemporaryFile(suffix="." + full_key.replace("/", "___")) as tf:
+                    for chunk in resp['Body'].iter_chunks():
+                        tf.write(chunk)
+
+                    tf.flush()
+                    call([EDITOR, tf.name])
 
     def list_buckets(self):
         response = self.client.list_buckets()
@@ -57,7 +72,7 @@ class S3Table(Table):
         return headers, data
 
     def list_bucket(self):
-        objects = self.client.list_objects(Bucket=self.bucket, Delimiter="/", Prefix=self.prefix)
+        objects = self.client.list_objects_v2(Bucket=self.bucket, Delimiter="/", Prefix=self.prefix)
         headers = [ColSettings("Key", stretched=True, min_size=15), ColSettings("Type"), ColSettings("Last modify"), ColSettings("ETag"), ColSettings("Size"), ColSettings("Storage Class"), ColSettings("Owner")]
         data = []
         for object in objects.get('CommonPrefixes', []):
@@ -66,7 +81,7 @@ class S3Table(Table):
             data.append(folder_data)
 
         for object in objects.get('Contents', []):
-            data.append([object['Key'].replace(self.prefix, "", 1), "file", str(object['LastModified']), object['ETag'], str(object['Size']), object['StorageClass'], object['Owner']['DisplayName']])
+            data.append([object['Key'].replace(self.prefix, "", 1), "file", str(object['LastModified']), object['ETag'], str(object['Size']), object['StorageClass'], object.get('Owner', {}).get('DisplayName', "")])
 
         return headers, data
     
