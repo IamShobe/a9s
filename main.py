@@ -13,42 +13,12 @@ from components.mode import KeyMode, Mode
 from components.table import ColSettings, Table
 from components.autocomplete import AutoComplete
 
-
-def list_buckets():
-    client = boto3.client(service_name='s3', endpoint_url='http://localhost:4566')
-    response = client.list_buckets()
-    headers = [ColSettings("Bucket name", stretched=True), ColSettings("Creation date")]
-    data = []
-    for bucket in response['Buckets']:
-        data.append([bucket['Name'], str(bucket['CreationDate'])])
-
-    return headers, data
-
-
-def list_bucket(bucket, prefix=""):
-    client = boto3.client(service_name='s3', endpoint_url='http://localhost:4566')
-    objects = client.list_objects(Bucket=bucket, Delimiter="/", Prefix=prefix)
-    headers = [ColSettings("Key", stretched=True, min_size=15), ColSettings("Last modify"), ColSettings("ETag"), ColSettings("Size"), ColSettings("Storage Class"), ColSettings("Owner")]
-    data = []
-    for object in objects['CommonPrefixes']:
-        folder_data = [String(str(object['Prefix']), fg=fg('yellow'))]
-        folder_data += (len(headers) - len(folder_data)) * [""]
-        data.append(folder_data)
-
-    for object in objects['Contents']:
-        data.append([object['Key'], str(object['LastModified']), object['ETag'], str(object['Size']), object['StorageClass'], object['Owner']['DisplayName']])
-
-    return headers, data
-
-s3_mode = "select_bucket"
-selected_bucket = None
 def main():
     app = App()
     # headers = [ColSettings(name="test"), ColSettings(name="test2", stretched=True), ColSettings(name="non stretched")]
     # rendered_list = [["test", "test123", "sdgfsdfg234234234sdg"], ["test2", "234234", "sdgsdfgaswrsdgc xb"],
     #                  ["test 124 124 124 12 4213", "sdgdfgfdg", "sdgfsd sdfas dff"]] * 100
 
-    headers, rendered_list = list_buckets()
     # headers, rendered_list = list_bucket('test-bucket')
 
 

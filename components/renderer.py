@@ -118,7 +118,7 @@ class ScrollableRenderer(Renderer):
         self.selected_row = 0
 
     def vscroll_end(self):
-        self._displayed_data_start = max(len(self.displayed_data) - self.height, 0)
+        self._displayed_data_start = max(len(self.displayed_data) - self.height + 1, 0)
         self.selected_row = len(self.displayed_data) - 1
 
     @property
@@ -174,7 +174,7 @@ class ScrollableRenderer(Renderer):
             self.next_selection()
         
         elif key.code == curses.KEY_ENTER:
-            data = self.data[self.selected_row]
+            data = self.displayed_data[self.selected_row]
             self.on_select(self.get_row_representation(data))
 
         if key == "$":

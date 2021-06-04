@@ -39,11 +39,13 @@ class S3Table(Table):
         if not self.bucket:
             self.bucket = data['Bucket name']
             self.headers, self.data = self.list_bucket()
+            self.filter = ""
         
         else:
             if data['Type'] == "folder":
                 self.paths.append(data['Key'])
                 self.headers, self.data = self.list_bucket()
+                self.filter = ""
 
     def list_buckets(self):
         response = self.client.list_buckets()
