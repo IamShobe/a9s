@@ -39,5 +39,5 @@ class Mode(Renderer):
         to_print = String(mode_to_str[self.mode]).with_style(style)
         spaces = (self.width - len(mode_to_str[self.mode]))
         left_side_spaces = String(math.floor(spaces / 2) * " ").with_style(style)
-        right_side_spaces = String(math.ceil(spaces / 2) * " ").with_style(style).reset_style_on_end()
+        right_side_spaces = String(math.ceil(spaces / 2) * " ").with_style(style)
         echo_func(self.x, self.y, left_side_spaces + to_print + right_side_spaces)
