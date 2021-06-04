@@ -1,22 +1,71 @@
+from aws_resources.s3 import S3Table
+from logging import log
 import signal
 import curses
 import pyperclip
+import boto3
+from colored import fg
 
 from components.app import App
+from components.custom_string import String
 from components.logger import logger
 from components.mode import KeyMode, Mode
 from components.table import ColSettings, Table
 from components.autocomplete import AutoComplete
 
 
+def list_buckets():
+    client = boto3.client(service_name='s3', endpoint_url='http://localhost:4566')
+    response = client.list_buckets()
+    headers = [ColSettings("Bucket name", stretched=True), ColSettings("Creation date")]
+    data = []
+    for bucket in response['Buckets']:
+        data.append([bucket['Name'], str(bucket['CreationDate'])])
 
+    return headers, data
+
+
+def list_bucket(bucket, prefix=""):
+    client = boto3.client(service_name='s3', endpoint_url='http://localhost:4566')
+    objects = client.list_objects(Bucket=bucket, Delimiter="/", Prefix=prefix)
+    headers = [ColSettings("Key", stretched=True, min_size=15), ColSettings("Last modify"), ColSettings("ETag"), ColSettings("Size"), ColSettings("Storage Class"), ColSettings("Owner")]
+    data = []
+    for object in objects['CommonPrefixes']:
+        folder_data = [String(str(object['Prefix']), fg=fg('yellow'))]
+        folder_data += (len(headers) - len(folder_data)) * [""]
+        data.append(folder_data)
+
+    for object in objects['Contents']:
+        data.append([object['Key'], str(object['LastModified']), object['ETag'], str(object['Size']), object['StorageClass'], object['Owner']['DisplayName']])
+
+    return headers, data
+
+s3_mode = "select_bucket"
+selected_bucket = None
 def main():
     app = App()
-    headers = [ColSettings(name="test"), ColSettings(name="test2", stretched=True), ColSettings(name="non stretched")]
-    rendered_list = [["test", "test123", "sdgfsdfg234234234sdg"], ["test2", "234234", "sdgsdfgaswrsdgc xb"],
-                     ["test 124 124 124 12 4213", "sdgdfgfdg", "sdgfsd sdfas dff"]] * 100
+    # headers = [ColSettings(name="test"), ColSettings(name="test2", stretched=True), ColSettings(name="non stretched")]
+    # rendered_list = [["test", "test123", "sdgfsdfg234234234sdg"], ["test2", "234234", "sdgsdfgaswrsdgc xb"],
+    #                  ["test 124 124 124 12 4213", "sdgdfgfdg", "sdgfsd sdfas dff"]] * 100
 
-    table = Table(headers, rendered_list)
+    headers, rendered_list = list_buckets()
+    # headers, rendered_list = list_bucket('test-bucket')
+
+
+    table = S3Table()
+    
+    # def on_select(data):
+    #     global s3_mode
+    #     global selected_bucket
+    #     logger.debug("Row is {}".format(data))
+    #     if s3_mode == "select_bucket":
+    #         selected_bucket = data['Bucket name']
+    #         headers, rendered_list = list_bucket('test-bucket')
+    #         table.headers = headers
+    #         table.data = rendered_list
+    #         s3_mode = "select_folder"
+
+    # table.on_select = on_select
     auto_complete = AutoComplete()
     mode_renderer = Mode()
 
@@ -24,7 +73,7 @@ def main():
         mode_renderer.set_pos(x=0, y=9, to_x=10)
         auto_complete.set_pos(x=11, y=9, to_x=app.term.width)
         table.set_pos(x=0, y=10, to_x=app.term.width, to_y=app.term.height)
-        logger.set_pos(x=max(app.term.width - 60, 0), y=0, to_x=app.term.width, to_y=10)
+        logger.set_pos(x=max(app.term.width - 40, 0), y=0, to_x=app.term.width, to_y=10)
         table.onresize()
         app.resize()
         auto_complete.to_x = app.term.width
@@ -67,6 +116,7 @@ def main():
         if original_mode == KeyMode.Debug:
             if key.code == curses.KEY_EXIT:
                 mode_renderer.mode = KeyMode.Navigation
+                logger.shown = False
                 logger.continue_debug()
 
             else:
@@ -91,6 +141,7 @@ def main():
 
                 if auto_complete.get_actual_text() in "debug":
                     mode_renderer.mode = KeyMode.Debug
+                    logger.shown = True
                     logger.halt_debug()
 
             elif key.isprintable():

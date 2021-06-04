@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "Debug server",
+            "type": "python",
+            "request": "attach",
+            "port": 5679,
+            "host": "localhost",
+            // "pathMappings": [
+            //     {
+            //         "localRoot": "${workspaceFolder}/",
+            //         "remoteRoot": "/app/"
+            //     }
+            // ],
+            "presentation": {
+                "order": 2
+            }
+        },
+    ]
+}

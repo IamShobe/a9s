@@ -95,7 +95,7 @@ class String:
         was_matched = False
         initial_find = -1
         for i, c in enumerate(self):
-            if str(c) == seed[curr_i]:
+            if repr(c) == seed[curr_i]:
                 if not was_matched:
                     initial_find = i
                     was_matched = True
@@ -129,7 +129,7 @@ class String:
         was_matched = False
         fragment_appended = True
         while i + j < length:
-            if str(splitted_str[i + j]) == seed[j] and times_splitted < count:
+            if repr(splitted_str[i + j]) == seed[j] and times_splitted < count:
                 if not was_matched:
                     if not fragment_appended:
                         fragments.append(current_fragment)
@@ -191,6 +191,9 @@ class String:
 
         else:
             raise ValueError("cannot set non Char / str instance")
+
+    def __contains__(self, item):
+        return item in repr(self)
 
     def __getitem__(self, item):
         chars = list(self)

@@ -9,6 +9,7 @@ python = "^3.8"
 colored = "^1.4.2"
 pyperclip = "^1.8.2"
 cached-property = "^1.5.2"
+boto3 = "^1.17.87"
 
 [tool.poetry.dev-dependencies]
 blessed = "^1.18.0"

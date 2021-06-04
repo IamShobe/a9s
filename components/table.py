@@ -1,6 +1,7 @@
 import itertools
 from dataclasses import dataclass, field
 from typing import Union, Callable, List
+from copy import copy
 
 from colored import fg, bg, attr
 
@@ -61,11 +62,15 @@ class ColSettings:
             return data
 
         fragments = data.split(search, 1)
-        to_append = String(search, fg=match_style)
+        to_append = String(search, fg=match_style).force_self_style()
         return to_append.join(fragments)
 
     def format_data(self, data, search="", row_style=attr("reset"), match_style=fg("blue")):
-        data = String(data)
+        if isinstance(data, str):
+            data = String(data)
+        
+        data = copy(data)
+
         used_max_size = self.actual_size
         match_index = -1
         if len(search) > 0:
@@ -111,6 +116,9 @@ class Table(ScrollableRenderer):
 
     def on_data_set(self, new_value):
         self._transposed_data = list(map(list, itertools.zip_longest(*new_value, fillvalue=None)))
+        self.selected_row = 0
+        self.offset = 0
+        self._displayed_data_start = 0
         for header, col in zip(self.headers, self._transposed_data):
             header.enrich_props_using_data(col)
 
@@ -154,6 +162,15 @@ class Table(ScrollableRenderer):
 
         return to_ret
 
+    def get_row_representation(self, data):
+        to_ret = {}
+        for col, d in zip(self.headers, data):
+            if isinstance(d, String):
+                d = repr(d)
+            to_ret[col.name] = d
+
+        return to_ret
+
     def draw(self, echo):
         header_style = Style(fg=fg("light_gray"), bg=bg("cyan"))
         row_to_print = String("").with_style(header_style)
@@ -166,10 +183,10 @@ class Table(ScrollableRenderer):
             row_to_print += String(padding).with_style(header_style)
 
         self.max_offset = len(row_to_print) - self.width
-        curr_row = 0
+        self._curr_row = 0
         row_to_print = self._trim_row(row_to_print, with_elipsis=True)
-        echo(self.x, self.y + curr_row, row_to_print)
-        curr_row += 1
+        echo(self.x, self.y + self._curr_row, row_to_print)
+        self._curr_row += 1
 
         for i, data_row in enumerate(self.displayed_data[self.displayed_data_start:self.displayed_data_end]):
             actual_i = self.displayed_data_start + i
@@ -185,7 +202,7 @@ class Table(ScrollableRenderer):
                 row_to_print += String(padding).with_style(row_style)
 
             row_to_print = self._trim_row(row_to_print)
-            echo(self.x, self.y + curr_row, row_to_print)
-            curr_row += 1
-
-        self.fill_empty(echo_func=echo, curr_row=curr_row)
+            echo(self.x, self.y + self._curr_row, row_to_print)
+            self._curr_row += 1
+        
+        super().draw(echo)

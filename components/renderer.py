@@ -17,6 +17,9 @@ class Renderer:
         self.to_x = self.x + 1
         self.to_y = self.y
 
+        # renderer row
+        self._curr_row = 0
+
     @property
     def width(self):
         return self.to_x - self.x
@@ -25,14 +28,16 @@ class Renderer:
     def height(self):
         return self.to_y - self.y
 
-    def fill_empty(self, echo_func: Callable, curr_row):
+    def fill_empty(self, echo_func: Callable):
         filler = " " * self.width
-        while curr_row < self.height - 1:
-            echo_func(self.x, self.y + curr_row, filler)
-            curr_row += 1
+        while self._curr_row < self.height - 1:
+            echo_func(self.x, self.y + self._curr_row, filler)
+            self._curr_row += 1
+        
+        self._curr_row = 0
 
     def draw(self, echo_func: Callable):
-        raise NotImplementedError("Must be implemented")
+        self.fill_empty(echo_func=echo_func)
 
     def set_pos(self, *, x, y, to_x, to_y=None):
         self.x = x
@@ -146,6 +151,15 @@ class ScrollableRenderer(Renderer):
             if self.selected_row > self.displayed_data_end - 1:
                 self._displayed_data_start += 1
 
+    def get_row_representation(self, data):
+        if isinstance(data, String):
+            data = repr(data)
+
+        return data
+    
+    def on_select(self, data):
+        pass
+
     def handle_key(self, key):
         if key.code == curses.KEY_RIGHT or key == "l":
             self.move_right()
@@ -158,6 +172,10 @@ class ScrollableRenderer(Renderer):
 
         elif key.code == curses.KEY_DOWN or key == "j":
             self.next_selection()
+        
+        elif key.code == curses.KEY_ENTER:
+            data = self.data[self.selected_row]
+            self.on_select(self.get_row_representation(data))
 
         if key == "$":
             self.hscroll_end()
@@ -185,3 +203,4 @@ class ScrollableRenderer(Renderer):
             actual_end = actual_end - len(suffix)
 
         return String(prefix, fg=attr("reset")) + row[actual_start:actual_end] + String(suffix, fg=attr("reset"))
+    
