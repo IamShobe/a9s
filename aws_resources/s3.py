@@ -1,3 +1,5 @@
+import os
+
 import curses
 import boto3
 from colored.colored import fg
@@ -6,10 +8,13 @@ from components.custom_string import String
 from components.table import ColSettings, Table
 
 
+IS_LOCAL = os.environ.get('LOCAL', 'false').lower() == 'true'
+
+
 class S3Table(Table):
     def __init__(self) -> None:
         super().__init__([], []) 
-        self.client = boto3.client(service_name='s3', endpoint_url='http://localhost:4566')
+        self.client = boto3.client(service_name='s3', endpoint_url='http://localhost:4566' if IS_LOCAL else None)
         self.bucket = None
         self.paths = []
 
