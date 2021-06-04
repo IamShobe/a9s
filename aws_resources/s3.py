@@ -61,7 +61,7 @@ class S3Table(Table):
         headers = [ColSettings("Key", stretched=True, min_size=15), ColSettings("Type"), ColSettings("Last modify"), ColSettings("ETag"), ColSettings("Size"), ColSettings("Storage Class"), ColSettings("Owner")]
         data = []
         for object in objects.get('CommonPrefixes', []):
-            folder_data = [String(str(object['Prefix'].replace(self.prefix, "", 1)), fg=fg('yellow')), "folder"]
+            folder_data = [String(str(object['Prefix'].replace(self.prefix, "", 1)), fg=fg('magenta_3c')), "folder"]
             folder_data += (len(headers) - len(folder_data)) * [""]
             data.append(folder_data)
 
