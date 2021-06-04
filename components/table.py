@@ -172,7 +172,7 @@ class Table(ScrollableRenderer):
         return to_ret
 
     def draw(self, echo):
-        header_style = Style(fg=fg("light_gray"), bg=bg("cyan"))
+        header_style = Style(fg=fg("light_gray"), bg=bg("dodger_blue_2"))
         row_to_print = String("").with_style(header_style)
         self._enrich_reponsive_headers()
 
