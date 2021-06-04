@@ -47,7 +47,7 @@ class Logger(ScrollableRenderer):
         self._curr_row = 0
         for i, log in enumerate(self.displayed_data[self.displayed_data_start:self.displayed_data_end]):
             actual_i = self.displayed_data_start + i
-            row_style = Style(fg=fg("white"), bg=bg("black"))
+            row_style = Style()
             if self.selected_row == actual_i:
                 row_style = Style(fg=fg("black"), bg=bg("light_gray"))
 
