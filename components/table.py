@@ -18,6 +18,7 @@ class ColSettings:
     min_size: Union[int, Callable[[int, "ColSettings"], int]] = None
     max_size: Union[int, Callable[[int, "ColSettings"], int]] = None
     no_shrink: bool = False
+    yank_key: str = None
 
     data_max_len: int = field(init=False, default=0)
     actual_size: int = field(init=False, default=0)
@@ -65,7 +66,7 @@ class ColSettings:
         to_append = String(search, fg=match_style).force_self_style()
         return to_append.join(fragments)
 
-    def format_data(self, data, search="", row_style=attr("reset"), match_style=fg("blue")):
+    def format_data(self, data, search="", row_style=attr("reset"), match_style=fg("blue"), yank_mode=False):
         if isinstance(data, str):
             data = String(data)
         
@@ -99,6 +100,10 @@ class ColSettings:
 
                 used_max_size = self._min_size
 
+
+        if yank_mode and self.yank_key:
+            to_ret += String("({})".format(self.yank_key))
+    
         data_len = len(to_ret)
         if used_max_size - data_len > 0:
             to_ret += " " * (used_max_size - data_len)
@@ -179,7 +184,7 @@ class Table(ScrollableRenderer):
         for header in self.headers:
             padding = " " * header.padding
             row_to_print += String(padding).with_style(header_style)
-            row_to_print += header.format_data(header.name.upper())
+            row_to_print += header.format_data(header.name.upper(), yank_mode=self.yank_mode)
             row_to_print += String(padding).with_style(header_style)
 
         self.max_offset = len(row_to_print) - self.width

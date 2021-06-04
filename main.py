@@ -1,3 +1,4 @@
+from aws_resources.hud import HUD
 from aws_resources.s3 import S3Table
 import signal
 import curses
@@ -13,17 +14,20 @@ from components.autocomplete import AutoComplete
 def main():
     app = App()
 
-    table = S3Table()
+    s3_service = S3Table()
+    hud = HUD()
+    hud.service = s3_service
     
     auto_complete = AutoComplete()
     mode_renderer = Mode()
 
     def on_resize(*args):
-        mode_renderer.set_pos(x=0, y=9, to_x=10)
-        auto_complete.set_pos(x=11, y=9, to_x=app.term.width)
-        table.set_pos(x=0, y=10, to_x=app.term.width, to_y=app.term.height)
+        hud.set_pos(x=0, y=9, to_x=app.term.width)
+        mode_renderer.set_pos(x=0, y=app.term.height - 1, to_x=10)
+        auto_complete.set_pos(x=11, y=app.term.height - 1, to_x=app.term.width)
+        s3_service.set_pos(x=0, y=10, to_x=app.term.width, to_y=app.term.height - 1)
         logger.set_pos(x=max(app.term.width - 40, 0), y=0, to_x=app.term.width, to_y=10)
-        table.onresize()
+        s3_service.onresize()
         app.resize()
         auto_complete.to_x = app.term.width
         app.clear()
@@ -35,7 +39,7 @@ def main():
         pass
 
     on_resize()
-    app.add_multiple([table, mode_renderer, auto_complete, logger])
+    app.add_multiple([s3_service, mode_renderer, auto_complete, logger, hud])
 
     mode_renderer.mode = KeyMode.Navigation
     for key in app.interactive_run():
@@ -48,10 +52,11 @@ def main():
             auto_complete.text = ""
 
         if original_mode == KeyMode.Navigation:
-            if key.code == curses.KEY_EXIT:
-                table.filter = auto_complete.get_actual_text()
+            should_stop = s3_service.handle_key(key)
+            auto_complete.text = ("/" + s3_service.filter) if s3_service.filter else ""
+            if key.code == curses.KEY_EXIT and not should_stop:
+                s3_service.filter = ""
 
-            table.handle_key(key)
             if key == "/":
                 mode_renderer.mode = KeyMode.Search
                 logger.debug("Switching to Search mode")
@@ -97,7 +102,7 @@ def main():
                 auto_complete.text += key
 
             if original_mode == KeyMode.Search:
-                table.filter = auto_complete.get_actual_text()
+                s3_service.filter = auto_complete.get_actual_text()
 
         if original_mode == KeyMode.Command:
             if key.code == curses.KEY_ENTER:

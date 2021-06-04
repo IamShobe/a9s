@@ -60,7 +60,9 @@ class ScrollableRenderer(Renderer):
         self.selected_row = 0
         self._displayed_data_start = 0
 
+        self._filter = ""
         self.filter = ""
+        self.yank_mode = False
 
     def onresize(self):
         self.offset = 0
@@ -90,9 +92,11 @@ class ScrollableRenderer(Renderer):
 
     @filter.setter
     def filter(self, value):
+        if self._filter != value:
+            self.selected_row = 0
+            self._displayed_data_start = 0
+
         self._filter = value
-        self.selected_row = 0
-        self._displayed_data_start = 0
         if 'displayed_data' in self.__dict__:
             del self.__dict__['displayed_data']
 
@@ -177,6 +181,11 @@ class ScrollableRenderer(Renderer):
         elif key.code == curses.KEY_ENTER:
             data = self.displayed_data[self.selected_row]
             self.on_select(self.get_row_representation(data))
+        
+        elif key.code == curses.KEY_EXIT:
+            if self.yank_mode:
+                self.yank_mode = False
+                return True  # swallows the Exit key
 
         if key == "$":
             self.hscroll_end()
@@ -189,6 +198,9 @@ class ScrollableRenderer(Renderer):
 
         elif key == "G":
             self.vscroll_end()
+        
+        elif key == "y":
+            self.yank_mode = True
 
     def _trim_row(self, row, with_elipsis=False):
         actual_start = self.offset
