@@ -1,5 +1,4 @@
 from aws_resources.s3 import S3Table
-from logging import log
 import signal
 import curses
 import pyperclip
@@ -7,35 +6,15 @@ import boto3
 from colored import fg
 
 from components.app import App
-from components.custom_string import String
 from components.logger import logger
 from components.mode import KeyMode, Mode
-from components.table import ColSettings, Table
 from components.autocomplete import AutoComplete
 
 def main():
     app = App()
-    # headers = [ColSettings(name="test"), ColSettings(name="test2", stretched=True), ColSettings(name="non stretched")]
-    # rendered_list = [["test", "test123", "sdgfsdfg234234234sdg"], ["test2", "234234", "sdgsdfgaswrsdgc xb"],
-    #                  ["test 124 124 124 12 4213", "sdgdfgfdg", "sdgfsd sdfas dff"]] * 100
-
-    # headers, rendered_list = list_bucket('test-bucket')
-
 
     table = S3Table()
     
-    # def on_select(data):
-    #     global s3_mode
-    #     global selected_bucket
-    #     logger.debug("Row is {}".format(data))
-    #     if s3_mode == "select_bucket":
-    #         selected_bucket = data['Bucket name']
-    #         headers, rendered_list = list_bucket('test-bucket')
-    #         table.headers = headers
-    #         table.data = rendered_list
-    #         s3_mode = "select_folder"
-
-    # table.on_select = on_select
     auto_complete = AutoComplete()
     mode_renderer = Mode()
 

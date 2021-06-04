@@ -2,10 +2,8 @@ import os
 from subprocess import call
 
 import curses
-from sys import prefix
 import tempfile
 import boto3
-from botocore.retries import bucket
 from colored.colored import fg
 
 from components.custom_string import String
@@ -44,13 +42,11 @@ class S3Table(Table):
         if not self.bucket:
             self.bucket = data['Bucket name']
             self.headers, self.data = self.list_bucket()
-            self.filter = ""
         
         else:
             if data['Type'] == "folder":
                 self.paths.append(data['Key'])
                 self.headers, self.data = self.list_bucket()
-                self.filter = ""
             
             else:  # we are a file
                 full_key = self.prefix + data['Key']

@@ -72,6 +72,7 @@ class ScrollableRenderer(Renderer):
     @data.setter
     def data(self, new_value):
         self._data = new_value
+        self.filter = ""
         if 'displayed_data' in self.__dict__:
             del self.__dict__['displayed_data']
         self.on_data_set(new_value)
