@@ -30,7 +30,7 @@ class Renderer:
 
     def fill_empty(self, echo_func: Callable):
         filler = " " * self.width
-        while self._curr_row < self.height - 1:
+        while self._curr_row < self.height:
             echo_func(self.x, self.y + self._curr_row, filler)
             self._curr_row += 1
         
