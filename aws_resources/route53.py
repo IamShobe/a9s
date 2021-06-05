@@ -28,6 +28,12 @@ class Route53Table(Table, HUDComponent):
 
         self.headers, self.data = self.list_hosted_zones()
 
+    def get_hud_text(self, space_left):
+        if not self.hosted_zone:
+            return super().get_hud_text(space_left)
+
+        return String(self.hosted_zone['Name'], bg=bg('medium_purple_2a'), fg=fg('black')).reset_style_on_end()
+
     def handle_key(self, key):
         should_stop = super().handle_key(key)
         if key.code == curses.KEY_EXIT and not should_stop:
@@ -49,7 +55,7 @@ class Route53Table(Table, HUDComponent):
         if not self.hosted_zone:
             self._filter_stack.append(self.filter)
             self._selection_stack.append(self.selected_row)
-            self.hosted_zone = data['ID']
+            self.hosted_zone = data
             self.headers, self.data = self.list_records()
 
     def list_hosted_zones(self):
@@ -70,9 +76,9 @@ class Route53Table(Table, HUDComponent):
         next_record_name = None
         while should_continue:
             if next_record_name is None:
-                response = self.client.list_resource_record_sets(HostedZoneId=self.hosted_zone, MaxItems='300')
+                response = self.client.list_resource_record_sets(HostedZoneId=self.hosted_zone['ID'], MaxItems='300')
             else:
-                response = self.client.list_resource_record_sets(HostedZoneId=self.hosted_zone, StartRecordName=next_record_name, MaxItems='300')
+                response = self.client.list_resource_record_sets(HostedZoneId=self.hosted_zone['ID'], StartRecordName=next_record_name, MaxItems='300')
 
             if not response['IsTruncated']:
                 should_continue = False
