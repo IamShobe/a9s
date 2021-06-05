@@ -14,6 +14,11 @@ services = {
         'colors': {
             'bg': 'red',
         }
+    },
+    'Route 53': {
+        'colors': {
+            'bg': 'orange_1'
+        }
     }
 }
 
@@ -25,7 +30,7 @@ class HUDComponent:
 
 
 class HUD(Renderer):
-    SERVICE_SPACE = 6
+    SERVICE_SPACE = 10
     def __init__(self):
         super().__init__()
         self.service = None

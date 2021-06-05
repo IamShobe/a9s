@@ -33,8 +33,8 @@ class S3Table(Table, HUDComponent):
         if not self.bucket:
             return super().get_hud_text(space_left)
 
-        return String([String(self.bucket, bg=bg('orange_1'), fg=fg('black')).reset_style_on_end(), 
-                        String(" "), String(self.prefix[-(space_left - len(self.bucket) - 1):])])
+        return String([String(self.bucket, bg=bg('orange_1'), fg=fg('black')).reset_style_on_end(),
+                        String("/"), String(self.prefix[-(space_left - len(self.bucket) - 1):])])
     
     @property
     def prefix(self):
@@ -43,6 +43,9 @@ class S3Table(Table, HUDComponent):
     def handle_key(self, key):
         should_stop = super().handle_key(key)
         if key.code == curses.KEY_EXIT and not should_stop:
+            if self.filter:
+                return should_stop
+
             if len(self.paths) > 0:
                 self.paths.pop()
                 self.headers, self.data = self.list_bucket()
