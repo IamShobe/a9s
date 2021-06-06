@@ -20,15 +20,15 @@ class S3Table(Table, HUDComponent):
     SERVICE_NAME = 'S3'
 
     def __init__(self) -> None:
-        super().__init__([], []) 
         self.client = boto3.client(service_name='s3', endpoint_url='http://localhost:4566' if IS_LOCAL else None)
         self.bucket = None
         self.paths = []
         self._selection_stack = []
         self._filter_stack = []
 
-        self.headers, self.data = self.list_buckets()
-    
+        headers, data = self.list_buckets()
+        super().__init__(headers, data)
+
     def get_hud_text(self, space_left):
         if not self.bucket:
             return super().get_hud_text(space_left)
