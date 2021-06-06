@@ -1,10 +1,7 @@
 from aws_resources.hud import HUDComponent
 import os
-from subprocess import call
-import pathlib
 
 import curses
-import tempfile
 import boto3
 from colored.colored import bg, fg
 
@@ -13,20 +10,19 @@ from components.table import ColSettings, Table
 
 
 IS_LOCAL = os.environ.get('LOCAL', 'false').lower() == 'true'
-EDITOR = os.environ.get('EDITOR', 'vim')
 
 
 class Route53Table(Table, HUDComponent):
     SERVICE_NAME = 'Route 53'
 
     def __init__(self) -> None:
-        super().__init__([], [])
         self.client = boto3.client(service_name='route53', endpoint_url='http://localhost:4566' if IS_LOCAL else None)
         self.hosted_zone = None
         self._selection_stack = []
         self._filter_stack = []
 
-        self.headers, self.data = self.list_hosted_zones()
+        headers, data = self.list_hosted_zones()
+        super().__init__(headers, data)
 
     def get_hud_text(self, space_left):
         if not self.hosted_zone:
