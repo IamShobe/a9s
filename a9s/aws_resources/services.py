@@ -10,12 +10,12 @@ class ServicesSelector(Renderer):
     def __init__(self, hud):
         super(ServicesSelector, self).__init__()
         self.services = {
-            's3': S3Table,
             'route53': Route53Table,
+            's3': S3Table,
         }
 
         self.hud = hud
-        self.current_service = 's3'
+        self.current_service = 'route53'
 
     def set_pos(self, *, x, y, to_x, to_y=None):
         if self._current_service:
