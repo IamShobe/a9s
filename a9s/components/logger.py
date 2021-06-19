@@ -2,8 +2,8 @@ from typing import Callable
 
 from colored import fg, bg
 
-from components.custom_string import Style
-from components.renderer import ScrollableRenderer
+from .custom_string import Style
+from .renderer import ScrollableRenderer
 
 MAX_RECORDS = 100
 

@@ -1,4 +1,3 @@
-from aws_resources.hud import HUDComponent
 import os
 from subprocess import call
 import pathlib
@@ -8,8 +7,9 @@ import tempfile
 import boto3
 from colored.colored import bg, fg
 
-from components.custom_string import String
-from components.table import ColSettings, Table
+from .hud import HUDComponent
+from a9s.components.custom_string import String
+from a9s.components.table import ColSettings, Table
 
 
 IS_LOCAL = os.environ.get('LOCAL', 'false').lower() == 'true'
