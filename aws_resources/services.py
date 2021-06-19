@@ -1,13 +1,12 @@
 from typing import Union
 
-from aws_resources.hud import HUDComponent
 from aws_resources.route53 import Route53Table
 from aws_resources.s3 import S3Table
 from components.renderer import Renderer
 from components.table import Table
 
 
-class ServicesSelector(Renderer, HUDComponent):
+class ServicesSelector(Renderer):
     def __init__(self, hud):
         super(ServicesSelector, self).__init__()
         self.services = {
