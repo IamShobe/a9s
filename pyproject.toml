@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "a9s"
-version = "0.1.1"
+version = "0.1.2"
 description = "Cli tool for navigation in Amazon AWS services. Highly inspired from k9s"
 readme = "README.md"
 authors = ["Elran Shefer <elran777@gmail.com>"]

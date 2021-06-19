@@ -17,10 +17,10 @@ def main():
     services_selector = ServicesSelector(hud)
 
     mode_renderer = Mode()
+    logger.shown = True
 
     def debug():
         mode_renderer.mode = KeyMode.Debug
-        logger.shown = True
         logger.halt_debug()
 
     def quit():
@@ -83,7 +83,6 @@ def main():
         if original_mode == KeyMode.Debug:
             if key.code == curses.KEY_EXIT:
                 mode_renderer.mode = KeyMode.Navigation
-                logger.shown = False
                 logger.continue_debug()
 
             else:
