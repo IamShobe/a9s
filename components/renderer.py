@@ -45,6 +45,9 @@ class Renderer:
         self.to_x = to_x
         self.to_y = to_y if to_y else y + 1
 
+    def handle_key(self, key):
+        pass
+
     def onresize(self):
         pass
 

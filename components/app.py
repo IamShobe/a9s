@@ -22,6 +22,7 @@ class App:
     def __init__(self):
         self.term = Terminal()
         self.render_list = []
+        self.should_run = True
 
         self.buffer = [[' ' for x in range(self.term.width)] for y in range(self.term.height)]
 
@@ -72,7 +73,7 @@ class App:
     def interactive_run(self):
         with self.term.fullscreen():
             with self.term.cbreak(), self.term.raw():
-                while True:
+                while self.should_run:
                     # self.echo(0, 0, self.term.clear)
                     with self.term.hidden_cursor():
                         for renderer in self.render_list:
