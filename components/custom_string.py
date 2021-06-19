@@ -71,6 +71,13 @@ class String:
 
         return total
 
+    def pad(self, width, char=" "):
+        to_pad = width - len(self)
+        if to_pad > 0:
+            self._chars.append(String(char * to_pad))
+
+        return self
+
     def reset_style_on_end(self):
         if len(self._chars) == 0:
             return self

@@ -7,6 +7,7 @@ import pyperclip
 import boto3
 from colored import fg
 
+from aws_resources.services import ServicesSelector
 from components.app import App
 from components.logger import logger
 from components.mode import KeyMode, Mode
@@ -15,20 +16,34 @@ from components.autocomplete import AutoComplete
 def main():
     app = App()
 
-    service = Route53Table()
     hud = HUD()
-    hud.service = service
-    
-    auto_complete = AutoComplete()
+    services_selector = ServicesSelector(hud)
+
     mode_renderer = Mode()
+
+    def debug():
+        mode_renderer.mode = KeyMode.Debug
+        logger.shown = True
+        logger.halt_debug()
+
+    def quit():
+        app.should_run = False
+
+    commands = {
+        'debug': debug,
+        'quit': quit,
+        's3': lambda: services_selector.set_service('s3'),
+        'route53': lambda: services_selector.set_service('route53'),
+    }
+    auto_complete = AutoComplete(commands)
 
     def on_resize(*args):
         hud.set_pos(x=0, y=9, to_x=app.term.width)
         mode_renderer.set_pos(x=0, y=app.term.height - 1, to_x=10)
         auto_complete.set_pos(x=11, y=app.term.height - 1, to_x=app.term.width)
-        service.set_pos(x=0, y=10, to_x=app.term.width, to_y=app.term.height - 1)
+        services_selector.set_pos(x=0, y=10, to_x=app.term.width, to_y=app.term.height - 1)
         logger.set_pos(x=max(app.term.width - 40, 0), y=0, to_x=app.term.width, to_y=10)
-        service.onresize()
+        services_selector.onresize()
         app.resize()
         auto_complete.to_x = app.term.width
         app.clear()
@@ -40,7 +55,7 @@ def main():
         pass
 
     on_resize()
-    app.add_multiple([service, mode_renderer, auto_complete, logger, hud])
+    app.add_multiple([services_selector, mode_renderer, auto_complete, logger, hud])
 
     mode_renderer.mode = KeyMode.Navigation
     for key in app.interactive_run():
@@ -53,10 +68,10 @@ def main():
             auto_complete.text = ""
 
         if original_mode == KeyMode.Navigation:
-            should_stop = service.handle_key(key)
-            auto_complete.text = ("/" + service.filter) if service.filter else ""
+            should_stop = services_selector.handle_key(key)
+            auto_complete.text = ("/" + services_selector.current_service.filter) if services_selector.current_service.filter else ""
             if key.code == curses.KEY_EXIT and not should_stop:
-                service.filter = ""
+                services_selector.current_service.filter = ""
 
             if key == "/":
                 mode_renderer.mode = KeyMode.Search
@@ -94,16 +109,16 @@ def main():
                 if auto_complete.get_actual_text() == "":
                     auto_complete.text = ""
 
-                if auto_complete.get_actual_text() in "debug":
-                    mode_renderer.mode = KeyMode.Debug
-                    logger.shown = True
-                    logger.halt_debug()
+                auto_complete.execute_command_if_matched()
 
             elif key.isprintable():
                 auto_complete.text += key
 
             if original_mode == KeyMode.Search:
-                service.filter = auto_complete.get_actual_text()
+                services_selector.current_service.filter = auto_complete.get_actual_text()
+
+            if original_mode == KeyMode.Command:
+                auto_complete.handle_key(key)
 
         if original_mode == KeyMode.Command:
             if key.code == curses.KEY_ENTER:
