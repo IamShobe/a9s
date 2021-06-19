@@ -1,11 +1,10 @@
 import curses
-import itertools
 from cached_property import cached_property
 from typing import Callable
 
 from colored import attr
 
-from components.custom_string import String
+from .custom_string import String
 
 
 class Renderer:

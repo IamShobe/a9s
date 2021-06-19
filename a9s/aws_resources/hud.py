@@ -5,8 +5,8 @@ from colored.colored import bg, fg
 
 from attrdict import AttrDict
 
-from components.renderer import Renderer
-from components.custom_string import String, Style
+from a9s.components.renderer import Renderer
+from a9s.components.custom_string import String, Style
 
 
 services = {

@@ -1,9 +1,9 @@
 from typing import Union
 
-from aws_resources.route53 import Route53Table
-from aws_resources.s3 import S3Table
-from components.renderer import Renderer
-from components.table import Table
+from a9s.aws_resources.route53 import Route53Table
+from a9s.aws_resources.s3 import S3Table
+from a9s.components.renderer import Renderer
+from a9s.components.table import Table
 
 
 class ServicesSelector(Renderer):

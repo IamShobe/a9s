@@ -3,8 +3,8 @@ from enum import Enum
 from colored import fg, bg, attr
 from typing import Callable
 
-from components.custom_string import String, Style
-from components.renderer import Renderer
+from .custom_string import String, Style
+from .renderer import Renderer
 
 
 class KeyMode(Enum):

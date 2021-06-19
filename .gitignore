@@ -3,4 +3,9 @@ venv/
 .idea/
 *.pyc
 __pycache__/
+*.egg-info/
+pip-wheel-metadata/
+build/
+dist/
+
 

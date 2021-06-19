@@ -1,17 +1,14 @@
-from aws_resources.hud import HUD
-from aws_resources.route53 import Route53Table
-from aws_resources.s3 import S3Table
 import signal
 import curses
 import pyperclip
-import boto3
-from colored import fg
 
-from aws_resources.services import ServicesSelector
-from components.app import App
-from components.logger import logger
-from components.mode import KeyMode, Mode
-from components.autocomplete import AutoComplete
+from .aws_resources.hud import HUD
+from .aws_resources.services import ServicesSelector
+from .components.app import App
+from .components.logger import logger
+from .components.mode import KeyMode, Mode
+from .components.autocomplete import AutoComplete
+
 
 def main():
     app = App()
