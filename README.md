@@ -16,6 +16,12 @@ docker build . -t a9s
 docker run -v ~/.aws/:/root/.aws -it --rm a9s
 ```
 
+### Running docker from cloud
+
+```shell
+docker run -v ~/.aws/:/root/.aws -it --rm elran777/a9s
+```
+
 ## Goals
 
 ### Services
