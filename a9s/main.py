@@ -2,24 +2,26 @@ import signal
 import curses
 import pyperclip
 
+from .aws_resources.logo import Logo
 from .aws_resources.hud import HUD
 from .aws_resources.services import ServicesSelector
 from .components.app import App
 from .components.logger import logger
 from .components.mode import KeyMode, Mode
 from .components.autocomplete import AutoComplete
+from . import __version__
 
 
 class MainApp(App):
     def __init__(self):
         super(MainApp, self).__init__()
+        self.logo = Logo(__version__)
         self.hud = HUD()
         self.services_selector = ServicesSelector(hud=self.hud)
         self.mode_renderer = Mode()
-        logger.shown = True
 
         self.auto_complete = AutoComplete(commands=self.commands)
-        self.add_multiple([self.services_selector, self.mode_renderer, self.auto_complete, logger, self.hud])
+        self.add_multiple([self.logo, self.services_selector, self.mode_renderer, self.auto_complete, logger, self.hud])
 
         self.on_resize()
 
@@ -41,6 +43,7 @@ class MainApp(App):
         self.should_run = False
 
     def on_resize(self, *args):
+        self.logo.set_pos(x=3, y=0, to_x=24, to_y=6)
         self.hud.set_pos(x=0, y=9, to_x=self.term.width)
         self.mode_renderer.set_pos(x=0, y=self.term.height - 1, to_x=10)
         self.auto_complete.set_pos(x=11, y=self.term.height - 1, to_x=self.term.width)
@@ -55,7 +58,6 @@ class MainApp(App):
         self.mode_renderer.mode = KeyMode.Navigation
         for key in self.interactive_run():
             original_mode = self.mode_renderer.mode
-            self.echo(0, 0, "width: " + str(self.term.width) + " height: " + str(self.term.height) + " " * 10)
             if key:
                 logger.debug("pressed key: " + repr(key))
 
