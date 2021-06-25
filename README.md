@@ -1,4 +1,6 @@
 # a9s
+
+![](https://img.shields.io/github/v/release/IamShobe/a9s) ![](https://img.shields.io/github/workflow/status/IamShobe/a9s/Create%20and%20publish%20a%20Python%20package?label=pypi%20build) ![](https://img.shields.io/github/workflow/status/IamShobe/a9s/Create%20and%20publish%20a%20Docker%20image?label=docker%20build)  
 Cli tool for easily navigating in AWS services.  
 Highly inspired from [k9s](https://github.com/derailed/k9s). 
 

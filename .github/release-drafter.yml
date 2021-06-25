@@ -44,6 +44,17 @@ version-resolver:
 exclude-labels:
   - 'skip-changelog'
 template: |
+  ## How to install
+  [Pypi - a9s $RESOLVED_VERSION](https://pypi.org/project/a9s/)
+  ```bash
+  pip install "a9s==$RESOLVED_VERSION"
+  ```
+
+  or:
+  ```bash
+  docker run -v ~/.aws/:/root/.aws -it --rm ghcr.io/iamshobe/a9s:$RESOLVED_VERSION
+  ```
+
   ## Changes
 
   $CHANGES
