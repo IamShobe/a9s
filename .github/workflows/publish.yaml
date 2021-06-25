@@ -31,6 +31,8 @@ jobs:
         shell: bash
       - name: Checkout repository
         uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
       - shell: bash
         run: python -m poetry version ${{ steps.get_version.outputs.VERSION }}
       - uses: stefanzweifel/git-auto-commit-action@v4
@@ -38,6 +40,7 @@ jobs:
           commit_message: Bump version to ${{ steps.get_version.outputs.VERSION }}
   build-and-push-docker-image:
     runs-on: ubuntu-latest
+    if: always()
     needs:
       - bump-version
     permissions:
