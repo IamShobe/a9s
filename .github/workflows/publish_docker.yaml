@@ -28,14 +28,17 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install Python Poetry
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: abatilo/actions-poetry@v2.1.2
         with:
           poetry-version: 1.1.4
       - name: Get the version
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\/v/}
         shell: bash
       - shell: bash
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: python -m poetry version ${{ steps.get_version.outputs.VERSION }}
 
       - name: Log in to the Container registry
