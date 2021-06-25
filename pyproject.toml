@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "a9s"
-version = "0.2.0"
+version = "0.2.1"
 description = "Cli tool for navigation in Amazon AWS services. Highly inspired from k9s"
 readme = "README.md"
 authors = ["Elran Shefer <elran777@gmail.com>"]
@@ -16,7 +16,7 @@ homepage = "https://github.com/IamShobe/a9s"
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.6"
 blessed = "^1.18.0"
 colored = "^1.4.2"
 pyperclip = "^1.8.2"
