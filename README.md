@@ -19,9 +19,7 @@ docker run -v ~/.aws/:/root/.aws -it --rm a9s
 ### Running docker from cloud
 
 ```shell
-docker run -v ~/.aws/:/root/.aws -it --rm elran777/a9s
-# or
-docker run -v ~/.aws/:/root/.aws -it --rm ghcr.io/iamshobe/a9s:master
+docker run -v ~/.aws/:/root/.aws -it --rm ghcr.io/iamshobe/a9s
 ```
 
 ## Goals
