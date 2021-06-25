@@ -45,7 +45,7 @@ exclude-labels:
   - 'skip-changelog'
 template: |
   ## How to install
-  [Pypi - a9s $RESOLVED_VERSION](https://pypi.org/project/a9s/)
+  [Pypi - a9s $RESOLVED_VERSION](https://pypi.org/project/a9s/$RESOLVED_VERSION)
   ```bash
   pip install "a9s==$RESOLVED_VERSION"
   ```
