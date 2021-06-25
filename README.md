@@ -5,6 +5,7 @@ Cli tool for easily navigating in AWS services.
 Highly inspired from [k9s](https://github.com/derailed/k9s). 
 
 
+
 ## How to install
 
 ```shell
