@@ -9,6 +9,13 @@ Highly inspired from [k9s](https://github.com/derailed/k9s).
 pip install a9s
 ```
 
+### Docker build
+
+```shell
+docker build . -t a9s
+docker run -v ~/.aws/:/root/.aws -it --rm a9s
+```
+
 ## Goals
 
 ### Services
