@@ -40,5 +40,5 @@ docker run -v ~/.aws/:/root/.aws -it --rm ghcr.io/iamshobe/a9s:master
 - [X] auto-complete commands
 - [X] vim shortcuts support
 - [X] opening files in S3
-- [ ] quick yank (half done)
+- [X] quick yank
 - [ ] smart navigation between services - route53 pointing to ELB etc..

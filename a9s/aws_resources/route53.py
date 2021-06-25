@@ -56,7 +56,7 @@ class Route53Table(Table, HUDComponent):
 
     def list_hosted_zones(self):
         response = self.client.list_hosted_zones()
-        headers = [ColSettings("Name", yank_key='k', stretched=True, min_size=20), ColSettings("ID", yank_key='i'), ColSettings("Records")]
+        headers = [ColSettings("Name", yank_key='n', stretched=True, min_size=20), ColSettings("ID", yank_key='i'), ColSettings("Records")]
 
         data = []
         for item in response['HostedZones']:
@@ -65,7 +65,7 @@ class Route53Table(Table, HUDComponent):
         return headers, data
 
     def list_records(self):
-        headers = [ColSettings('Name', yank_key='k', min_size=20, stretched=True), ColSettings('Type'), ColSettings('TTL'), ColSettings('Record', yank_key='r')]
+        headers = [ColSettings('Name', yank_key='n', min_size=20, stretched=True), ColSettings('Type'), ColSettings('TTL', yank_key='t'), ColSettings('Record', yank_key='r')]
         data = []
 
         should_continue = True
