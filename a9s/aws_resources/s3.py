@@ -88,7 +88,7 @@ class S3Table(Table, HUDComponent):
 
     def list_buckets(self):
         response = self.client.list_buckets()
-        headers = [ColSettings("Bucket name", stretched=True), ColSettings("Creation date")]
+        headers = [ColSettings("Bucket name", stretched=True, yank_key='n'), ColSettings("Creation date", yank_key='d')]
         data = []
         for bucket in response['Buckets']:
             data.append([bucket['Name'], str(bucket['CreationDate'])])
@@ -110,4 +110,3 @@ class S3Table(Table, HUDComponent):
             data.append([name, file_type, str(object['LastModified']), object['ETag'], str(object['Size']), object['StorageClass'], object.get('Owner', {}).get('DisplayName', "")])
 
         return headers, data
-    

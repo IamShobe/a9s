@@ -167,6 +167,11 @@ class ScrollableRenderer(Renderer):
     def on_select(self, data):
         pass
 
+    @property
+    def currently_selected_data(self):
+        data = self.displayed_data[self.selected_row]
+        return self.get_row_representation(data)
+
     def handle_key(self, key):
         if key.code == curses.KEY_RIGHT or key == "l":
             self.move_right()
@@ -181,8 +186,7 @@ class ScrollableRenderer(Renderer):
             self.next_selection()
         
         elif key.code == curses.KEY_ENTER:
-            data = self.displayed_data[self.selected_row]
-            self.on_select(self.get_row_representation(data))
+            self.on_select(self.currently_selected_data)
         
         elif key.code == curses.KEY_EXIT:
             if self.yank_mode:

@@ -1,4 +1,5 @@
 import itertools
+import pyperclip
 from dataclasses import dataclass, field
 from typing import Union, Callable, List
 from copy import copy
@@ -126,6 +127,17 @@ class Table(ScrollableRenderer):
         self._displayed_data_start = 0
         for header, col in zip(self.headers, self._transposed_data):
             header.enrich_props_using_data(col)
+    
+    def handle_key(self, key):
+        should_stop = super(Table, self).handle_key(key)
+        if not should_stop and self.yank_mode:
+            for header in self.headers:
+                if key == header.yank_key:
+                    pyperclip.copy(self.currently_selected_data[header.name])
+                    self.yank_mode = False
+                    should_stop = True
+
+        return should_stop
 
     def _enrich_reponsive_headers(self):
         stretched_headers = []
