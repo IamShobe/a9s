@@ -22,6 +22,6 @@ class Logo(Renderer):
             echo(self.x, self.y + self._curr_row, line)
             self._curr_row += 1
 
-        version_text = f"v{self.version}"
+        version_text = self.version
         version_x_pos = round(self.width / 2 - len(version_text) / 2 + self.x)
         echo(version_x_pos, self.y + self._curr_row, version_text)
