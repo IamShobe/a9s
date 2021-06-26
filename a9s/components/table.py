@@ -129,15 +129,15 @@ class Table(ScrollableRenderer):
             header.enrich_props_using_data(col)
     
     def handle_key(self, key):
-        should_stop = super(Table, self).handle_key(key)
-        if not should_stop and self.yank_mode:
+        should_stop_propagate = super(Table, self).handle_key(key)
+        if not should_stop_propagate and self.yank_mode:
             for header in self.headers:
                 if key == header.yank_key:
                     pyperclip.copy(self.currently_selected_data[header.name])
                     self.yank_mode = False
-                    should_stop = True
+                    should_stop_propagate = True
 
-        return should_stop
+        return should_stop_propagate
 
     def _enrich_reponsive_headers(self):
         stretched_headers = []
@@ -188,8 +188,8 @@ class Table(ScrollableRenderer):
 
         return to_ret
 
-    def draw(self, echo):
-        header_style = Style(fg=fg("light_gray"), bg=bg("dodger_blue_2"))
+    def draw(self):
+        header_style = Style(fg=fg("light_gray") + attr('bold'), bg=bg("dodger_blue_2"))
         row_to_print = String("").with_style(header_style)
         self._enrich_reponsive_headers()
 
@@ -200,10 +200,8 @@ class Table(ScrollableRenderer):
             row_to_print += String(padding).with_style(header_style)
 
         self.max_offset = len(row_to_print) - self.width
-        self._curr_row = 0
         row_to_print = self._trim_row(row_to_print, with_elipsis=True)
-        echo(self.x, self.y + self._curr_row, row_to_print)
-        self._curr_row += 1
+        self.echo(row_to_print)
 
         for i, data_row in enumerate(self.displayed_data[self.displayed_data_start:self.displayed_data_end]):
             actual_i = self.displayed_data_start + i
@@ -219,7 +217,4 @@ class Table(ScrollableRenderer):
                 row_to_print += String(padding).with_style(row_style)
 
             row_to_print = self._trim_row(row_to_print)
-            echo(self.x, self.y + self._curr_row, row_to_print)
-            self._curr_row += 1
-        
-        super().draw(echo)
+            self.echo(row_to_print)
