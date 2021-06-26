@@ -1,7 +1,6 @@
 import math
 from enum import Enum
-from colored import fg, bg, attr
-from typing import Callable
+from colored import fg, bg
 
 from .custom_string import String, Style
 from .renderer import Renderer
@@ -34,10 +33,10 @@ class Mode(Renderer):
         super(Mode, self).__init__()
         self.mode = KeyMode.Navigation
 
-    def draw(self, echo_func: Callable):
+    def draw(self):
         style = Style(fg=fg("white"), bg=mode_to_color[self.mode])
         to_print = String(mode_to_str[self.mode]).with_style(style)
         spaces = (self.width - len(mode_to_str[self.mode]))
         left_side_spaces = String(math.floor(spaces / 2) * " ").with_style(style)
         right_side_spaces = String(math.ceil(spaces / 2) * " ").with_style(style)
-        echo_func(self.x, self.y, left_side_spaces + to_print + right_side_spaces)
+        self.echo(left_side_spaces + to_print + right_side_spaces)

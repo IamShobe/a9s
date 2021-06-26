@@ -1,4 +1,4 @@
-from typing import Callable
+import curses
 
 from colored import fg, bg
 
@@ -40,11 +40,18 @@ class Logger(ScrollableRenderer):
 
         self._add_message(msg)
 
-    def draw(self, echo_func: Callable):
+    def handle_key(self, key) -> bool:
+        should_stop_propagate = super(Logger, self).handle_key(key)
+        if not should_stop_propagate:
+            if key.code == curses.KEY_EXIT:
+                self.continue_debug()
+
+        return should_stop_propagate
+
+    def draw(self):
         if not self.shown:
             return
             
-        self._curr_row = 0
         for i, log in enumerate(self.displayed_data[self.displayed_data_start:self.displayed_data_end]):
             actual_i = self.displayed_data_start + i
             row_style = Style()
@@ -52,10 +59,7 @@ class Logger(ScrollableRenderer):
                 row_style = Style(fg=fg("black"), bg=bg("light_gray"))
 
             log = log + " " * (self.width - len(log))
-            echo_func(self.x, self.y + self._curr_row, self._trim_row(log).with_style(row_style))
-            self._curr_row += 1
-        
-        super().draw(echo_func)
+            self.echo(self._trim_row(log).with_style(row_style))
 
 
 logger = Logger()
