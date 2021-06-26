@@ -14,6 +14,7 @@ CMD poetry run a9s
 
 FROM python:3.9-alpine3.12
 WORKDIR /app/
+RUN apk add vim
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/tembel:${PYTHONPATH}"
 COPY --from=base /app/ /app/
