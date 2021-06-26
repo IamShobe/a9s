@@ -1,5 +1,3 @@
-import asyncio
-
 import os
 
 import curses
@@ -23,10 +21,12 @@ class Route53Table(Table, HUDComponent):
         self._selection_stack = []
         self._filter_stack = []
         super().__init__([], [])
-        self._async_coroutine = asyncio.create_task(asyncio.to_thread(self.list_hosted_zones))
+        self.data_updating = False
+        self.queue_action(self.list_hosted_zones, self.on_updated_data)
 
     def on_updated_data(self, data):
         self.headers, self.data = data
+        self.data_updating = False
 
     def get_hud_text(self, space_left):
         if not self.hosted_zone:
@@ -36,12 +36,12 @@ class Route53Table(Table, HUDComponent):
 
     def handle_key(self, key):
         should_stop_propagate = super().handle_key(key)
-        if key.code == curses.KEY_EXIT and not should_stop_propagate and not self.pending_update():
+        if key.code == curses.KEY_EXIT and not should_stop_propagate and not self.data_updating:
             if self.filter:
                 return should_stop_propagate
 
             if self.hosted_zone is not None:
-                self._async_coroutine = asyncio.create_task(asyncio.to_thread(self.list_hosted_zones))
+                self.queue_action(self.list_hosted_zones, self.on_updated_data)
                 self.hosted_zone = None
                 should_stop_propagate = True
 
@@ -52,14 +52,14 @@ class Route53Table(Table, HUDComponent):
         return should_stop_propagate
 
     def on_select(self, data):
-        if not self.hosted_zone and not self.pending_update():
+        if not self.hosted_zone and not self.data_updating:
             self._filter_stack.append(self.filter)
             self._selection_stack.append(self.selected_row)
             self.hosted_zone = data
-            self._async_coroutine = asyncio.create_task(asyncio.to_thread(self.list_records))
-            # self.headers, self.data = self.list_records()
+            self.queue_action(self.list_records, self.on_updated_data)
 
     def list_hosted_zones(self):
+        self.data_updating = True
         response = self.client.list_hosted_zones()
         headers = [ColSettings("Name", yank_key='n', stretched=True, min_size=20), ColSettings("ID", yank_key='i'), ColSettings("Records")]
 
@@ -70,6 +70,7 @@ class Route53Table(Table, HUDComponent):
         return headers, data
 
     def list_records(self):
+        self.data_updating = True
         headers = [ColSettings('Name', yank_key='n', min_size=20, stretched=True), ColSettings('Type'), ColSettings('TTL', yank_key='t'), ColSettings('Record', yank_key='r')]
         data = []
 

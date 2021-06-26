@@ -22,7 +22,7 @@ class Renderer:
         self._curr_row = 0
 
         self._echo_func = None
-        self._async_coroutine = None
+        self._async_coroutines = {}
 
     @property
     def width(self):
@@ -54,20 +54,21 @@ class Renderer:
         if not y_defined and not no_new_line:
             self._curr_row += 1
 
-    def pending_update(self):
-        return self._async_coroutine is not None
-
     async def update_data(self):
-        if not self.pending_update():
+        coroutines = set(self._async_coroutines.keys())
+        if len(coroutines) == 0:
             return
 
-        done, pending = await asyncio.wait({self._async_coroutine}, timeout=0.1)
-        if self._async_coroutine in done:
-            self.on_updated_data(self._async_coroutine.result())
-            self._async_coroutine = None
+        done, pending = await asyncio.wait(coroutines, timeout=0.1)
+        for routine in done:
+            handler = self._async_coroutines[routine]
+            handler(routine.result())
+            del self._async_coroutines[routine]
 
-    def on_updated_data(self, data):
-        pass
+    def queue_action(self, coroutine, callback):
+        task = asyncio.create_task(asyncio.to_thread(coroutine))
+        self._async_coroutines[task] = callback
+        return task
 
     def draw(self):
         pass
