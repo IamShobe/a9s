@@ -7,7 +7,7 @@ import tempfile
 import boto3
 from colored.colored import bg, fg
 
-from .hud import HUDComponent
+from a9s.aws_resources.hud import HUDComponent
 from a9s.components.custom_string import String
 from a9s.components.table import ColSettings, Table
 from a9s.components.app import EDITOR

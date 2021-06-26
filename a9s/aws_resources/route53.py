@@ -1,10 +1,12 @@
+import asyncio
+
 import os
 
 import curses
 import boto3
 from colored.colored import bg, fg
 
-from .hud import HUDComponent
+from a9s.aws_resources.hud import HUDComponent
 from a9s.components.custom_string import String
 from a9s.components.table import ColSettings, Table
 
@@ -20,9 +22,11 @@ class Route53Table(Table, HUDComponent):
         self.hosted_zone = None
         self._selection_stack = []
         self._filter_stack = []
+        super().__init__([], [])
+        self._async_coroutine = asyncio.create_task(asyncio.to_thread(self.list_hosted_zones))
 
-        headers, data = self.list_hosted_zones()
-        super().__init__(headers, data)
+    def on_updated_data(self, data):
+        self.headers, self.data = data
 
     def get_hud_text(self, space_left):
         if not self.hosted_zone:
@@ -32,12 +36,12 @@ class Route53Table(Table, HUDComponent):
 
     def handle_key(self, key):
         should_stop_propagate = super().handle_key(key)
-        if key.code == curses.KEY_EXIT and not should_stop_propagate:
+        if key.code == curses.KEY_EXIT and not should_stop_propagate and not self.pending_update():
             if self.filter:
                 return should_stop_propagate
 
             if self.hosted_zone is not None:
-                self.headers, self.data = self.list_hosted_zones()
+                self._async_coroutine = asyncio.create_task(asyncio.to_thread(self.list_hosted_zones))
                 self.hosted_zone = None
                 should_stop_propagate = True
 
@@ -48,11 +52,12 @@ class Route53Table(Table, HUDComponent):
         return should_stop_propagate
 
     def on_select(self, data):
-        if not self.hosted_zone:
+        if not self.hosted_zone and not self.pending_update():
             self._filter_stack.append(self.filter)
             self._selection_stack.append(self.selected_row)
             self.hosted_zone = data
-            self.headers, self.data = self.list_records()
+            self._async_coroutine = asyncio.create_task(asyncio.to_thread(self.list_records))
+            # self.headers, self.data = self.list_records()
 
     def list_hosted_zones(self):
         response = self.client.list_hosted_zones()

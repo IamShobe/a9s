@@ -16,7 +16,7 @@ homepage = "https://github.com/IamShobe/a9s"
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.9"
 blessed = "^1.18.0"
 colored = "^1.4.2"
 pyperclip = "^1.8.2"
@@ -26,6 +26,7 @@ attrdict = "^2.0.1"
 
 [tool.poetry.dev-dependencies]
 ipdb = "^0.13.8"
+pyinstaller = "^4.3"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -6,8 +6,8 @@ from copy import copy
 
 from colored import fg, bg, attr
 
-from .renderer import ScrollableRenderer
-from .custom_string import String, Style
+from a9s.components.renderer import ScrollableRenderer
+from a9s.components.custom_string import String, Style
 
 
 @dataclass

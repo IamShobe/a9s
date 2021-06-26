@@ -2,8 +2,8 @@ import math
 from enum import Enum
 from colored import fg, bg
 
-from .custom_string import String, Style
-from .renderer import Renderer
+from a9s.components.custom_string import String, Style
+from a9s.components.renderer import Renderer
 
 
 class KeyMode(Enum):
