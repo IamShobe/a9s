@@ -46,11 +46,11 @@ class AutoComplete(Renderer):
 
         return ""
 
-    def draw(self, echo_func: Callable):
+    def draw(self):
         guessed_command = self.guess_command()
         text = self.get_actual_text()
         unmatched_part = guessed_command[len(text):]
 
         to_print = (String(self.text, fg=attr('reset')) + String(unmatched_part, fg=fg('grey_50'))).pad(self.width)[-self.width:]
 
-        echo_func(self.x, self.y, to_print)
+        self.echo(to_print)

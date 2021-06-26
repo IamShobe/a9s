@@ -77,7 +77,9 @@ class App:
                     # self.echo(0, 0, self.term.clear)
                     with self.term.hidden_cursor():
                         for renderer in self.render_list:
-                            renderer.draw(self.echo)
+                            renderer.set_echo_func(self.echo)
+                            renderer.draw()
+                            renderer.fill_empty()
 
                         self.dump_to_screen()
                         flush()

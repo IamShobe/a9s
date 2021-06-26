@@ -33,6 +33,7 @@ class ServicesSelector(Renderer):
             raise ValueError('Invalid service requested - {}!'.format(service))
 
         self._current_service = self.services[service]()
+        self._current_service._echo_func = self._echo_func
         self._current_service.set_pos(x=self.x, y=self.y, to_x=self.to_x, to_y=self.to_y)
         self.hud.service = self._current_service
 
@@ -47,8 +48,19 @@ class ServicesSelector(Renderer):
         if self.current_service:
             self.current_service.onresize()
 
-    def draw(self, echo):
+    def fill_empty(self):
         if not self.current_service:
-            return super(ServicesSelector, self).draw(echo)
+            return super(ServicesSelector, self).fill_empty()
 
-        return self.current_service.draw(echo)
+        return self.current_service.fill_empty()
+
+    def set_echo_func(self, echo_func):
+        self._echo_func = echo_func
+        if self.current_service:
+            self.current_service._echo_func = self._echo_func
+
+    def draw(self):
+        if not self.current_service:
+            return super(ServicesSelector, self).draw()
+
+        return self.current_service.draw()

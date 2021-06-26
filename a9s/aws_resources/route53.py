@@ -31,21 +31,21 @@ class Route53Table(Table, HUDComponent):
         return String(self.hosted_zone['Name'], bg=bg('medium_purple_2a'), fg=fg('black')).reset_style_on_end()
 
     def handle_key(self, key):
-        should_stop = super().handle_key(key)
-        if key.code == curses.KEY_EXIT and not should_stop:
+        should_stop_propagate = super().handle_key(key)
+        if key.code == curses.KEY_EXIT and not should_stop_propagate:
             if self.filter:
-                return should_stop
+                return should_stop_propagate
 
             if self.hosted_zone is not None:
                 self.headers, self.data = self.list_hosted_zones()
                 self.hosted_zone = None
-                should_stop = True
+                should_stop_propagate = True
 
             if len(self._filter_stack) > 0 or len(self._selection_stack) > 0:
                 self.filter = self._filter_stack.pop()
                 self.selected_row = self._selection_stack.pop()
 
-        return should_stop
+        return should_stop_propagate
 
     def on_select(self, data):
         if not self.hosted_zone:
