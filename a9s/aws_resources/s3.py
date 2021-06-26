@@ -19,7 +19,7 @@ class S3Table(Table, HUDComponent):
     SERVICE_NAME = 'S3'
 
     def __init__(self) -> None:
-        self.client = boto3.client(service_name='s3', endpoint_url='http://localhost:4566' if IS_LOCAL else None)
+        self.client = boto3.client(service_name='s3', endpoint_url='http://localhost:5000' if IS_LOCAL else None)
         self.bucket = None
         self.paths = []
         self._selection_stack = []
