@@ -1,6 +1,6 @@
 import curses
 from cached_property import cached_property
-from typing import Callable
+from typing import Union
 
 from colored import attr
 
@@ -19,6 +19,8 @@ class Renderer:
         # renderer row
         self._curr_row = 0
 
+        self._echo_func = None
+
     @property
     def width(self):
         return self.to_x - self.x
@@ -27,16 +29,30 @@ class Renderer:
     def height(self):
         return self.to_y - self.y
 
-    def fill_empty(self, echo_func: Callable):
+    def set_echo_func(self, echo_func):
+        self._echo_func = echo_func
+
+    def fill_empty(self):
         filler = " " * self.width
         while self._curr_row < self.height:
-            echo_func(self.x, self.y + self._curr_row, filler)
-            self._curr_row += 1
-        
+            self.echo(filler)
+
         self._curr_row = 0
 
-    def draw(self, echo_func: Callable):
-        self.fill_empty(echo_func=echo_func)
+    def echo(self, string: Union[String, str], *, x=None, y=None, no_new_line=False):
+        if not self._echo_func:
+            raise RuntimeError('Echo func was not defined!')
+
+        y_defined = y is not None
+        y = self.y + self._curr_row if y is None else y
+
+        x = self.x if x is None else x
+        self._echo_func(x, y, string)
+        if not y_defined and not no_new_line:
+            self._curr_row += 1
+
+    def draw(self):
+        pass
 
     def set_pos(self, *, x, y, to_x, to_y=None):
         self.x = x
@@ -172,7 +188,7 @@ class ScrollableRenderer(Renderer):
         data = self.displayed_data[self.selected_row]
         return self.get_row_representation(data)
 
-    def handle_key(self, key):
+    def handle_key(self, key) -> bool:
         if key.code == curses.KEY_RIGHT or key == "l":
             self.move_right()
 
@@ -193,6 +209,10 @@ class ScrollableRenderer(Renderer):
                 self.yank_mode = False
                 return True  # swallows the Exit key
 
+            elif self.filter:
+                self.filter = ''
+                return True
+
         if key == "$":
             self.hscroll_end()
 
@@ -207,6 +227,8 @@ class ScrollableRenderer(Renderer):
         
         elif key == "y":
             self.yank_mode = True
+
+        return False
 
     def _trim_row(self, row, with_elipsis=False):
         actual_start = self.offset
