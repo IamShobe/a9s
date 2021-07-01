@@ -7,7 +7,7 @@ import tempfile
 import boto3
 from colored.colored import bg, fg
 
-from .hud import HUDComponent
+from a9s.aws_resources.hud import HUDComponent
 from a9s.components.custom_string import String
 from a9s.components.table import ColSettings, Table
 from a9s.components.app import EDITOR
@@ -19,14 +19,19 @@ class S3Table(Table, HUDComponent):
     SERVICE_NAME = 'S3'
 
     def __init__(self) -> None:
-        self.client = boto3.client(service_name='s3', endpoint_url='http://localhost:4566' if IS_LOCAL else None)
+        self.client = boto3.client(service_name='s3', endpoint_url='http://localhost:5000' if IS_LOCAL else None)
         self.bucket = None
         self.paths = []
         self._selection_stack = []
         self._filter_stack = []
 
-        headers, data = self.list_buckets()
-        super().__init__(headers, data)
+        super().__init__([], [])
+        self.data_updating = False
+        self.queue_action(self.list_buckets, self.on_updated_data)
+
+    def on_updated_data(self, data):
+        self.headers, self.data = data
+        self.data_updating = False
 
     def get_hud_text(self, space_left):
         if not self.bucket:
@@ -41,14 +46,16 @@ class S3Table(Table, HUDComponent):
 
     def handle_key(self, key):
         should_stop_propagate = super().handle_key(key)
-        if key.code == curses.KEY_EXIT and not should_stop_propagate:
+        if key.code == curses.KEY_EXIT and not should_stop_propagate and not self.data_updating:
             if len(self.paths) > 0:
                 self.paths.pop()
-                self.headers, self.data = self.list_bucket()
+                self.data_updating = True
+                self.queue_action(self.list_bucket, self.on_updated_data)
                 should_stop_propagate = True
 
             elif self.bucket is not None:
-                self.headers, self.data = self.list_buckets()
+                self.data_updating = True
+                self.queue_action(self.list_buckets, self.on_updated_data)
                 self.bucket = None
                 should_stop_propagate = True
         

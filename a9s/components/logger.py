@@ -2,8 +2,8 @@ import curses
 
 from colored import fg, bg
 
-from .custom_string import Style
-from .renderer import ScrollableRenderer
+from a9s.components.custom_string import Style
+from a9s.components.renderer import ScrollableRenderer
 
 MAX_RECORDS = 100
 

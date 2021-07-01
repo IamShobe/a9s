@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from typing import Callable
 
@@ -6,15 +7,15 @@ import curses
 import pyperclip
 
 from a9s.components.renderer import ScrollableRenderer
-from .aws_resources.help import Help
-from .aws_resources.logo import Logo
-from .aws_resources.hud import HUD
-from .aws_resources.services import ServicesSelector
-from .components.app import App
-from .components.logger import logger
-from .components.mode import KeyMode, Mode
-from .components.autocomplete import AutoComplete
-from . import __version__
+from a9s.aws_resources.help import Help
+from a9s.aws_resources.logo import Logo
+from a9s.aws_resources.hud import HUD
+from a9s.aws_resources.services import ServicesSelector
+from a9s.components.app import App
+from a9s.components.logger import logger
+from a9s.components.mode import KeyMode, Mode
+from a9s.components.autocomplete import AutoComplete
+from a9s import __version__
 
 
 @dataclass
@@ -84,8 +85,8 @@ class MainApp(App):
         self.auto_complete.to_x = self.term.width
         self.clear()
 
-    def run(self):
-        for key in self.interactive_run():
+    async def run(self):
+        async for key in self.interactive_run():
             current_context = self.context_stack[-1]
             self.mode_renderer.mode = current_context.mode
             focused = current_context.focused()
@@ -143,7 +144,7 @@ class MainApp(App):
                     self.auto_complete.text = ""
 
 
-def main():
+async def main_loop():
     app = MainApp()
 
     try:
@@ -152,7 +153,11 @@ def main():
     except Exception:
         pass
 
-    app.run()
+    await app.run()
+
+
+def main():
+    asyncio.run(main_loop())
 
 
 if __name__ == '__main__':
