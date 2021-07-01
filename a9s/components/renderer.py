@@ -1,10 +1,12 @@
+import asyncio
+
 import curses
 from cached_property import cached_property
 from typing import Union
 
 from colored import attr
 
-from .custom_string import String
+from a9s.components.custom_string import String
 
 
 class Renderer:
@@ -20,6 +22,7 @@ class Renderer:
         self._curr_row = 0
 
         self._echo_func = None
+        self._async_coroutines = {}
 
     @property
     def width(self):
@@ -50,6 +53,22 @@ class Renderer:
         self._echo_func(x, y, string)
         if not y_defined and not no_new_line:
             self._curr_row += 1
+
+    async def update_data(self):
+        coroutines = set(self._async_coroutines.keys())
+        if len(coroutines) == 0:
+            return
+
+        done, pending = await asyncio.wait(coroutines, timeout=0.1)
+        for routine in done:
+            handler = self._async_coroutines[routine]
+            handler(routine.result())
+            del self._async_coroutines[routine]
+
+    def queue_action(self, coroutine, callback):
+        task = asyncio.create_task(asyncio.to_thread(coroutine))
+        self._async_coroutines[task] = callback
+        return task
 
     def draw(self):
         pass

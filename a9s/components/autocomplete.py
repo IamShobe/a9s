@@ -4,8 +4,8 @@ from typing import Callable, Dict
 
 from colored import attr, fg
 
-from .custom_string import String
-from .renderer import Renderer
+from a9s.components.custom_string import String
+from a9s.components.renderer import Renderer
 
 
 class AutoComplete(Renderer):

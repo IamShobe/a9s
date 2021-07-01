@@ -1,6 +1,7 @@
 venv/
 .venv/
 .idea/
+.eggs/
 *.pyc
 __pycache__/
 *.egg-info/

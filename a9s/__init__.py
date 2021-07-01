@@ -1,13 +1,5 @@
-from pkg_resources import get_distribution
+from a9s.version_file import version
 
-try:
-    package = get_distribution(__package__)
-    __version__ = package.version
-    if __version__ == '0':
-        __version__ = 'development'
-
-    else:
-        __version__ = 'v' + __version__
-
-except:
-    __version__ = 'unknown'
+__version__ = version
+if __version__ != 'development':
+    __version__ = 'v' + __version__

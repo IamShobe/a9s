@@ -1,3 +1,5 @@
+import asyncio
+
 from typing import Union
 
 from a9s.aws_resources.route53 import Route53Table
@@ -43,6 +45,13 @@ class ServicesSelector(Renderer):
     def handle_key(self, key):
         if self.current_service:
             self.current_service.handle_key(key)
+
+    async def update_data(self):
+        to_await = [super(ServicesSelector, self).update_data()]
+        if self.current_service:
+            to_await.append(self.current_service.update_data())
+
+        await asyncio.gather(*to_await)
 
     def onresize(self):
         if self.current_service:

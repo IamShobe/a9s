@@ -1,3 +1,5 @@
+import asyncio
+
 import os
 import sys
 from typing import List
@@ -7,8 +9,8 @@ from subprocess import call
 from blessed import Terminal
 from colored import attr
 
-from .custom_string import String
-from .renderer import Renderer
+from a9s.components.custom_string import String
+from a9s.components.renderer import Renderer
 
 
 EDITOR = os.environ.get('EDITOR', 'vim')
@@ -70,12 +72,13 @@ class App:
             tf.seek(0)
             return tf.read().decode()
 
-    def interactive_run(self):
+    async def interactive_run(self):
         with self.term.fullscreen():
             with self.term.cbreak(), self.term.raw():
                 while self.should_run:
                     # self.echo(0, 0, self.term.clear)
                     with self.term.hidden_cursor():
+                        await asyncio.gather(*[renderer.update_data() for renderer in self.render_list])
                         for renderer in self.render_list:
                             renderer.set_echo_func(self.echo)
                             renderer.draw()
@@ -84,7 +87,8 @@ class App:
                         self.dump_to_screen()
                         flush()
 
-                        key = self.term.inkey(timeout=0.1)
+                        await asyncio.sleep(0.1)
+                        key = self.term.inkey(timeout=0)
                         if key in [chr(3)]:
                             break
 
