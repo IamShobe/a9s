@@ -1,6 +1,6 @@
-FROM python:3.9-alpine3.12 AS base
-RUN apk add --update build-base alpine-sdk libffi-dev openssl-dev python3-dev
-RUN pip install "cryptography==3.1.1" "poetry==1.1.4"
+FROM python:3.9-alpine AS base
+RUN apk add --update build-base alpine-sdk libffi-dev openssl-dev python3-dev rust cargo pyo3
+RUN pip install poetry
 # Application dependencies
 COPY pyproject.toml poetry.lock /app/
 

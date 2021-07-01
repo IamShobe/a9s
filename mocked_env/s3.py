@@ -1,3 +1,5 @@
+import logging
+
 from botocore.exceptions import ClientError
 from io import BytesIO
 
@@ -32,7 +34,9 @@ def mock_buckets(endpoint):
                 bytes_count = random.randint(1, 10)
                 client.upload_fileobj(Bucket=bucket_name, Key=key, Fileobj=BytesIO(b'0' * bytes_count))
 
+            logging.info(f'Successfully created {bucket_name} bucket with {files_count} files')
+
         except ClientError:
-            pass
+            logging.warning(f'Failure while adding bucket `{bucket_name}`')
 
     return buckets
