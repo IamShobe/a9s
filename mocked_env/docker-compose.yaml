@@ -1,0 +1,17 @@
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: ./mocked_env/Dockerfile
+    ports:
+      - "54321:54321"
+
+  seed:
+    build:
+      context: ..
+      dockerfile: ./mocked_env/Dockerfile
+    command: poetry run python -m mocked_env.main
+    links:
+      - server
+    environment:
+      SERVER_URL: http://server:54321
