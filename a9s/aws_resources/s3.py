@@ -25,8 +25,13 @@ class S3Table(Table, HUDComponent):
         self._selection_stack = []
         self._filter_stack = []
 
-        headers, data = self.list_buckets()
-        super().__init__(headers, data)
+        super().__init__([], [])
+        self.data_updating = False
+        self.queue_action(self.list_buckets, self.on_updated_data)
+
+    def on_updated_data(self, data):
+        self.headers, self.data = data
+        self.data_updating = False
 
     def get_hud_text(self, space_left):
         if not self.bucket:
@@ -41,14 +46,16 @@ class S3Table(Table, HUDComponent):
 
     def handle_key(self, key):
         should_stop_propagate = super().handle_key(key)
-        if key.code == curses.KEY_EXIT and not should_stop_propagate:
+        if key.code == curses.KEY_EXIT and not should_stop_propagate and not self.data_updating:
             if len(self.paths) > 0:
                 self.paths.pop()
-                self.headers, self.data = self.list_bucket()
+                self.data_updating = True
+                self.queue_action(self.list_bucket, self.on_updated_data)
                 should_stop_propagate = True
 
             elif self.bucket is not None:
-                self.headers, self.data = self.list_buckets()
+                self.data_updating = True
+                self.queue_action(self.list_buckets, self.on_updated_data)
                 self.bucket = None
                 should_stop_propagate = True
         
