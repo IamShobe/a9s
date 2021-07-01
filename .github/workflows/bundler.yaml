@@ -1,0 +1,48 @@
+
+
+name: Bundler
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+
+jobs:
+  bundler:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Python Poetry
+        uses: abatilo/actions-poetry@v2.1.2
+        with:
+          poetry-version: 1.1.4
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\/v/}
+        shell: bash
+      - shell: bash
+        run: |
+          python -m poetry version ${{ steps.get_version.outputs.VERSION }}
+          echo "version = ${{ steps.get_version.outputs.VERSION }}" > a9s/version_file.py
+      - shell: bash
+        run: poetry install
+
+      - shell: bash
+        run: poetry run pyinstaller a9s.spec
+      - name: Archive Release
+        uses: thedoctor0/zip-release@master
+        with:
+          filename: 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.zip'
+          path: ./dist/a9s
+      - name: Upload Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.zip'
+          token: ${{ secrets.GITHUB_TOKEN }}
