@@ -33,7 +33,7 @@ jobs:
       - shell: bash
         run: |
           python -m poetry version ${{ steps.get_version.outputs.VERSION }}
-          echo "version = ${{ steps.get_version.outputs.VERSION }}" > a9s/version_file.py
+          echo 'version = "${{ steps.get_version.outputs.VERSION }}"' > a9s/version_file.py
       - shell: bash
         run: poetry install
 
