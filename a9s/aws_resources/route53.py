@@ -16,7 +16,7 @@ class Route53Table(Table, HUDComponent):
     SERVICE_NAME = 'Route 53'
 
     def __init__(self) -> None:
-        self.client = boto3.client(service_name='route53', endpoint_url='http://localhost:5000' if IS_LOCAL else None)
+        self.client = boto3.client(service_name='route53', endpoint_url='http://localhost:54321' if IS_LOCAL else None)
         self.hosted_zone = None
         self._selection_stack = []
         self._filter_stack = []

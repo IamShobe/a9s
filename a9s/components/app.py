@@ -87,8 +87,7 @@ class App:
                         self.dump_to_screen()
                         flush()
 
-                        await asyncio.sleep(0.1)
-                        key = self.term.inkey(timeout=0)
+                        key = self.term.inkey(timeout=0.1)
                         if key in [chr(3)]:
                             break
 

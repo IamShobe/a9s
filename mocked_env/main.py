@@ -1,0 +1,13 @@
+from mocked_env.route53 import mock_hosted_zones
+from mocked_env.s3 import mock_buckets
+
+ENDPOINT = 'http://localhost:54321'
+
+
+def run_all_mocks():
+    mock_hosted_zones(ENDPOINT)
+    mock_buckets(ENDPOINT)
+
+
+if __name__ == '__main__':
+    run_all_mocks()
