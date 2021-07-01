@@ -40,12 +40,11 @@ jobs:
       - shell: bash
         run: poetry run pyinstaller a9s.spec
       - name: Archive Release
-        uses: thedoctor0/zip-release@master
-        with:
-          filename: 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.zip'
-          path: ./dist/a9s
+        shell: bash
+        run: tar czf 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz' --directory dist a9s
       - name: Upload Release
         uses: ncipollo/release-action@v1
         with:
           artifacts: 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.zip'
           token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
