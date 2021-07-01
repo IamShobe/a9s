@@ -45,6 +45,6 @@ jobs:
       - name: Upload Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.zip'
+          artifacts: 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz'
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
