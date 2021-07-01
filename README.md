@@ -24,6 +24,34 @@ docker run -v ~/.aws/:/root/.aws -it --rm a9s
 docker run -v ~/.aws/:/root/.aws -it --rm ghcr.io/iamshobe/a9s
 ```
 
+
+### How to develop
+
+#### Running mock server
+Install poetry env:
+```bash
+poetry install
+```
+Start dev server:
+```bash
+poetry run moto_server -p 54321
+```
+Run mock data:
+```bash
+poetry run python -m mocked_env.main
+```
+
+#### Running mock server with docker-compose
+```bash
+docker-compose -f mocked_env/docker-compose.yaml up --build
+```
+
+#### Running a9s in with mocked server
+Run a9s in local mode (connects to mock server on port 54321):
+```bash
+LOCAL=true poetry run a9s
+```
+
 ## Goals
 
 ### Services

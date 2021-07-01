@@ -28,6 +28,8 @@ attrdict = "^2.0.1"
 ipdb = "^0.13.8"
 pyinstaller = "^4.3"
 moto = {extras = ["server"], version = "^2.0.10"}
+python-jose = "^3.3.0"
+Faker = "^8.9.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
