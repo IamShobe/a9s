@@ -61,13 +61,14 @@ class Renderer:
 
         done, pending = await asyncio.wait(coroutines, timeout=0.1)
         for routine in done:
-            handler = self._async_coroutines[routine]
-            handler(routine.result())
+            routine_describe = self._async_coroutines[routine]
+            handler = routine_describe['handler']
+            handler(routine.result(), *routine_describe['args'], **routine_describe['kwargs'])
             del self._async_coroutines[routine]
 
-    def queue_action(self, coroutine, callback):
+    def queue_action(self, coroutine, callback, *args, **kwargs):
         task = asyncio.create_task(asyncio.to_thread(coroutine))
-        self._async_coroutines[task] = callback
+        self._async_coroutines[task] = dict(handler=callback, args=args, kwargs=kwargs)
         return task
 
     def draw(self):
@@ -199,6 +200,9 @@ class ScrollableRenderer(Renderer):
 
         return data
     
+    def _on_select(self, data):
+        self.on_select(data)
+
     def on_select(self, data):
         pass
 
@@ -221,7 +225,7 @@ class ScrollableRenderer(Renderer):
             self.next_selection()
         
         elif key.code == curses.KEY_ENTER:
-            self.on_select(self.currently_selected_data)
+            self._on_select(self.currently_selected_data)
         
         elif key.code == curses.KEY_EXIT:
             if self.yank_mode:

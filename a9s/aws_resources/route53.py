@@ -1,32 +1,26 @@
 import os
 
 import curses
-import boto3
 from colored.colored import bg, fg
 
-from a9s.aws_resources.hud import HUDComponent
+from a9s.aws_resources.base_service import BaseService
+from a9s.aws_resources.utils import pop_if_exists
 from a9s.components.custom_string import String
-from a9s.components.table import ColSettings, Table
+from a9s.components.logger import logger
+from a9s.components.table import ColSettings, updates_table_data_method
 
 
-IS_LOCAL = os.environ.get('LOCAL', 'false').lower() == 'true'
-
-
-class Route53Table(Table, HUDComponent):
+class Route53Table(BaseService):
     SERVICE_NAME = 'Route 53'
+    BOTO_SERVICE = 'route53'
 
     def __init__(self) -> None:
-        self.client = boto3.client(service_name='route53', endpoint_url='http://localhost:54321' if IS_LOCAL else None)
         self.hosted_zone = None
         self._selection_stack = []
         self._filter_stack = []
-        super().__init__([], [])
-        self.data_updating = False
-        self.queue_action(self.list_hosted_zones, self.on_updated_data)
 
-    def on_updated_data(self, data):
-        self.headers, self.data = data
-        self.data_updating = False
+        super().__init__([], [])
+        self.queue_action(self.list_hosted_zones, self.on_updated_data)
 
     def get_hud_text(self, space_left):
         if not self.hosted_zone:
@@ -36,30 +30,30 @@ class Route53Table(Table, HUDComponent):
 
     def handle_key(self, key):
         should_stop_propagate = super().handle_key(key)
-        if key.code == curses.KEY_EXIT and not should_stop_propagate and not self.data_updating:
+        if key.code == curses.KEY_EXIT and not should_stop_propagate:
             if self.filter:
                 return should_stop_propagate
 
             if self.hosted_zone is not None:
-                self.queue_action(self.list_hosted_zones, self.on_updated_data)
+                filter_str = pop_if_exists(self._filter_stack, default='')
+                selected_row = pop_if_exists(self._selection_stack, default=0)
+                logger.debug(f'Popped {filter_str} and {selected_row} from stack')
+                self.queue_action(self.list_hosted_zones, self.on_updated_data, filter_str=filter_str, selected_row=selected_row)
                 self.hosted_zone = None
                 should_stop_propagate = True
-
-            if len(self._filter_stack) > 0 or len(self._selection_stack) > 0:
-                self.filter = self._filter_stack.pop()
-                self.selected_row = self._selection_stack.pop()
 
         return should_stop_propagate
 
     def on_select(self, data):
-        if not self.hosted_zone and not self.data_updating:
+        if not self.hosted_zone:
             self._filter_stack.append(self.filter)
             self._selection_stack.append(self.selected_row)
+            logger.debug(f'Pushing {self.filter} and {self.selected_row} to stack')
             self.hosted_zone = data
             self.queue_action(self.list_records, self.on_updated_data)
 
+    @updates_table_data_method
     def list_hosted_zones(self):
-        self.data_updating = True
         response = self.client.list_hosted_zones()
         headers = [ColSettings("Name", yank_key='n', stretched=True, min_size=20), ColSettings("ID", yank_key='i'), ColSettings("Records")]
 
@@ -69,8 +63,8 @@ class Route53Table(Table, HUDComponent):
 
         return headers, data
 
+    @updates_table_data_method
     def list_records(self):
-        self.data_updating = True
         headers = [ColSettings('Name', yank_key='n', min_size=20, stretched=True), ColSettings('Type'), ColSettings('TTL', yank_key='t'), ColSettings('Record', yank_key='r')]
         data = []
 
