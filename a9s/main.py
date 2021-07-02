@@ -85,12 +85,13 @@ class MainApp(App):
 
         super(MainApp, self).on_resize()
 
-    def on_key_press(self, key):
+    def on_tick(self, key):
         current_context = self.context_stack[-1]
         self.mode_renderer.mode = current_context.mode
         focused = current_context.focused()
         self.loader.shown = focused.data_updating
         self.help.yank_mode = focused.yank_mode
+        self.auto_complete.guess_mode = current_context.mode
         if key:
             logger.debug("pressed key: " + repr(key))
 
