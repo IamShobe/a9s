@@ -1,4 +1,5 @@
 import os
+from cached_property import cached_property
 from subprocess import call
 import pathlib
 
@@ -7,31 +8,29 @@ import tempfile
 import boto3
 from colored.colored import bg, fg
 
+from a9s.aws_resources.base_service import BaseService
 from a9s.aws_resources.hud import HUDComponent
+from a9s.aws_resources.utils import pop_if_exists
 from a9s.components.custom_string import String
-from a9s.components.table import ColSettings, Table
+from a9s.components.logger import logger
+from a9s.components.table import ColSettings, Table, updates_table_data_method
 from a9s.components.app import EDITOR
 
 IS_LOCAL = os.environ.get('LOCAL', 'false').lower() == 'true'
 
 
-class S3Table(Table, HUDComponent):
+class S3Table(BaseService):
     SERVICE_NAME = 'S3'
+    BOTO_SERVICE = 's3'
 
     def __init__(self) -> None:
-        self.client = boto3.client(service_name='s3', endpoint_url='http://localhost:54321' if IS_LOCAL else None)
         self.bucket = None
         self.paths = []
         self._selection_stack = []
         self._filter_stack = []
 
         super().__init__([], [])
-        self.data_updating = False
         self.queue_action(self.list_buckets, self.on_updated_data)
-
-    def on_updated_data(self, data):
-        self.headers, self.data = data
-        self.data_updating = False
 
     def get_hud_text(self, space_left):
         if not self.bucket:
@@ -46,39 +45,39 @@ class S3Table(Table, HUDComponent):
 
     def handle_key(self, key):
         should_stop_propagate = super().handle_key(key)
-        if key.code == curses.KEY_EXIT and not should_stop_propagate and not self.data_updating:
+        if key.code == curses.KEY_EXIT and not should_stop_propagate:
+            filter_str = pop_if_exists(self._filter_stack, default='')
+            selected_row = pop_if_exists(self._selection_stack, default=0)
+            logger.debug(f'Popped {filter_str} and {selected_row} from stack')
+
             if len(self.paths) > 0:
                 self.paths.pop()
-                self.data_updating = True
-                self.queue_action(self.list_bucket, self.on_updated_data)
+                self.queue_action(self.list_bucket, self.on_updated_data, filter_str=filter_str, selected_row=selected_row)
                 should_stop_propagate = True
 
             elif self.bucket is not None:
-                self.data_updating = True
-                self.queue_action(self.list_buckets, self.on_updated_data)
+                self.queue_action(self.list_buckets, self.on_updated_data, filter_str=filter_str, selected_row=selected_row)
                 self.bucket = None
                 should_stop_propagate = True
         
-            if len(self._filter_stack) > 0 or len(self._selection_stack) > 0:
-                self.filter = self._filter_stack.pop()
-                self.selected_row = self._selection_stack.pop()
-
         return should_stop_propagate
  
     def on_select(self, data):
         if not self.bucket:
+            logger.debug(f'Pushing {self.filter} and {self.selected_row} to stack')
             self._filter_stack.append(self.filter)
             self._selection_stack.append(self.selected_row)
             self.bucket = data['Bucket name']
-            self.headers, self.data = self.list_bucket()
-        
+            self.queue_action(self.list_bucket, self.on_updated_data)
+
         else:
             if data['Type'] == "folder":
+                logger.debug(f'Pushing {self.filter} and {self.selected_row} to stack')
                 self._filter_stack.append(self.filter)
                 self._selection_stack.append(self.selected_row)
                 self.paths.append(data['Key'])
-                self.headers, self.data = self.list_bucket()
-            
+                self.queue_action(self.list_bucket, self.on_updated_data)
+
             else:  # we are a file
                 full_key = self.prefix + data['Key']
                 resp = self.client.get_object(Bucket=self.bucket, Key=full_key)
@@ -89,6 +88,7 @@ class S3Table(Table, HUDComponent):
                     tf.flush()
                     call([EDITOR, tf.name])
 
+    @updates_table_data_method
     def list_buckets(self):
         response = self.client.list_buckets()
         headers = [ColSettings("Bucket name", stretched=True, yank_key='n'), ColSettings("Creation date", yank_key='d')]
@@ -98,6 +98,7 @@ class S3Table(Table, HUDComponent):
 
         return headers, data
 
+    @updates_table_data_method
     def list_bucket(self):
         objects = self.client.list_objects_v2(Bucket=self.bucket, Delimiter="/", Prefix=self.prefix)
         headers = [ColSettings("Key", stretched=True, min_size=15, yank_key='k'), ColSettings("Type"), ColSettings("Last modify"), ColSettings("ETag", yank_key='t'), ColSettings("Size"), ColSettings("Storage Class"), ColSettings("Owner")]

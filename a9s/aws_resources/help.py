@@ -13,3 +13,5 @@ class Help(Renderer):
         self.echo(String(" ") + String("/", fg=key_style).reset_style_on_end() + String(" - Search mode"))
         self.echo(String(" ") + String(":", fg=key_style).reset_style_on_end() + String(" - Command mode"))
         self.echo(String(" ") + String("ESC", fg=key_style).reset_style_on_end() + String(" - Cancel/Go Back"))
+        self.echo(String(" ") + String("y", fg=key_style).reset_style_on_end() + String(" - Yank mode"))
+

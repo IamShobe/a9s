@@ -119,6 +119,17 @@ class Table(ScrollableRenderer):
 
         self.headers = headers
         self.data = data
+        self.data_updating = False
+    
+    def _on_select(self, data):
+        if not self.data_updating:
+            super(Table, self)._on_select(data)
+
+    def on_updated_data(self, data, filter_str='', selected_row=0):
+        self.headers, self.data = data
+        self.filter = filter_str
+        self.selected_row = selected_row
+        self.data_updating = False
 
     def on_data_set(self, new_value):
         self._transposed_data = list(map(list, itertools.zip_longest(*new_value, fillvalue=None)))
@@ -137,7 +148,7 @@ class Table(ScrollableRenderer):
                     self.yank_mode = False
                     should_stop_propagate = True
 
-        return should_stop_propagate
+        return should_stop_propagate or self.data_updating
 
     def _enrich_reponsive_headers(self):
         stretched_headers = []
@@ -218,3 +229,11 @@ class Table(ScrollableRenderer):
 
             row_to_print = self._trim_row(row_to_print)
             self.echo(row_to_print)
+
+
+def updates_table_data_method(f):
+    def inner(self, *args, **kwargs):
+        self.data_updating = True
+        return f(self, *args, **kwargs)
+
+    return inner
