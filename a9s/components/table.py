@@ -1,8 +1,8 @@
 import itertools
 import pyperclip
+from copy import copy
 from dataclasses import dataclass, field
 from typing import Union, Callable, List
-from copy import copy
 
 from colored import fg, bg, attr
 

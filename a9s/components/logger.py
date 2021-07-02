@@ -1,8 +1,7 @@
-import curses
-
 from colored import fg, bg
 
 from a9s.components.custom_string import Style
+from a9s.components.keys import BACK_KEYS, is_match
 from a9s.components.renderer import ScrollableRenderer
 
 MAX_RECORDS = 100
@@ -43,15 +42,12 @@ class Logger(ScrollableRenderer):
     def handle_key(self, key) -> bool:
         should_stop_propagate = super(Logger, self).handle_key(key)
         if not should_stop_propagate:
-            if key.code == curses.KEY_EXIT:
+            if is_match(key, BACK_KEYS):
                 self.continue_debug()
 
         return should_stop_propagate
 
     def draw(self):
-        if not self.shown:
-            return
-            
         for i, log in enumerate(self.displayed_data[self.displayed_data_start:self.displayed_data_end]):
             actual_i = self.displayed_data_start + i
             row_style = Style()
