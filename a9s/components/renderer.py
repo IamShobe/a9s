@@ -102,6 +102,8 @@ class ScrollableRenderer(Renderer):
         self.filter = ""
         self.yank_mode = False
 
+        self.data_updating = False
+
     def onresize(self):
         self.offset = 0
 
