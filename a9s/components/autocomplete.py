@@ -4,6 +4,7 @@ from colored import attr, fg
 
 from a9s.components.custom_string import String
 from a9s.components.keys import RIGHT_KEYS, is_match
+from a9s.components.mode import KeyMode
 from a9s.components.renderer import Renderer
 
 
@@ -15,6 +16,7 @@ class AutoComplete(Renderer):
         self.text = ""
 
         self.commands = commands
+        self.guess_mode = KeyMode.Navigation
 
     def delete_char(self):
         if len(self.text) > 1:
@@ -29,24 +31,25 @@ class AutoComplete(Renderer):
                 return func()
 
     def handle_key(self, key):
-        guessed_command = self.guess_command()
+        guessed_command = self.guess_text()
         if is_match(key, RIGHT_KEYS, code_only=True):
             if guessed_command:
                 self.text = ":" + guessed_command
 
-    def guess_command(self):
+    def guess_text(self):
         text = self.get_actual_text()
         if len(text) == 0:
             return ""
 
-        for command in self.commands:
-            if command.startswith(text.lower()):
-                return command
+        if self.guess_mode == KeyMode.Command:
+            for command in self.commands:
+                if command.startswith(text.lower()):
+                    return command
 
         return ""
 
     def draw(self):
-        guessed_command = self.guess_command()
+        guessed_command = self.guess_text()
         text = self.get_actual_text()
         unmatched_part = guessed_command[len(text):]
 
