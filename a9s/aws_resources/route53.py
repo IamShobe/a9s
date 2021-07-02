@@ -1,11 +1,9 @@
-import os
-
-import curses
 from colored.colored import bg, fg
 
 from a9s.aws_resources.base_service import BaseService
 from a9s.aws_resources.utils import pop_if_exists
 from a9s.components.custom_string import String
+from a9s.components.keys import BACK_KEYS, is_match
 from a9s.components.logger import logger
 from a9s.components.table import ColSettings, updates_table_data_method
 
@@ -20,6 +18,8 @@ class Route53Table(BaseService):
         self._filter_stack = []
 
         super().__init__([], [])
+
+    def initialize(self):
         self.queue_action(self.list_hosted_zones, self.on_updated_data)
 
     def get_hud_text(self, space_left):
@@ -30,7 +30,7 @@ class Route53Table(BaseService):
 
     def handle_key(self, key):
         should_stop_propagate = super().handle_key(key)
-        if key.code == curses.KEY_EXIT and not should_stop_propagate:
+        if is_match(key, BACK_KEYS) and not should_stop_propagate:
             if self.filter:
                 return should_stop_propagate
 

@@ -1,19 +1,16 @@
 import os
-from cached_property import cached_property
 from subprocess import call
 import pathlib
 
-import curses
 import tempfile
-import boto3
 from colored.colored import bg, fg
 
 from a9s.aws_resources.base_service import BaseService
-from a9s.aws_resources.hud import HUDComponent
 from a9s.aws_resources.utils import pop_if_exists
 from a9s.components.custom_string import String
+from a9s.components.keys import BACK_KEYS, is_match
 from a9s.components.logger import logger
-from a9s.components.table import ColSettings, Table, updates_table_data_method
+from a9s.components.table import ColSettings, updates_table_data_method
 from a9s.components.app import EDITOR
 
 IS_LOCAL = os.environ.get('LOCAL', 'false').lower() == 'true'
@@ -30,6 +27,8 @@ class S3Table(BaseService):
         self._filter_stack = []
 
         super().__init__([], [])
+
+    def initialize(self):
         self.queue_action(self.list_buckets, self.on_updated_data)
 
     def get_hud_text(self, space_left):
@@ -45,7 +44,7 @@ class S3Table(BaseService):
 
     def handle_key(self, key):
         should_stop_propagate = super().handle_key(key)
-        if key.code == curses.KEY_EXIT and not should_stop_propagate:
+        if is_match(key, BACK_KEYS) and not should_stop_propagate:
             filter_str = pop_if_exists(self._filter_stack, default='')
             selected_row = pop_if_exists(self._selection_stack, default=0)
             logger.debug(f'Popped {filter_str} and {selected_row} from stack')
