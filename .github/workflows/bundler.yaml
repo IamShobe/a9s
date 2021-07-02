@@ -42,9 +42,8 @@ jobs:
       - name: Archive Release
         shell: bash
         run: tar czf 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz' --directory dist a9s
-      - name: Upload Release
-        uses: ncipollo/release-action@v1
+      - name: Update release
+        uses: johnwbyrd/update-release@v1
         with:
-          artifacts: 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz'
           token: ${{ secrets.GITHUB_TOKEN }}
-          allowUpdates: true
+          asset: 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz'
