@@ -83,16 +83,16 @@ class App:
         def _blocking_input_loop():
             with self.term.cbreak(), self.term.raw():
                 while self.should_run:
-                    key = self.term.inkey(timeout=0.1)
+                    key = self.term.inkey(timeout=FPS)
                     if key in [chr(3)]:
                         self.should_run = False
                         break
 
-                    self.on_key_press(key)
+                    self.on_tick(key)
 
         await asyncio.create_task(asyncio.to_thread(_blocking_input_loop))
 
-    def on_key_press(self, key):
+    def on_tick(self, key):
         pass
 
     async def run(self):
