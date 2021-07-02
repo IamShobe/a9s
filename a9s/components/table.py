@@ -119,7 +119,7 @@ class Table(ScrollableRenderer):
 
         self.headers = headers
         self.data = data
-        self.data_updating = False
+        self.data_updating = True
     
     def _on_select(self, data):
         if not self.data_updating:

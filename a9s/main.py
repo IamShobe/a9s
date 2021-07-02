@@ -6,6 +6,7 @@ import signal
 import curses
 import pyperclip
 
+from a9s.aws_resources.loader import Loader
 from a9s.components.renderer import ScrollableRenderer
 from a9s.aws_resources.help import Help
 from a9s.aws_resources.logo import Logo
@@ -36,8 +37,10 @@ class MainApp(App):
         self.services_selector = ServicesSelector(hud=self.hud)
         self.mode_renderer = Mode()
 
+        self.loader = Loader()
+
         self.auto_complete = AutoComplete(commands=self.commands)
-        self.add_multiple([self.logo, self.help, self.services_selector, self.mode_renderer, self.auto_complete, logger, self.hud])
+        self.add_multiple([self.logo, self.help, self.services_selector, self.mode_renderer, self.auto_complete, logger, self.hud, self.loader])
 
         self.on_resize()
         self.context_stack = [Context(mode=KeyMode.Navigation, focused=lambda: self.services_selector.current_service)]
@@ -75,7 +78,8 @@ class MainApp(App):
     def on_resize(self, *args):
         self.help.set_pos(x=25, to_x=self.term.width, y=0, to_y=9)
         self.logo.set_pos(x=3, y=0, to_x=24, to_y=6)
-        self.hud.set_pos(x=0, y=9, to_x=self.term.width)
+        self.hud.set_pos(x=0, y=9, to_x=self.term.width - 1)
+        self.loader.set_pos(x=self.term.width-1, y=9, to_x=self.term.width)
         self.mode_renderer.set_pos(x=0, y=self.term.height - 1, to_x=10)
         self.auto_complete.set_pos(x=11, y=self.term.height - 1, to_x=self.term.width)
         self.services_selector.set_pos(x=0, y=10, to_x=self.term.width, to_y=self.term.height - 1)
@@ -90,6 +94,7 @@ class MainApp(App):
             current_context = self.context_stack[-1]
             self.mode_renderer.mode = current_context.mode
             focused = current_context.focused()
+            self.loader.shown = focused.data_updating
             if key:
                 logger.debug("pressed key: " + repr(key))
 
