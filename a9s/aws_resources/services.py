@@ -17,6 +17,9 @@ class ServicesSelector(Renderer):
         }
 
         self.hud = hud
+        self._current_service = None
+
+    def initialize(self):
         self.current_service = 'route53'
 
     def set_pos(self, *, x, y, to_x, to_y=None):
@@ -35,6 +38,7 @@ class ServicesSelector(Renderer):
             raise ValueError('Invalid service requested - {}!'.format(service))
 
         self._current_service = self.services[service]()
+        self._current_service.initialize()
         self._current_service._echo_func = self._echo_func
         self._current_service.set_pos(x=self.x, y=self.y, to_x=self.to_x, to_y=self.to_y)
         self.hud.service = self._current_service
@@ -63,13 +67,9 @@ class ServicesSelector(Renderer):
 
         return self.current_service.fill_empty()
 
-    def set_echo_func(self, echo_func):
-        self._echo_func = echo_func
-        if self.current_service:
-            self.current_service._echo_func = self._echo_func
-
     def draw(self):
         if not self.current_service:
             return super(ServicesSelector, self).draw()
 
+        self.current_service._echo_func = self._echo_func
         return self.current_service.draw()

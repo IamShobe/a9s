@@ -1,12 +1,14 @@
 import asyncio
 
-import curses
 from cached_property import cached_property
 from typing import Union
 
 from colored import attr
 
 from a9s.components.custom_string import String
+from a9s.components.keys import RIGHT_KEYS, is_match, LEFT_KEYS, UP_KEYS, DOWN_KEYS, ENTER_KEYS, BACK_KEYS, END_OF_LINE_KEYS, START_OF_LINE_KEYS, \
+    START_OF_DOC_KEYS, END_OF_DOC_KEYS, COPY_KEYS
+from a9s.components.utils import FPS
 
 
 class Renderer:
@@ -20,9 +22,36 @@ class Renderer:
 
         # renderer row
         self._curr_row = 0
+        self._curr_col = 0
 
         self._echo_func = None
         self._async_coroutines = {}
+        self._pending_coroutines = []
+        self.force_empty_fill = False
+
+        self._shown = True
+
+    def initialize(self):
+        pass
+
+    @property
+    def shown(self):
+        return self._shown
+
+    @shown.setter
+    def shown(self, value):
+        if value:
+            self.show()
+
+        else:
+            self.hide()
+
+    def hide(self):
+        self.force_empty_fill = True
+        self._shown = False
+
+    def show(self):
+        self._shown = True
 
     @property
     def width(self):
@@ -32,15 +61,24 @@ class Renderer:
     def height(self):
         return self.to_y - self.y
 
-    def set_echo_func(self, echo_func):
-        self._echo_func = echo_func
-
     def fill_empty(self):
-        filler = " " * self.width
-        while self._curr_row < self.height:
-            self.echo(filler)
+        try:
+            if not self.shown and not self.force_empty_fill:
+                return
 
-        self._curr_row = 0
+            filler = String(" " * (self.width - self._curr_col), fg=attr('reset'))
+            while self._curr_row < self.height:
+                self.echo(filler)
+
+        finally:
+            self.set_relative_pos(0, 0)
+
+    def set_relative_pos(self, x=None, y=None):
+        if x is not None:
+            self._curr_col = x
+
+        if y is not None:
+            self._curr_row = y
 
     def echo(self, string: Union[String, str], *, x=None, y=None, no_new_line=False):
         if not self._echo_func:
@@ -49,30 +87,41 @@ class Renderer:
         y_defined = y is not None
         y = self.y + self._curr_row if y is None else y
 
-        x = self.x if x is None else x
+        x = self.x + self._curr_col if x is None else x
         self._echo_func(x, y, string)
         if not y_defined and not no_new_line:
             self._curr_row += 1
 
     async def update_data(self):
+        captured_routines = self._pending_coroutines
+        self._pending_coroutines = []
+        for coroutine in captured_routines:
+            task = asyncio.create_task(asyncio.to_thread(coroutine['routine']))
+            self._async_coroutines[task] = coroutine
+
         coroutines = set(self._async_coroutines.keys())
         if len(coroutines) == 0:
             return
 
-        done, pending = await asyncio.wait(coroutines, timeout=0.1)
+        done, pending = await asyncio.wait(coroutines, timeout=FPS)
         for routine in done:
             routine_describe = self._async_coroutines[routine]
             handler = routine_describe['handler']
             handler(routine.result(), *routine_describe['args'], **routine_describe['kwargs'])
             del self._async_coroutines[routine]
 
-    def queue_action(self, coroutine, callback, *args, **kwargs):
-        task = asyncio.create_task(asyncio.to_thread(coroutine))
-        self._async_coroutines[task] = dict(handler=callback, args=args, kwargs=kwargs)
-        return task
+    def queue_action(self, routine, callback, *args, **kwargs):
+        self._pending_coroutines.append(dict(handler=callback, routine=routine, args=args, kwargs=kwargs))
 
     def draw(self):
         pass
+
+    def render(self, echo_func):
+        self._echo_func = echo_func
+        if self.shown:
+            self.draw()
+
+        self.fill_empty()
 
     def set_pos(self, *, x, y, to_x, to_y=None):
         self.x = x
@@ -214,22 +263,22 @@ class ScrollableRenderer(Renderer):
         return self.get_row_representation(data)
 
     def handle_key(self, key) -> bool:
-        if key.code == curses.KEY_RIGHT or key == "l":
+        if is_match(key, RIGHT_KEYS):
             self.move_right()
 
-        elif key.code == curses.KEY_LEFT or key == "h":
+        elif is_match(key, LEFT_KEYS):
             self.move_left()
 
-        if key.code == curses.KEY_UP or key == "k":
+        if is_match(key, UP_KEYS):
             self.prev_selection()
 
-        elif key.code == curses.KEY_DOWN or key == "j":
+        elif is_match(key, DOWN_KEYS):
             self.next_selection()
         
-        elif key.code == curses.KEY_ENTER:
+        elif is_match(key, ENTER_KEYS):
             self._on_select(self.currently_selected_data)
         
-        elif key.code == curses.KEY_EXIT:
+        elif is_match(key, BACK_KEYS):
             if self.yank_mode:
                 self.yank_mode = False
                 return True  # swallows the Exit key
@@ -238,19 +287,19 @@ class ScrollableRenderer(Renderer):
                 self.filter = ''
                 return True
 
-        if key == "$":
+        if is_match(key, END_OF_LINE_KEYS):
             self.hscroll_end()
 
-        elif key == "0":
+        elif is_match(key, START_OF_LINE_KEYS):
             self.hscroll_start()
 
-        elif key == "g":
+        elif is_match(key, START_OF_DOC_KEYS):
             self.vscroll_start()
 
-        elif key == "G":
+        elif is_match(key, END_OF_DOC_KEYS):
             self.vscroll_end()
         
-        elif key == "y":
+        elif is_match(key, COPY_KEYS):
             self.yank_mode = True
 
         return False
@@ -269,4 +318,3 @@ class ScrollableRenderer(Renderer):
             actual_end = actual_end - len(suffix)
 
         return String(prefix, fg=attr("reset")) + row[actual_start:actual_end] + String(suffix, fg=attr("reset"))
-    

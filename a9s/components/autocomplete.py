@@ -1,10 +1,9 @@
-import curses
-
 from typing import Callable, Dict
 
 from colored import attr, fg
 
 from a9s.components.custom_string import String
+from a9s.components.keys import RIGHT_KEYS, is_match
 from a9s.components.renderer import Renderer
 
 
@@ -31,7 +30,7 @@ class AutoComplete(Renderer):
 
     def handle_key(self, key):
         guessed_command = self.guess_command()
-        if key.code == curses.KEY_RIGHT:
+        if is_match(key, RIGHT_KEYS, code_only=True):
             if guessed_command:
                 self.text = ":" + guessed_command
 

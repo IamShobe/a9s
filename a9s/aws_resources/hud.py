@@ -1,5 +1,4 @@
 import math
-from typing import Callable
 
 from colored.colored import bg, fg, attr
 

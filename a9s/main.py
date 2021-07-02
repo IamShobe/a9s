@@ -3,10 +3,10 @@ from dataclasses import dataclass
 from typing import Callable
 
 import signal
-import curses
 import pyperclip
 
 from a9s.aws_resources.loader import Loader
+from a9s.components.keys import is_match, SEARCH_KEYS, COMMAND_KEYS, ENTER_KEYS, DELETE_KEYS, PASTE_KEYS, BACK_KEYS
 from a9s.components.renderer import ScrollableRenderer
 from a9s.aws_resources.help import Help
 from a9s.aws_resources.logo import Logo
@@ -30,19 +30,17 @@ class Context:
 
 class MainApp(App):
     def __init__(self):
-        super(MainApp, self).__init__()
         self.logo = Logo(__version__)
         self.help = Help()
         self.hud = HUD()
         self.services_selector = ServicesSelector(hud=self.hud)
         self.mode_renderer = Mode()
-
         self.loader = Loader()
-
         self.auto_complete = AutoComplete(commands=self.commands)
-        self.add_multiple([self.logo, self.help, self.services_selector, self.mode_renderer, self.auto_complete, logger, self.hud, self.loader])
 
-        self.on_resize()
+        super(MainApp, self).__init__([
+            self.logo, self.services_selector, self.mode_renderer, self.auto_complete, logger, self.hud, self.help, self.loader,
+        ])
         self.context_stack = [Context(mode=KeyMode.Navigation, focused=lambda: self.services_selector.current_service)]
 
     @property
@@ -63,20 +61,20 @@ class MainApp(App):
             self.context_stack.append(debug_context)
 
         logger.halt_debug()
-        logger.shown = True
+        logger.show()
 
     def on_hide_debug_command(self):
         current_context = self.context_stack[-1]
         if current_context.focused() == logger:
             self.context_stack.pop()
 
-        logger.shown = False
+        logger.hide()
 
     def on_quit_command(self):
         self.should_run = False
 
     def on_resize(self, *args):
-        self.help.set_pos(x=25, to_x=self.term.width, y=0, to_y=9)
+        self.help.set_pos(x=25, to_x=self.term.width, y=0, to_y=8)
         self.logo.set_pos(x=3, y=0, to_x=24, to_y=6)
         self.hud.set_pos(x=0, y=9, to_x=self.term.width - 1)
         self.loader.set_pos(x=self.term.width-1, y=9, to_x=self.term.width)
@@ -84,85 +82,79 @@ class MainApp(App):
         self.auto_complete.set_pos(x=11, y=self.term.height - 1, to_x=self.term.width)
         self.services_selector.set_pos(x=0, y=10, to_x=self.term.width, to_y=self.term.height - 1)
         logger.set_pos(x=max(self.term.width - 40, 0), y=0, to_x=self.term.width, to_y=10)
-        self.services_selector.onresize()
-        self.resize()
-        self.auto_complete.to_x = self.term.width
-        self.clear()
 
-    async def run(self):
-        async for key in self.interactive_run():
-            current_context = self.context_stack[-1]
-            self.mode_renderer.mode = current_context.mode
-            focused = current_context.focused()
-            self.loader.shown = focused.data_updating
-            if key:
-                logger.debug("pressed key: " + repr(key))
+        super(MainApp, self).on_resize()
 
-            if current_context.mode == KeyMode.Navigation:
-                should_stop_propagate = focused.handle_key(key)
-                self.auto_complete.text = ("/" + focused.filter) if focused.filter else ""
-                if key.code == curses.KEY_EXIT and not should_stop_propagate:
-                    if len(self.context_stack) > 1:
-                        self.context_stack.pop()
-                        logger.debug("Popping context")
+    def on_key_press(self, key):
+        current_context = self.context_stack[-1]
+        self.mode_renderer.mode = current_context.mode
+        focused = current_context.focused()
+        self.loader.shown = focused.data_updating
+        self.help.yank_mode = focused.yank_mode
+        if key:
+            logger.debug("pressed key: " + repr(key))
 
-                if key == "/":
-                    self.context_stack.append(Context(mode=KeyMode.Search, focused=current_context.focused))
-                    logger.debug("Switching to Search mode")
-                elif key == ":":
-                    self.context_stack.append(Context(mode=KeyMode.Command, focused=current_context.focused))
-                    logger.debug("Switching to Command mode")
-
-                if key in ["/", ":"]:
-                    self.auto_complete.text = str(key)
-
-            if current_context.mode in [KeyMode.Search, KeyMode.Command]:
-                if key.code == curses.KEY_EXIT:
+        if current_context.mode == KeyMode.Navigation:
+            should_stop_propagate = focused.handle_key(key)
+            self.auto_complete.text = ("/" + focused.filter) if focused.filter else ""
+            if is_match(key, BACK_KEYS) and not should_stop_propagate:
+                if len(self.context_stack) > 1:
                     self.context_stack.pop()
-                    logger.debug("Popping context and switching to Navigate mode")
+                    logger.debug("Popping context")
 
-                if key == "\x16":  # ctrl + v
-                    self.auto_complete.text += pyperclip.paste().replace("\n", "").replace("\r", "")
+            if is_match(key, SEARCH_KEYS):
+                self.context_stack.append(Context(mode=KeyMode.Search, focused=current_context.focused))
+                logger.debug("Switching to Search mode")
+            elif is_match(key, COMMAND_KEYS):
+                self.context_stack.append(Context(mode=KeyMode.Command, focused=current_context.focused))
+                logger.debug("Switching to Command mode")
 
-                elif key.code == curses.KEY_BACKSPACE:
-                    self.auto_complete.delete_char()
+            if is_match(key, SEARCH_KEYS, COMMAND_KEYS):
+                self.auto_complete.text = str(key)
 
-                elif key.code == curses.KEY_ENTER:
-                    self.context_stack.pop()
-                    logger.debug("Popping context and switching to Navigate mode")
-                    if self.auto_complete.get_actual_text() == "":
-                        self.auto_complete.text = ""
+        if current_context.mode in [KeyMode.Search, KeyMode.Command]:
+            if is_match(key, BACK_KEYS):
+                self.context_stack.pop()
+                logger.debug("Popping context and switching to Navigate mode")
 
-                    self.auto_complete.execute_command_if_matched()
+            if is_match(key, PASTE_KEYS):
+                self.auto_complete.text += pyperclip.paste().replace("\n", "").replace("\r", "")
 
-                elif key.isprintable():
-                    self.auto_complete.text += key
+            elif is_match(key, DELETE_KEYS):
+                self.auto_complete.delete_char()
 
-                if current_context.mode == KeyMode.Search:
-                    focused.filter = self.auto_complete.get_actual_text()
-
-                if current_context.mode == KeyMode.Command:
-                    self.auto_complete.handle_key(key)
-
-            if current_context.mode == KeyMode.Command:
-                if key.code == curses.KEY_ENTER:
+            elif is_match(key, ENTER_KEYS):
+                self.context_stack.pop()
+                logger.debug("Popping context and switching to Navigate mode")
+                if self.auto_complete.get_actual_text() == "":
                     self.auto_complete.text = ""
 
+                if current_context.mode == KeyMode.Command:
+                    self.auto_complete.execute_command_if_matched()
 
-async def main_loop():
+            elif key.isprintable():
+                self.auto_complete.text += key
+
+            if current_context.mode == KeyMode.Search:
+                focused.filter = self.auto_complete.get_actual_text()
+
+            if current_context.mode == KeyMode.Command:
+                self.auto_complete.handle_key(key)
+
+        if current_context.mode == KeyMode.Command:
+            if is_match(key, ENTER_KEYS):
+                self.auto_complete.text = ""
+
+
+def main():
     app = MainApp()
-
     try:
         signal.signal(signal.SIGWINCH, app.on_resize)
 
     except Exception:
         pass
 
-    await app.run()
-
-
-def main():
-    asyncio.run(main_loop())
+    asyncio.run(app.run())
 
 
 if __name__ == '__main__':
