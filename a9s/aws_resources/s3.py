@@ -29,7 +29,7 @@ class S3Table(BaseService):
         super().__init__([], [])
 
     def initialize(self):
-        self.queue_action(self.list_buckets, self.on_updated_data)
+        self.queue_thread_action(self.list_buckets, self.on_updated_data)
 
     def get_hud_text(self, space_left):
         if not self.bucket:
@@ -51,11 +51,11 @@ class S3Table(BaseService):
 
             if len(self.paths) > 0:
                 self.paths.pop()
-                self.queue_action(self.list_bucket, self.on_updated_data, filter_str=filter_str, selected_row=selected_row)
+                self.queue_thread_action(self.list_bucket, self.on_updated_data, filter_str=filter_str, selected_row=selected_row)
                 should_stop_propagate = True
 
             elif self.bucket is not None:
-                self.queue_action(self.list_buckets, self.on_updated_data, filter_str=filter_str, selected_row=selected_row)
+                self.queue_thread_action(self.list_buckets, self.on_updated_data, filter_str=filter_str, selected_row=selected_row)
                 self.bucket = None
                 should_stop_propagate = True
         
@@ -67,7 +67,7 @@ class S3Table(BaseService):
             self._filter_stack.append(self.filter)
             self._selection_stack.append(self.selected_row)
             self.bucket = data['Bucket name']
-            self.queue_action(self.list_bucket, self.on_updated_data)
+            self.queue_thread_action(self.list_bucket, self.on_updated_data)
 
         else:
             if data['Type'] == "folder":
@@ -75,17 +75,20 @@ class S3Table(BaseService):
                 self._filter_stack.append(self.filter)
                 self._selection_stack.append(self.selected_row)
                 self.paths.append(data['Key'])
-                self.queue_action(self.list_bucket, self.on_updated_data)
+                self.queue_thread_action(self.list_bucket, self.on_updated_data)
 
             else:  # we are a file
-                full_key = self.prefix + data['Key']
-                resp = self.client.get_object(Bucket=self.bucket, Key=full_key)
-                with tempfile.NamedTemporaryFile(suffix="." + full_key.replace("/", "___")) as tf:
-                    for chunk in resp['Body'].iter_chunks():
-                        tf.write(chunk)
+                self.queue_blocking_action(self.download_file, data)
 
-                    tf.flush()
-                    call([EDITOR, tf.name])
+    def download_file(self, data):
+        full_key = self.prefix + data['Key']
+        resp = self.client.get_object(Bucket=self.bucket, Key=full_key)
+        with tempfile.NamedTemporaryFile(suffix="." + full_key.replace("/", "___")) as tf:
+            for chunk in resp['Body'].iter_chunks():
+                tf.write(chunk)
+
+            tf.flush()
+            call([EDITOR, tf.name])
 
     @updates_table_data_method
     def list_buckets(self):

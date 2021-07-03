@@ -1,3 +1,7 @@
+import threading
+
+import time
+
 import asyncio
 
 from cached_property import cached_property
@@ -27,6 +31,7 @@ class Renderer:
         self._echo_func = None
         self._async_coroutines = {}
         self._pending_coroutines = []
+        self._blocking_action = None
         self.force_empty_fill = False
 
         self._shown = True
@@ -93,6 +98,11 @@ class Renderer:
             self._curr_row += 1
 
     async def update_data(self):
+        if self._blocking_action:
+            self._blocking_action['handler'](*self._blocking_action['args'], **self._blocking_action['kwargs'])
+            self._blocking_action['event'].set()
+            self._blocking_action = None
+
         captured_routines = self._pending_coroutines
         self._pending_coroutines = []
         for coroutine in captured_routines:
@@ -110,8 +120,13 @@ class Renderer:
             handler(routine.result(), *routine_describe['args'], **routine_describe['kwargs'])
             del self._async_coroutines[routine]
 
-    def queue_action(self, routine, callback, *args, **kwargs):
+    def queue_thread_action(self, routine, callback, *args, **kwargs):
         self._pending_coroutines.append(dict(handler=callback, routine=routine, args=args, kwargs=kwargs))
+
+    def queue_blocking_action(self, routine, *args, **kwargs):
+        event = threading.Event()
+        self._blocking_action = dict(handler=routine, args=args, kwargs=kwargs, event=event)
+        event.wait()
 
     def draw(self):
         pass
