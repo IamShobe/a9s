@@ -20,7 +20,7 @@ class Route53Table(BaseService):
         super().__init__([], [])
 
     def initialize(self):
-        self.queue_action(self.list_hosted_zones, self.on_updated_data)
+        self.queue_thread_action(self.list_hosted_zones, self.on_updated_data)
 
     def get_hud_text(self, space_left):
         if not self.hosted_zone:
@@ -38,7 +38,7 @@ class Route53Table(BaseService):
                 filter_str = pop_if_exists(self._filter_stack, default='')
                 selected_row = pop_if_exists(self._selection_stack, default=0)
                 logger.debug(f'Popped {filter_str} and {selected_row} from stack')
-                self.queue_action(self.list_hosted_zones, self.on_updated_data, filter_str=filter_str, selected_row=selected_row)
+                self.queue_thread_action(self.list_hosted_zones, self.on_updated_data, filter_str=filter_str, selected_row=selected_row)
                 self.hosted_zone = None
                 should_stop_propagate = True
 
@@ -50,7 +50,7 @@ class Route53Table(BaseService):
             self._selection_stack.append(self.selected_row)
             logger.debug(f'Pushing {self.filter} and {self.selected_row} to stack')
             self.hosted_zone = data
-            self.queue_action(self.list_records, self.on_updated_data)
+            self.queue_thread_action(self.list_records, self.on_updated_data)
 
     @updates_table_data_method
     def list_hosted_zones(self):
