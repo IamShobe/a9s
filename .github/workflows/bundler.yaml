@@ -3,9 +3,8 @@
 name: Bundler
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
 
 
 jobs:
@@ -39,11 +38,13 @@ jobs:
 
       - shell: bash
         run: poetry run pyinstaller a9s.spec
-      - name: Archive Release
+      - name: Archive asset
         shell: bash
         run: tar czf 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz' --directory dist a9s
-      - name: Update release
-        uses: johnwbyrd/update-release@v1
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          asset: 'a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz'
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: a9s-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz
