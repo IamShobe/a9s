@@ -57,6 +57,7 @@ LOCAL=true poetry run a9s
 ### Services
 - [X] s3 support
 - [X] route53 support
+- [X] DynamoDB support
 - [ ] EC2 support
 - [ ] ELB support
 - [ ] Cloudfront support
