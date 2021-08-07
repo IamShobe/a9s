@@ -1,4 +1,5 @@
 import os
+import datetime
 from subprocess import call
 import pathlib
 
@@ -19,6 +20,11 @@ IS_LOCAL = os.environ.get('LOCAL', 'false').lower() == 'true'
 class S3Table(BaseService):
     SERVICE_NAME = 'S3'
     BOTO_SERVICE = 's3'
+    HUD_PROPS = {
+        'colors': {
+            'bg': 'red'
+        }
+    }
 
     def __init__(self) -> None:
         self.bucket = None
@@ -37,7 +43,7 @@ class S3Table(BaseService):
 
         return String([String(self.bucket, bg=bg('orange_1'), fg=fg('black')).reset_style_on_end(),
                        String("/"), String(self.prefix[-(space_left - len(self.bucket) - 1):])])
-    
+
     @property
     def prefix(self):
         return "".join(self.paths)
@@ -58,9 +64,9 @@ class S3Table(BaseService):
                 self.queue_thread_action(self.list_buckets, self.on_updated_data, filter_str=filter_str, selected_row=selected_row)
                 self.bucket = None
                 should_stop_propagate = True
-        
+
         return should_stop_propagate
- 
+
     def on_select(self, data):
         if not self.bucket:
             logger.debug(f'Pushing {self.filter} and {self.selected_row} to stack')
@@ -90,6 +96,18 @@ class S3Table(BaseService):
             tf.flush()
             call([EDITOR, tf.name])
 
+    def storage_amount(self):
+        metrics = self.cloudwatch_client.get_metric_statistics(Namespace='AWS/S3', MetricName='BucketSizeBytes', Period=86400,
+                                                               StartTime=datetime.datetime.now() - datetime.timedelta(1),
+                                                               EndTime=datetime.datetime.now(), Statistics=['Average'],
+                                                               Dimensions=[{'Name': 'BucketName', 'Value': self.bucket},
+                                                                           {'Value': 'StandardStorage', 'Name': 'StorageType'}]
+                                                               )
+        if len(metrics['Datapoints']) > 0:
+            return metrics['Datapoints'][0]['Average']
+
+        return 0
+
     @updates_table_data_method
     def list_buckets(self):
         response = self.client.list_buckets()
@@ -103,7 +121,8 @@ class S3Table(BaseService):
     @updates_table_data_method
     def list_bucket(self):
         objects = self.client.list_objects_v2(Bucket=self.bucket, Delimiter="/", Prefix=self.prefix)
-        headers = [ColSettings("Key", stretched=True, min_size=15, yank_key='k'), ColSettings("Type"), ColSettings("Last modify"), ColSettings("ETag", yank_key='t'), ColSettings("Size"), ColSettings("Storage Class"), ColSettings("Owner")]
+        headers = [ColSettings("Key", stretched=True, min_size=15, yank_key='k'), ColSettings("Type"), ColSettings("Last modify"),
+                   ColSettings("ETag", yank_key='t'), ColSettings("Size"), ColSettings("Storage Class"), ColSettings("Owner")]
         data = []
         for object in objects.get('CommonPrefixes', []):
             folder_data = [String(str(object['Prefix'].replace(self.prefix, "", 1)), fg=fg('magenta_3c')), "folder"]
@@ -113,6 +132,7 @@ class S3Table(BaseService):
         for object in objects.get('Contents', []):
             name = object['Key'].replace(self.prefix, "", 1)
             file_type = "file ({})".format(pathlib.Path(name).suffix) if pathlib.Path(name).suffix else "file"
-            data.append([name, file_type, str(object['LastModified']), object['ETag'], str(object['Size']), object['StorageClass'], object.get('Owner', {}).get('DisplayName', "")])
+            data.append([name, file_type, str(object['LastModified']), object['ETag'], str(object['Size']), object['StorageClass'],
+                         object.get('Owner', {}).get('DisplayName', "")])
 
         return headers, data

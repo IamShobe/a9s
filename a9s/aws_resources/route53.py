@@ -11,6 +11,11 @@ from a9s.components.table import ColSettings, updates_table_data_method
 class Route53Table(BaseService):
     SERVICE_NAME = 'Route 53'
     BOTO_SERVICE = 'route53'
+    HUD_PROPS = {
+        'colors': {
+            'bg': 'orange_1'
+        }
+    }
 
     def __init__(self) -> None:
         self.hosted_zone = None

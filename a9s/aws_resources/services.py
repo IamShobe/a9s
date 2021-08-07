@@ -2,20 +2,20 @@ import asyncio
 
 from typing import Union
 
+from a9s.aws_resources.dynamodb import DynamoDBTable
 from a9s.aws_resources.route53 import Route53Table
 from a9s.aws_resources.s3 import S3Table
+from a9s.components.logger import logger
 from a9s.components.renderer import Renderer
 from a9s.components.table import Table
 
 
 class ServicesSelector(Renderer):
+    SERVICES = [Route53Table, S3Table, DynamoDBTable]
+
     def __init__(self, hud):
         super(ServicesSelector, self).__init__()
-        self.services = {
-            'route53': Route53Table,
-            's3': S3Table,
-        }
-
+        self.services = {table.BOTO_SERVICE: table for table in self.SERVICES}
         self.hud = hud
         self._current_service = None
 
@@ -44,6 +44,7 @@ class ServicesSelector(Renderer):
         self.hud.service = self._current_service
 
     def set_service(self, service):
+        logger.debug(f'service is {service}')
         self.current_service = service
 
     def handle_key(self, key):

@@ -4,6 +4,7 @@ from colored import attr, fg
 
 from a9s.components.custom_string import String
 from a9s.components.keys import RIGHT_KEYS, is_match
+from a9s.components.logger import logger
 from a9s.components.mode import KeyMode
 from a9s.components.renderer import Renderer
 
