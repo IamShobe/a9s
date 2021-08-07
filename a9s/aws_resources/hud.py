@@ -1,28 +1,16 @@
 import math
+from typing import Union
 
+import pydash
 from colored.colored import bg, fg, attr
-
-from attrdict import AttrDict
 
 from a9s.components.renderer import Renderer
 from a9s.components.custom_string import String, Style
 
 
-services = {
-    'S3': {
-        'colors': {
-            'bg': 'red',
-        }
-    },
-    'Route 53': {
-        'colors': {
-            'bg': 'orange_1'
-        }
-    }
-}
-
 class HUDComponent:
     SERVICE_NAME = None
+    HUD_PROPS = None
 
     def get_hud_text(self, space_left):
         return String("")
@@ -30,16 +18,14 @@ class HUDComponent:
 
 class HUD(Renderer):
     SERVICE_SPACE = 10
+
     def __init__(self):
         super().__init__()
-        self.service = None
+        self.service: Union[HUDComponent, None] = None
     
-    @property
-    def service_props(self):
-        return AttrDict(services[self.service.SERVICE_NAME])
-
     def draw(self):
-        style = Style(fg=fg(self.service_props.colors.get('fg', 'white')) + attr('bold'), bg=bg(self.service_props.colors.bg))
+        style = Style(fg=fg(pydash.get(self.service.HUD_PROPS, 'colors.fg', 'white')) + attr('bold'),
+                      bg=bg(pydash.get(self.service.HUD_PROPS, 'colors.bg', 'blue')))
         to_print = String(self.service.SERVICE_NAME).with_style(style)
         spaces = (self.SERVICE_SPACE - len(self.service.SERVICE_NAME))
         left_side_spaces = String(math.floor(spaces / 2) * " ").with_style(style)

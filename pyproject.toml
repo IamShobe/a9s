@@ -23,6 +23,7 @@ pyperclip = "^1.8.2"
 cached-property = "^1.5.2"
 boto3 = "^1.17.87"
 attrdict = "^2.0.1"
+pydash = "^5.0.2"
 
 [tool.poetry.dev-dependencies]
 ipdb = "^0.13.8"
