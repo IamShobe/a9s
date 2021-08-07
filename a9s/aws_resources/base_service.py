@@ -14,5 +14,9 @@ class BaseService(Table, HUDComponent):
     BOTO_SERVICE = None
 
     @cached_property
+    def cloudwatch_client(self):
+        return boto3.client(service_name='cloudwatch', endpoint_url='http://localhost:54321' if IS_LOCAL else None)
+
+    @cached_property
     def client(self):
         return boto3.client(service_name=self.BOTO_SERVICE, endpoint_url='http://localhost:54321' if IS_LOCAL else None)

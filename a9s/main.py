@@ -1,4 +1,5 @@
 import asyncio
+from functools import partial
 from dataclasses import dataclass
 from typing import Callable
 
@@ -45,14 +46,16 @@ class MainApp(App):
 
     @property
     def commands(self):
-        return {
+        base_commands = {
             'debug': self.on_debug_command,
             'hideDebug': self.on_hide_debug_command,
             'quit': self.on_quit_command,
-
-            's3': lambda: self.services_selector.set_service('s3'),
-            'route53': lambda: self.services_selector.set_service('route53'),
         }
+
+        for service_name in self.services_selector.services.keys():
+            base_commands[service_name] = partial(self.services_selector.set_service, service_name)
+
+        return base_commands
 
     def on_debug_command(self):
         current_context = self.context_stack[-1]

@@ -1,4 +1,6 @@
 import itertools
+
+import math
 import pyperclip
 from copy import copy
 from dataclasses import dataclass, field
@@ -162,6 +164,7 @@ class Table(ScrollableRenderer):
             stretched_size -= header.get_full_size()
 
         stretched_size -= stretched_padding
+        stretched_size = math.ceil(stretched_size / (len(stretched_headers) or 1))
         for header in stretched_headers:
             if header.user_defined_max_size and stretched_size > header._max_size:
                 continue
