@@ -41,7 +41,7 @@ class ServicesSelector(Renderer):
         self._current_service.initialize()
         self._current_service._echo_func = self._echo_func
         self._current_service.set_pos(x=self.x, y=self.y, to_x=self.to_x, to_y=self.to_y)
-        self.hud.service = self._current_service
+        self.hud.services_selector = self._current_service
 
     def set_service(self, service):
         logger.debug(f'service is {service}')

@@ -1,20 +1,29 @@
 {
-    "configurations": [
-        {
-            "name": "Debug server",
-            "type": "python",
-            "request": "attach",
-            "port": 5679,
-            "host": "localhost",
-            // "pathMappings": [
-            //     {
-            //         "localRoot": "${workspaceFolder}/",
-            //         "remoteRoot": "/app/"
-            //     }
-            // ],
-            "presentation": {
-                "order": 2
-            }
-        },
-    ]
+  "configurations": [
+    {
+      "name": "Python: Current File",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/a9s/app.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Debug server",
+      "type": "python",
+      "listen": {
+        "port": 5679,
+        "host": "localhost"
+      },
+      "request": "attach",
+      // "pathMappings": [
+      //     {
+      //         "localRoot": "${workspaceFolder}/",
+      //         "remoteRoot": "/app/"
+      //     }
+      // ],
+      "presentation": {
+        "order": 2
+      }
+    }
+  ]
 }

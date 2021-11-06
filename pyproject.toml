@@ -24,6 +24,8 @@ cached-property = "^1.5.2"
 boto3 = "^1.17.87"
 attrdict = "^2.0.1"
 pydash = "^5.0.2"
+textual = "^0.1.12"
+pyfiglet = "^0.8.post1"
 
 [tool.poetry.dev-dependencies]
 ipdb = "^0.13.8"
@@ -31,6 +33,7 @@ pyinstaller = "^4.3"
 moto = {extras = ["server"], version = "^2.0.10"}
 python-jose = "^3.3.0"
 Faker = "^8.9.0"
+debugpy = "^1.5.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

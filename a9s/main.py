@@ -5,6 +5,7 @@ from typing import Callable
 
 import signal
 import pyperclip
+from textual.layout import WidgetPlacement
 
 from a9s.aws_resources.loader import Loader
 from a9s.components.keys import is_match, SEARCH_KEYS, COMMAND_KEYS, ENTER_KEYS, DELETE_KEYS, PASTE_KEYS, BACK_KEYS
@@ -13,11 +14,12 @@ from a9s.aws_resources.help import Help
 from a9s.aws_resources.logo import Logo
 from a9s.aws_resources.hud import HUD
 from a9s.aws_resources.services import ServicesSelector
-from a9s.components.app import App
+# from a9s.components.app import App
 from a9s.components.logger import logger
 from a9s.components.mode import KeyMode, Mode
 from a9s.components.autocomplete import AutoComplete
 from a9s import __version__
+from textual.app import App
 
 
 @dataclass
@@ -150,16 +152,16 @@ class MainApp(App):
                 self.auto_complete.text = ""
 
 
-def main():
-    app = MainApp()
-    try:
-        signal.signal(signal.SIGWINCH, app.on_resize)
+# def main():
+#     app = MainApp()
+#     try:
+#         signal.signal(signal.SIGWINCH, app.on_resize)
 
-    except Exception:
-        pass
+#     except Exception:
+#         pass
 
-    asyncio.run(app.run())
+#     asyncio.run(app.run())
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+    # main()

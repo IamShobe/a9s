@@ -12,7 +12,7 @@ class HUDComponent:
     SERVICE_NAME = None
     HUD_PROPS = None
 
-    def get_hud_text(self, space_left):
+    def get_hud_text(self):
         return String("")
 
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Union, Callable, List
 
 from colored import fg, bg, attr
+from rich.text import Text
 
 from a9s.components.renderer import ScrollableRenderer
 from a9s.components.custom_string import String, Style
@@ -65,20 +66,20 @@ class ColSettings:
         if len(search) == 0:
             return data
 
-        fragments = data.split(search, 1)
-        to_append = String(search, fg=match_style).force_self_style()
+        fragments = data.split(search)
+        for text in fragments:
+            text.style = row_style
+        to_append = Text(search, style=match_style)
         return to_append.join(fragments)
 
-    def format_data(self, data, search="", row_style=attr("reset"), match_style=fg("blue"), yank_mode=False):
+    def format_data(self, data, search="", row_style="reset", match_style="blue", yank_mode=False):
         if isinstance(data, str):
-            data = String(data)
+            data = Text(data)
         
-        data = copy(data)
-
         used_max_size = self.actual_size
         match_index = -1
         if len(search) > 0:
-            match_index = data.find(search)
+            match_index = str(data).find(search)
 
         to_ret = data
         if match_index != -1:
@@ -87,7 +88,7 @@ class ColSettings:
             if self.actual_size > self._min_size:
                 to_ret = to_ret[:self.actual_size - 3]
                 if match_index > self.actual_size - 3 or (match_index != -1 and len(search) > self.actual_size - 3):
-                    to_ret += String("...", fg=match_style)
+                    to_ret += Text("...", style=match_style)
                 else:
                     to_ret += "..."
 
@@ -95,7 +96,7 @@ class ColSettings:
                 if len(data) > self._min_size:
                     to_ret = to_ret[:self._min_size - 3]
                     if match_index > self._min_size - 3 or (match_index != -1 and len(search) > self._min_size - 3):
-                        to_ret += String("...", fg=match_style)
+                        to_ret += Text("...", style=match_style)
                     else:
                         to_ret += "..."
                 else:
@@ -103,9 +104,8 @@ class ColSettings:
 
                 used_max_size = self._min_size
 
-
         if yank_mode and self.yank_key:
-            to_ret += String("({})".format(self.yank_key))
+            to_ret += Text("({})".format(self.yank_key))
     
         data_len = len(to_ret)
         if used_max_size - data_len > 0:

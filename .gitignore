@@ -8,5 +8,5 @@ __pycache__/
 pip-wheel-metadata/
 build/
 dist/
-
+*.log
 

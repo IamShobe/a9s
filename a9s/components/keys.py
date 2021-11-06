@@ -39,23 +39,23 @@ class KeySet:
         return to_ret
 
 
-BACK_KEYS = KeySet((curses.KEY_EXIT,), description='Cancel/Go back')
+BACK_KEYS = KeySet(('escape',), description='Cancel/Go back')
 SEARCH_KEYS = KeySet(("/",), description='Search mode')
 COMMAND_KEYS = KeySet((":",), description='Command mode')
-ENTER_KEYS = KeySet((curses.KEY_ENTER,), description='Select')
-DELETE_KEYS = KeySet((curses.KEY_BACKSPACE,))
-PASTE_KEYS = KeySet(("\x16",),)  # ctrl + v
+ENTER_KEYS = KeySet(('enter',), description='Select')
+DELETE_KEYS = KeySet(('ctrl+h',))
+PASTE_KEYS = KeySet(("ctrl+v",),)  # ctrl + v
 COPY_KEYS = KeySet(("y",), description='Yank mode')
 
-LEFT_KEYS = KeySet(('h', curses.KEY_LEFT), description='Go left')
-DOWN_KEYS = KeySet(('j', curses.KEY_DOWN), description='Go down')
-UP_KEYS = KeySet(('k', curses.KEY_UP), description='Go up')
-RIGHT_KEYS = KeySet(('l', curses.KEY_RIGHT), description='Go right')
+LEFT_KEYS = KeySet(('h', 'left'), description='Go left')
+DOWN_KEYS = KeySet(('j', 'down'), description='Go down')
+UP_KEYS = KeySet(('k', 'up'), description='Go up')
+RIGHT_KEYS = KeySet(('l', 'right'), description='Go right')
 END_OF_LINE_KEYS = KeySet(('$',), description='Go to end of line')
 START_OF_LINE_KEYS = KeySet(('0',), description='Go to start of line')
 END_OF_DOC_KEYS = KeySet(('G',), description='Go to bottom')
 START_OF_DOC_KEYS = KeySet(('g',), description='Go to top')
 
 
-def is_match(key, *key_sets: list[KeySet], code_only=False):
-    return any(((key.code in key_set.keys) or (not code_only and (key in key_set.keys))) for key_set in key_sets)
+def is_match(key, *key_sets: KeySet, code_only=False):
+    return any(key in key_set.keys for key_set in key_sets)
