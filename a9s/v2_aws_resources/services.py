@@ -12,6 +12,7 @@ from textual.widget import Widget
 from textual.widgets import Placeholder
 
 from a9s.components.logger import logger
+from a9s.v2_aws_resources.base_service import BaseService
 from a9s.v2_aws_resources.route53 import Route53Table
 
 
@@ -66,9 +67,11 @@ class ServicesSelector(GridView):
     async def set_service(self, service):
         logger.debug(f'service is {service}')
 
-        self.service = self.services[service](hud=self.hud, on_filter_change=self._on_filter_change)
+        self.service: BaseService = self.services[service](hud=self.hud, on_filter_change=self._on_filter_change)
         await self.service.initialize()
         self.grid.place(service=self.service)
+        await self.focus()
+        self.refresh()
 
     # def handle_key(self, key):
     #     if self.current_service:

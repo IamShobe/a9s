@@ -74,6 +74,5 @@ class AutoComplete(Widget):
         guessed_command = self.guess_text()
         text = self.get_actual_text()
         unmatched_part = guessed_command[len(text):]
-        logger.info(f'{self.commands}, {self.guess_mode}, {text}, {guessed_command}, {unmatched_part}, {self.guess_mode == KeyMode.Command}')
 
         return PrintAutoComplete(text, unmatched_part)

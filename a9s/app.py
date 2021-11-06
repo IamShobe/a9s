@@ -56,7 +56,7 @@ from a9s.v2_components.Table import TableWidget
 from a9s.v2_components.autocomplete import AutoComplete
 from a9s.v2_components.hud import HUD
 from a9s.v2_components.mode import Mode, KeyMode
-from a9s.v2_components.services import ServicesSelector
+from a9s.v2_aws_resources.services import ServicesSelector
 
 
 class Numbers(Widget):
@@ -174,14 +174,12 @@ class AppLayout(GridView):
     def __init__(self):
         super(AppLayout, self).__init__()
         self.service_view = ServiceView(on_filter_change=self.on_filter_change)
-        self.focused = self.service_view.services_selector.service
 
     def update_mode(self):
         logger = logging.getLogger('app')
         logger.debug("reached here!!")
         current_context = self.context_stack[-1]
         # self.service_view.hud
-        self.focused = current_context.focused()
         self.service_view.footer.mode.mode = current_context.mode
         self.service_view.footer.autocomplete.guess_mode = current_context.mode
 
@@ -243,7 +241,7 @@ class AppLayout(GridView):
         logger = logging.getLogger('app')
         logger.debug(event)
         current_context = self.context_stack[-1]
-        self.focused = current_context.focused()
+        focused = current_context.focused()
 
         key = event.key
         is_special = len(key) > 1
@@ -251,9 +249,7 @@ class AppLayout(GridView):
             logger.debug("pressed key: " + repr(key))
 
         if current_context.mode == KeyMode.Navigation:
-            should_stop_propagate = False
-            if self.focused:
-                should_stop_propagate = await self.focused.handle_key(key)
+            should_stop_propagate = await focused.handle_key(key)
 
             if is_match(key, BACK_KEYS) and not should_stop_propagate:
                 if len(self.context_stack) > 1:
@@ -294,15 +290,14 @@ class AppLayout(GridView):
                 self.auto_complete.text += key
 
             if current_context.mode == KeyMode.Search:
-                if self.focused:
-                    self.focused.filter = self.auto_complete.get_actual_text()
+                focused.filter = self.auto_complete.get_actual_text()
 
             if current_context.mode == KeyMode.Command:
                 self.auto_complete.handle_key(key)
 
         if current_context.mode == KeyMode.Command:
-            if is_match(key, ENTER_KEYS) and self.focused:
-                self.auto_complete.text = f"/{self.focused.filter}" if self.focused.filter else ""
+            if is_match(key, ENTER_KEYS) and focused:
+                self.auto_complete.text = f"/{focused.filter}" if focused.filter else ""
 
 
 class A9SApp(App):

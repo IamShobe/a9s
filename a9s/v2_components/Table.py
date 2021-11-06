@@ -119,10 +119,13 @@ class TableWidget(ListWidget):
         self.transposed_data = list(map(list, itertools.zip_longest(*data, fillvalue=None)))
         for header, col in zip(self.headers, self.transposed_data):
             header.enrich_props_using_data(col)
+        self._enrich_responsive_headers()
         super(TableWidget, self).watch_data(data)
 
     @property
     def filtered_data(self):
+        logger = logging.getLogger('app')
+        logger.info(f'reached here with {self.filter}')
         if len(self.filter) == 0:
             return self.data
 

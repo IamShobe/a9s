@@ -15,7 +15,7 @@ class Route53Table(BaseService):
     SERVICE_NAME = 'Route 53'
     BOTO_SERVICE = 'route53'
     HUD_PROPS = {
-        'style': 'bold white on dark_orange'
+        'style': 'bold grey93 on dark_orange'
     }
 
     def __init__(self, hud, on_filter_change=None) -> None:
@@ -25,8 +25,9 @@ class Route53Table(BaseService):
         self.on_filter_change = on_filter_change
         super(Route53Table, self).__init__(hud=hud)
 
-    # async def watch_filter(self, value: str):
-    #     await self.on_filter_change(value)
+    async def watch_filter(self, value: str):
+        super(Route53Table, self).watch_filter(value)
+        await self.on_filter_change(value)
 
     async def initialize(self):
         await super(Route53Table, self).initialize()
