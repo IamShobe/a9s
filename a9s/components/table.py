@@ -237,6 +237,11 @@ class Table(ScrollableRenderer):
 def updates_table_data_method(f):
     def inner(self, *args, **kwargs):
         self.data_updating = True
-        return f(self, *args, **kwargs)
+        try:
+            self.hud.is_loading = True
+            return f(self, *args, **kwargs)
+
+        finally:
+            self.hud.is_loading = False
 
     return inner

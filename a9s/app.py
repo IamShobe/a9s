@@ -1,6 +1,9 @@
+import asyncio
 import logging
 from dataclasses import dataclass
 from functools import partial
+from threading import Timer, Thread, Event
+
 from typing import Callable, List
 
 import pyperclip
@@ -98,6 +101,18 @@ class Footer(GridView):
         self.grid.place(mode=self.mode, autocomplete=self.autocomplete)
 
 
+class RepeatingTimer(Thread):
+    def __init__(self, event, callback):
+        super(RepeatingTimer, self).__init__()
+        self.callback = callback
+        self.stopped = event
+        self.loop = asyncio.get_event_loop()
+
+    def run(self) -> None:
+        while not self.stopped.wait(0.1):
+            asyncio.run_coroutine_threadsafe(self.callback(), loop=self.loop)
+
+
 class ServiceView(GridView):
     def __init__(self, on_filter_change):
         super(ServiceView, self).__init__()
@@ -119,10 +134,11 @@ class ServiceView(GridView):
         # await self.services_selector.focus()
         self.grid.place(self.services_selector, hud=self.hud, footer=self.footer)
         await self.call_later(self.initialize)
+        # self.timer.start()
 
     async def initialize(self):
         await self.services_selector.set_service('route53')
-        pass
+        # await self.hud.initialize()
 
     async def on_debug_command(self):
         pass
@@ -174,6 +190,12 @@ class AppLayout(GridView):
     def __init__(self):
         super(AppLayout, self).__init__()
         self.service_view = ServiceView(on_filter_change=self.on_filter_change)
+        self.stop_event = Event()
+        self.timer = RepeatingTimer(self.stop_event, self.refresh_animation)
+
+    async def refresh_animation(self):
+        await self.service_view.hud.force_update()
+        # self.main.refresh()
 
     def update_mode(self):
         logger = logging.getLogger('app')
@@ -211,6 +233,7 @@ class AppLayout(GridView):
         header = Header()
         self.grid.place(body=self.service_view, header=header)
         await self.service_view.focus()
+        self.timer.start()
 
         async def initialize():
             self.context_stack.append(Context(mode=KeyMode.Navigation, focused=lambda: self.service_view.services_selector.service))
@@ -303,11 +326,14 @@ class AppLayout(GridView):
 class A9SApp(App):
     """The Calculator Application"""
 
+    def __init__(self, *args, **kwargs):
+        super(A9SApp, self).__init__(*args, **kwargs)
+        self.main = AppLayout()
+
     async def on_mount(self) -> None:
         """Mount the calculator widget."""
-        main = AppLayout()
-        await self.view.dock(main)
-        await main.focus()
+        await self.view.dock(self.main)
+        await self.main.focus()
 
 
 A9SApp.run(title="a9s", log="textual.log")

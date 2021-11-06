@@ -1,4 +1,5 @@
 from colored import fg
+from rich.spinner import Spinner
 
 from a9s.components.custom_string import String
 from a9s.components.renderer import Renderer

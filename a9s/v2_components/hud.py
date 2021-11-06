@@ -1,4 +1,7 @@
 import math
+from rich.containers import Lines
+from rich.spinner import Spinner
+from textual.messages import Update
 from typing import Union
 
 import pydash
@@ -24,18 +27,25 @@ class HUDComponent:
 class PrintableHUD:
     SERVICE_SPACE = 10
 
-    def __init__(self, service_name, service_style, text):
+    def __init__(self, service_name, service_style, text, spinner, is_loading):
         self.service_name = service_name
         self.service_style = service_style
         self.text = text
+        self.spinner = spinner
+        self.is_loading = is_loading
 
     def __rich_console__(
             self, console: Console, options: ConsoleOptions
     ) -> RenderResult:
         layout = Layout()
-        layout.split_row(
+        panels = [
             Layout(Text(self.service_name, style=self.service_style, justify='center'), size=self.SERVICE_SPACE),
-            Layout(self.text or Text(" "))
+            Layout(self.text or Text(" ")),
+        ]
+        if self.is_loading:
+            panels.append(Layout(self.spinner, size=1))
+        layout.split_row(
+            *panels
         )
         yield layout
 
@@ -44,10 +54,21 @@ class HUD(Widget):
     service_name = Reactive("")
     service_style = Reactive("")
     text = Reactive("")
+    is_loading = Reactive(False)
+
+    def __init__(self):
+        super(HUD, self).__init__()
+        # self.animate('text',)
+        self.spinner = Spinner('dots2', style='green')
+
+    async def force_update(self):
+        if self.is_loading:
+            await self.emit(Update(self, self))
 
     def render(self) -> RenderableType:
-        return PrintableHUD(service_name=self.service_name, service_style=self.service_style, text=self.text)
-    
+        return PrintableHUD(service_name=self.service_name, service_style=self.service_style, text=self.text,
+                            spinner=self.spinner, is_loading=self.is_loading)
+
     # def draw(self):
     #     style = Style(fg=fg(pydash.get(self.service.HUD_PROPS, 'colors.fg', 'white')) + attr('bold'),
     #                   bg=bg(pydash.get(self.service.HUD_PROPS, 'colors.bg', 'blue')))
