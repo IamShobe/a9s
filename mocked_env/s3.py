@@ -1,18 +1,17 @@
+import random
 import logging
-
-from botocore.exceptions import ClientError
 from io import BytesIO
 
-import random
-
-import boto3
 import faker
+import boto3
+from mypy_boto3_s3 import S3Client
+from botocore.exceptions import ClientError
 
 
 def mock_buckets(endpoint):
     f = faker.Faker()
 
-    client = boto3.client('s3', endpoint_url=endpoint)
+    client: S3Client = boto3.client('s3', endpoint_url=endpoint)
     buckets = set()
     for _ in range(40):
         bucket_name = f.word()

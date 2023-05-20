@@ -5,6 +5,7 @@ import random
 import boto3
 import faker
 from botocore.exceptions import ClientError
+from mypy_boto3_route53 import Route53Client
 
 TYPE = ['CNAME',
         'A']
@@ -15,7 +16,7 @@ def mock_hosted_zones(endpoint: str):
 
     domains = set()
 
-    client = boto3.client('route53', endpoint_url=endpoint)
+    client: Route53Client = boto3.client('route53', endpoint_url=endpoint)
     for _ in range(10):
         domain = f.domain_name()
         try:
