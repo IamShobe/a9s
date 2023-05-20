@@ -1,6 +1,10 @@
+from typing import TypeVar
 
 
-def pop_if_exists(arr, default=None):
+T = TypeVar('T')
+
+
+def pop_if_exists(arr: list[T], *, default: T):
     try:
         return arr.pop()
 

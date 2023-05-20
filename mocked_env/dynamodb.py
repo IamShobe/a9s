@@ -1,31 +1,35 @@
 import logging
 import random
 
-import boto3
 import faker
+import boto3
+from mypy_boto3_dynamodb.client import DynamoDBClient
+from mypy_boto3_dynamodb.type_defs import AttributeDefinitionTypeDef
 
 TYPE = ['N', 'S']
+
 
 def mock_tables(endpoint):
     f = faker.Faker()
     tables = set()
 
-    client = boto3.client('dynamodb', endpoint_url=endpoint)
+    client: DynamoDBClient = boto3.client('dynamodb', endpoint_url=endpoint)
     for _ in range(10):
         table_name = f.domain_word()
         try:
             fields_count = random.randint(2, 5)
-            definitions = []
+            definitions: list[AttributeDefinitionTypeDef] = []
             for _ in range(fields_count):
                 field_name = f.word()
                 field_type = TYPE[random.randint(0, len(TYPE) - 1)]
                 definitions.append({'AttributeName': field_name, 'AttributeType': field_type})
 
-            keyschema = [{'AttributeName': definition['AttributeName'], 'KeyType': 'HASH'} for definition in definitions]
+            keyschema = [{'AttributeName': definition['AttributeName'], 'KeyType': 'HASH'} for definition in
+                         definitions]
             logging.info(f'Creating table {table_name} with {keyschema} keyschema and {definitions}')
 
             client.create_table(TableName=table_name, AttributeDefinitions=definitions,
-                                KeySchema=keyschema)
+                                BillingMode='PAY_PER_REQUEST', KeySchema=keyschema)
             logging.info(f'Successfully created {table_name} table with {fields_count} fields')
             tables.add(table_name)
 
@@ -43,9 +47,7 @@ def mock_tables(endpoint):
 
                 except:
                     raise
-                
+
             logging.info(f'Successfully created {table_name} table with {item_count} items')
         except:
             raise
-
-

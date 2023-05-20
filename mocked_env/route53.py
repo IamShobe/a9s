@@ -10,7 +10,7 @@ TYPE = ['CNAME',
         'A']
 
 
-def mock_hosted_zones(endpoint):
+def mock_hosted_zones(endpoint: str):
     f = faker.Faker()
 
     domains = set()

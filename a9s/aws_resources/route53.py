@@ -2,10 +2,10 @@ from colored.colored import bg, fg
 
 from a9s.aws_resources.base_service import BaseService
 from a9s.aws_resources.utils import pop_if_exists
-from a9s.components.custom_string import String
-from a9s.components.keys import BACK_KEYS, is_match
-from a9s.components.logger import logger
-from a9s.components.table import ColSettings, updates_table_data_method
+from tepy.components.custom_string import String
+from tepy.components.keys import BACK_KEYS, is_match
+from tepy.components.logger import logger
+from tepy.components.table import ColSettings, updates_table_data_method
 
 
 class Route53Table(BaseService):
@@ -22,9 +22,10 @@ class Route53Table(BaseService):
         self._selection_stack = []
         self._filter_stack = []
 
-        super().__init__([], [])
+        super().__init__()
 
-    def initialize(self):
+    def initialize(self, *args, **kwargs):
+        super().initialize(*args, **kwargs)
         self.queue_thread_action(self.list_hosted_zones, self.on_updated_data)
 
     def get_hud_text(self, space_left):

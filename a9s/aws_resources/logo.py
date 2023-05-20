@@ -1,4 +1,4 @@
-from a9s.components.renderer import Renderer
+from tepy.components.renderer import Renderer
 
 LOGO = [
     "      ________       ",
@@ -8,7 +8,6 @@ LOGO = [
     "(____  /____//____  >",
     "     \/           \/ "
 ]
-
 
 
 class Logo(Renderer):

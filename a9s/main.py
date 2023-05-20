@@ -6,17 +6,17 @@ from typing import Callable
 import signal
 import pyperclip
 
-from a9s.aws_resources.loader import Loader
-from a9s.components.keys import is_match, SEARCH_KEYS, COMMAND_KEYS, ENTER_KEYS, DELETE_KEYS, PASTE_KEYS, BACK_KEYS
-from a9s.components.renderer import ScrollableRenderer
-from a9s.aws_resources.help import Help
+from tepy.components.keys import is_match, SEARCH_KEYS, COMMAND_KEYS, ENTER_KEYS, DELETE_KEYS, PASTE_KEYS, BACK_KEYS
+from tepy.components.renderer import ScrollableRenderer
+from tepy.widgets.help import Help
 from a9s.aws_resources.logo import Logo
 from a9s.aws_resources.hud import HUD
 from a9s.aws_resources.services import ServicesSelector
-from a9s.components.app import App
-from a9s.components.logger import logger
-from a9s.components.mode import KeyMode, Mode
-from a9s.components.autocomplete import AutoComplete
+from tepy.components.app import App
+from tepy.widgets.loader import Loader
+from tepy.components.logger import logger
+from tepy.components.mode import KeyMode, Mode
+from tepy.components.autocomplete import AutoComplete
 from a9s import __version__
 
 
@@ -40,7 +40,8 @@ class MainApp(App):
         self.auto_complete = AutoComplete(commands=self.commands)
 
         super(MainApp, self).__init__([
-            self.logo, self.services_selector, self.mode_renderer, self.auto_complete, logger, self.hud, self.help, self.loader,
+            self.logo, self.services_selector, self.mode_renderer, self.auto_complete, logger, self.hud, self.help,
+            self.loader,
         ])
         self.context_stack = [Context(mode=KeyMode.Navigation, focused=lambda: self.services_selector.current_service)]
 
@@ -80,7 +81,7 @@ class MainApp(App):
         self.help.set_pos(x=25, to_x=self.term.width, y=0, to_y=8)
         self.logo.set_pos(x=3, y=0, to_x=24, to_y=6)
         self.hud.set_pos(x=0, y=9, to_x=self.term.width - 1)
-        self.loader.set_pos(x=self.term.width-1, y=9, to_x=self.term.width)
+        self.loader.set_pos(x=self.term.width - 1, y=9, to_x=self.term.width)
         self.mode_renderer.set_pos(x=0, y=self.term.height - 1, to_x=10)
         self.auto_complete.set_pos(x=11, y=self.term.height - 1, to_x=self.term.width)
         self.services_selector.set_pos(x=0, y=10, to_x=self.term.width, to_y=self.term.height - 1)
