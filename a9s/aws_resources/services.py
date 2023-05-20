@@ -1,25 +1,27 @@
 import asyncio
 
-from typing import Union
+from typing import Union, Type
 
+from a9s.aws_resources.base_service import BaseService
 from a9s.aws_resources.dynamodb import DynamoDBTable
 from a9s.aws_resources.route53 import Route53Table
 from a9s.aws_resources.s3 import S3Table
-from a9s.components.logger import logger
-from a9s.components.renderer import Renderer
-from a9s.components.table import Table
+from tepy.components.logger import logger
+from tepy.components.renderer import Renderer
+from tepy.components.table import Table
 
 
 class ServicesSelector(Renderer):
-    SERVICES = [Route53Table, S3Table, DynamoDBTable]
+    SERVICES: list[Type[BaseService]] = [Route53Table, S3Table, DynamoDBTable]
 
     def __init__(self, hud):
         super(ServicesSelector, self).__init__()
-        self.services = {table.BOTO_SERVICE: table for table in self.SERVICES}
+        self.services: dict[str, Type[BaseService]] = {table.BOTO_SERVICE: table for table in self.SERVICES}
         self.hud = hud
         self._current_service = None
 
-    def initialize(self):
+    def initialize(self, *args, **kwargs):
+        super().initialize(*args, **kwargs)
         self.current_service = 'route53'
 
     def set_pos(self, *, x, y, to_x, to_y=None):
@@ -38,7 +40,7 @@ class ServicesSelector(Renderer):
             raise ValueError('Invalid service requested - {}!'.format(service))
 
         self._current_service = self.services[service]()
-        self._current_service.initialize()
+        self._current_service.initialize(editor=self.editor)
         self._current_service._echo_func = self._echo_func
         self._current_service.set_pos(x=self.x, y=self.y, to_x=self.to_x, to_y=self.to_y)
         self.hud.service = self._current_service

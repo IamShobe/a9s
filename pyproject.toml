@@ -21,16 +21,20 @@ blessed = "^1.18.0"
 colored = "^1.4.2"
 pyperclip = "^1.8.2"
 cached-property = "^1.5.2"
-boto3 = "^1.17.87"
+boto3 = "^1.26.136"
 attrdict = "^2.0.1"
-pydash = "^5.0.2"
 pyinstaller = "^5.11.0"
+pydash = "^7.0.3"
+tepy = {git = "https://github.com/IamShobe/tepy.git"}
+boto3-stubs-lite = {extras = ["all"], version = "^1.26.137"}
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 ipdb = "^0.13.8"
-moto = {extras = ["server"], version = "^2.0.10"}
+moto = {extras = ["server"], version = "^4.1.9"}
 python-jose = "^3.3.0"
 Faker = "^8.9.0"
+flask = "^2.3.2"
+flask-cors = "^3.0.10"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

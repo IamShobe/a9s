@@ -4,8 +4,8 @@ from typing import Union
 import pydash
 from colored.colored import bg, fg, attr
 
-from a9s.components.renderer import Renderer
-from a9s.components.custom_string import String, Style
+from tepy.components.renderer import Renderer
+from tepy.components.custom_string import String, Style
 
 
 class HUDComponent:

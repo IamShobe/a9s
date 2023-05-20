@@ -2,9 +2,9 @@ import os
 
 from a9s.aws_resources.base_service import BaseService
 from a9s.aws_resources.utils import pop_if_exists
-from a9s.components.keys import BACK_KEYS, is_match
-from a9s.components.logger import logger
-from a9s.components.table import ColSettings, updates_table_data_method
+from tepy.components.keys import BACK_KEYS, is_match
+from tepy.components.logger import logger
+from tepy.components.table import ColSettings, updates_table_data_method
 
 IS_LOCAL = os.environ.get('LOCAL', 'false').lower() == 'true'
 
@@ -25,9 +25,10 @@ class DynamoDBTable(BaseService):
         self._selection_stack = []
         self._filter_stack = []
 
-        super().__init__([], [])
+        super().__init__()
 
-    def initialize(self):
+    def initialize(self, *args, **kwargs):
+        super().initialize(*args, **kwargs)
         self.queue_thread_action(self.list_tables, self.on_updated_data)
 
     def on_select(self, data):

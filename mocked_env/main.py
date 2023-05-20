@@ -9,6 +9,9 @@ ENDPOINT = os.environ.get('SERVER_URL', 'http://localhost:54321')
 
 
 def run_all_mocks():
+    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+    os.environ["AWS_ACCESS_KEY_ID"] = "test"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "test"
     mock_hosted_zones(ENDPOINT)
     mock_buckets(ENDPOINT)
     mock_tables(ENDPOINT)
