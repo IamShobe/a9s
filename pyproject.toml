@@ -16,7 +16,7 @@ homepage = "https://github.com/IamShobe/a9s"
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10,<3.12"
 blessed = "^1.18.0"
 colored = "^1.4.2"
 pyperclip = "^1.8.2"
@@ -24,10 +24,10 @@ cached-property = "^1.5.2"
 boto3 = "^1.17.87"
 attrdict = "^2.0.1"
 pydash = "^5.0.2"
+pyinstaller = "^5.11.0"
 
 [tool.poetry.dev-dependencies]
 ipdb = "^0.13.8"
-pyinstaller = "^4.3"
 moto = {extras = ["server"], version = "^2.0.10"}
 python-jose = "^3.3.0"
 Faker = "^8.9.0"
