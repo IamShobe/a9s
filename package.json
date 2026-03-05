@@ -1,0 +1,38 @@
+{
+  "name": "a9s",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "a9s": "./dist/index.js"
+  },
+  "scripts": {
+    "localstack:up": "docker compose -f docker/docker-compose.yml up -d",
+    "localstack:down": "docker compose -f docker/docker-compose.yml down",
+    "localstack:seed": "tsx scripts/seed.ts",
+    "localstack:setup": "pnpm localstack:up && sleep 3 && pnpm localstack:seed",
+    "dev:local": "AWS_ENDPOINT_URL=http://localhost:4566 AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test tsx src/index.tsx",
+    "dev": "tsx src/index.tsx",
+    "build": "tsc",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1002.0",
+    "@commander-js/extra-typings": "^14.0.0",
+    "clipboardy": "^5.3.1",
+    "commander": "^14.0.3",
+    "ink": "^6.8.0",
+    "ink-text-input": "^6.0.0",
+    "open": "^11.0.0",
+    "open-editor": "^6.0.0",
+    "react": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "@types/react": "^19.2.14",
+    "ink-testing-library": "^4.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

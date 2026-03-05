@@ -6,7 +6,15 @@ from typing import Callable
 import signal
 import pyperclip
 
-from tepy.components.keys import is_match, SEARCH_KEYS, COMMAND_KEYS, ENTER_KEYS, DELETE_KEYS, PASTE_KEYS, BACK_KEYS
+from tepy.components.keys import (
+    is_match,
+    SEARCH_KEYS,
+    COMMAND_KEYS,
+    ENTER_KEYS,
+    DELETE_KEYS,
+    PASTE_KEYS,
+    BACK_KEYS,
+)
 from tepy.components.renderer import ScrollableRenderer
 from tepy.widgets.help import Help
 from a9s.aws_resources.logo import Logo
@@ -39,22 +47,37 @@ class MainApp(App):
         self.loader = Loader()
         self.auto_complete = AutoComplete(commands=self.commands)
 
-        super(MainApp, self).__init__([
-            self.logo, self.services_selector, self.mode_renderer, self.auto_complete, logger, self.hud, self.help,
-            self.loader,
-        ])
-        self.context_stack = [Context(mode=KeyMode.Navigation, focused=lambda: self.services_selector.current_service)]
+        super(MainApp, self).__init__(
+            [
+                self.logo,
+                self.services_selector,
+                self.mode_renderer,
+                self.auto_complete,
+                logger,
+                self.hud,
+                self.help,
+                self.loader,
+            ]
+        )
+        self.context_stack = [
+            Context(
+                mode=KeyMode.Navigation,
+                focused=lambda: self.services_selector.current_service,
+            )
+        ]
 
     @property
     def commands(self):
         base_commands = {
-            'debug': self.on_debug_command,
-            'hideDebug': self.on_hide_debug_command,
-            'quit': self.on_quit_command,
+            "debug": self.on_debug_command,
+            "hideDebug": self.on_hide_debug_command,
+            "quit": self.on_quit_command,
         }
 
         for service_name in self.services_selector.services.keys():
-            base_commands[service_name] = partial(self.services_selector.set_service, service_name)
+            base_commands[service_name] = partial(
+                self.services_selector.set_service, service_name
+            )
 
         return base_commands
 
@@ -84,8 +107,12 @@ class MainApp(App):
         self.loader.set_pos(x=self.term.width - 1, y=9, to_x=self.term.width)
         self.mode_renderer.set_pos(x=0, y=self.term.height - 1, to_x=10)
         self.auto_complete.set_pos(x=11, y=self.term.height - 1, to_x=self.term.width)
-        self.services_selector.set_pos(x=0, y=10, to_x=self.term.width, to_y=self.term.height - 1)
-        logger.set_pos(x=max(self.term.width - 40, 0), y=0, to_x=self.term.width, to_y=10)
+        self.services_selector.set_pos(
+            x=0, y=10, to_x=self.term.width, to_y=self.term.height - 1
+        )
+        logger.set_pos(
+            x=max(self.term.width - 40, 0), y=0, to_x=self.term.width, to_y=10
+        )
 
         super(MainApp, self).on_resize()
 
@@ -108,10 +135,14 @@ class MainApp(App):
                     logger.debug("Popping context")
 
             if is_match(key, SEARCH_KEYS):
-                self.context_stack.append(Context(mode=KeyMode.Search, focused=current_context.focused))
+                self.context_stack.append(
+                    Context(mode=KeyMode.Search, focused=current_context.focused)
+                )
                 logger.debug("Switching to Search mode")
             elif is_match(key, COMMAND_KEYS):
-                self.context_stack.append(Context(mode=KeyMode.Command, focused=current_context.focused))
+                self.context_stack.append(
+                    Context(mode=KeyMode.Command, focused=current_context.focused)
+                )
                 logger.debug("Switching to Command mode")
 
             if is_match(key, SEARCH_KEYS, COMMAND_KEYS):
@@ -123,7 +154,9 @@ class MainApp(App):
                 logger.debug("Popping context and switching to Navigate mode")
 
             if is_match(key, PASTE_KEYS):
-                self.auto_complete.text += pyperclip.paste().replace("\n", "").replace("\r", "")
+                self.auto_complete.text += (
+                    pyperclip.paste().replace("\n", "").replace("\r", "")
+                )
 
             elif is_match(key, DELETE_KEYS):
                 self.auto_complete.delete_char()
@@ -162,5 +195,5 @@ def main():
     asyncio.run(app.run())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
