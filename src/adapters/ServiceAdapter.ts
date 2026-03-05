@@ -19,4 +19,6 @@ export interface ServiceAdapter {
   getContextLabel?(): string; // e.g., "🪣 Buckets" or "📦 Objects"
   uploadFile?(filePath: string, metadata: Record<string, unknown>): Promise<void>; // Upload edited file
   getDetails?(row: TableRow): Promise<DetailField[]>; // Get detail fields for a row
+  fetchTo?(row: TableRow, destinationPath: string, overwrite?: boolean): Promise<string>; // Download object to destination path
+  jumpTo?(target: string): Promise<void>; // Jump to logical location (service-specific)
 }

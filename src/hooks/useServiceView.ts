@@ -35,7 +35,7 @@ async function openFile(filePath: string): Promise<void> {
   }
 }
 
-export function useServiceView(adapter: ServiceAdapter) {
+export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
   const [rows, setRows] = useState<TableRow[]>([]);
   const [columns, setColumns] = useState<ColumnDef[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,7 +58,7 @@ export function useServiceView(adapter: ServiceAdapter) {
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, navKey]);
 
   const select = useCallback(
     async (row: TableRow) => {

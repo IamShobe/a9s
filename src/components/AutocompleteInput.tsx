@@ -1,6 +1,6 @@
-import React, { useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Box, Text } from 'ink';
-import TextInput from 'ink-text-input';
+import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { Box, Text } from "ink";
+import TextInput from "ink-text-input";
 
 export interface AutocompleteInputHandle {
   autocomplete: () => void;
@@ -10,12 +10,16 @@ interface AutocompleteInputProps {
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;
-  placeholder?: string;
+  placeholder: string;
   suggestions?: string[];
   focus?: boolean;
+  cursorToEndToken?: number;
 }
 
-export const AutocompleteInput = React.forwardRef<AutocompleteInputHandle, AutocompleteInputProps>(
+export const AutocompleteInput = React.forwardRef<
+  AutocompleteInputHandle,
+  AutocompleteInputProps
+>(
   (
     {
       value,
@@ -24,18 +28,21 @@ export const AutocompleteInput = React.forwardRef<AutocompleteInputHandle, Autoc
       placeholder,
       suggestions = [],
       focus = true,
+      cursorToEndToken,
     },
-    ref
+    ref,
   ) => {
     const [inputKey, setInputKey] = useState(0);
 
     const matchingSuggestions = useMemo(() => {
       if (!value || suggestions.length === 0) return [];
-      return suggestions.filter((s) => s.toLowerCase().startsWith(value.toLowerCase()));
+      return suggestions.filter((s) =>
+        s.toLowerCase().startsWith(value.toLowerCase()),
+      );
     }, [value, suggestions]);
 
     const firstMatch = matchingSuggestions[0];
-    const suggestion = firstMatch ? firstMatch.slice(value.length) : '';
+    const suggestion = firstMatch ? firstMatch.slice(value.length) : "";
 
     useImperativeHandle(ref, () => ({
       autocomplete: () => {
@@ -47,6 +54,11 @@ export const AutocompleteInput = React.forwardRef<AutocompleteInputHandle, Autoc
       },
     }));
 
+    useEffect(() => {
+      if (cursorToEndToken === undefined) return;
+      setInputKey((k) => k + 1);
+    }, [cursorToEndToken]);
+
     return (
       <Box>
         <TextInput
@@ -57,8 +69,12 @@ export const AutocompleteInput = React.forwardRef<AutocompleteInputHandle, Autoc
           placeholder={placeholder}
           focus={focus}
         />
-        {suggestion && <Text color="gray" dimColor>{suggestion}</Text>}
+        {suggestion && (
+          <Text color="gray" dimColor>
+            {suggestion}
+          </Text>
+        )}
       </Box>
     );
-  }
+  },
 );

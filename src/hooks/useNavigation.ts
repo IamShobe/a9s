@@ -28,6 +28,24 @@ export function useNavigation(rowCount: number, maxVisible: number) {
     setState({ selectedIndex: 0, scrollOffset: 0 });
   }, []);
 
+  const setIndex = useCallback((index: number) => {
+    setState(() => {
+      const next = Math.max(0, Math.min(Math.max(0, rowCount - 1), index));
+      const off = Math.max(0, next - Math.max(0, maxVisible - 1));
+      return { selectedIndex: next, scrollOffset: off };
+    });
+  }, [rowCount, maxVisible]);
+
+  const toTop = useCallback(() => {
+    setState({ selectedIndex: 0, scrollOffset: 0 });
+  }, []);
+
+  const toBottom = useCallback(() => {
+    const lastIndex = Math.max(0, rowCount - 1);
+    const bottomOffset = Math.max(0, rowCount - maxVisible);
+    setState({ selectedIndex: lastIndex, scrollOffset: bottomOffset });
+  }, [rowCount, maxVisible]);
+
   const clampedIndex = Math.min(state.selectedIndex, Math.max(0, rowCount - 1));
-  return { selectedIndex: clampedIndex, scrollOffset: state.scrollOffset, moveUp, moveDown, reset };
+  return { selectedIndex: clampedIndex, scrollOffset: state.scrollOffset, moveUp, moveDown, reset, setIndex, toTop, toBottom };
 }
