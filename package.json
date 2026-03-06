@@ -40,7 +40,10 @@
     "format": "oxfmt --write",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "release:create-pr": "scripts/create-pr.sh",
+    "release:merge-if-ci-passes": "scripts/merge-if-ci-passes.sh",
+    "release:draft": "scripts/release-draft.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1002.0",
