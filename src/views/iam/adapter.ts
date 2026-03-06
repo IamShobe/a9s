@@ -257,7 +257,7 @@ export function createIamServiceAdapter(): ServiceAdapter {
   // Compose capabilities
   const editCapability = createIamEditCapability(getLevel);
   const detailCapability = createIamDetailCapability(getLevel);
-  const yankCapability = createIamYankCapability(getLevel);
+  const yankCapability = createIamYankCapability();
 
   return {
     id: "iam",

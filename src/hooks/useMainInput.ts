@@ -12,7 +12,7 @@ import type { HelpPanelState } from "./useHelpPanel.js";
 import type { YankFeedback } from "./useYankMode.js";
 import { KEYBINDINGS } from "../constants/keybindings.js";
 import { KB } from "../constants/keys.js";
-import { useKeyChord } from "./useKeyChord.js";
+import { useKeyChord, matchesTrigger } from "./useKeyChord.js";
 import { AVAILABLE_COMMANDS } from "../constants/commands.js";
 import type { ServiceId } from "../services.js";
 
@@ -299,14 +299,11 @@ export function useMainInput(state: MainInputState, handlers: MainInputHandlers)
         if (!selectedRow) return;
         if (key.escape) {
           setYankMode(false);
-        } else if (input === "n") {
-          setYankMode(false);
-          void clipboardy.write(selectedRow.cells.name ?? "").then(() => pushYankFeedback("Copied Name"));
         } else {
-          const option = yankOptions.find((o) => o.key === input && o.key !== "Esc");
-          if (option && adapter.capabilities?.yank) {
+          const option = yankOptions.find((o) => matchesTrigger(input, key, o.trigger));
+          if (option) {
             setYankMode(false);
-            void adapter.capabilities.yank.getClipboardValue(selectedRow, input).then((value) => {
+            void option.resolve(selectedRow).then((value) => {
               if (value) void clipboardy.write(value).then(() => pushYankFeedback(option.feedback));
             });
           }

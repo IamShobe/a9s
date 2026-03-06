@@ -24,7 +24,7 @@ import type { TableRow } from "./types.js";
 import type { ServiceAdapter } from "./adapters/ServiceAdapter.js";
 import type { ActionEffect } from "./adapters/capabilities/ActionCapability.js";
 import { COMMAND_MODE_HINT } from "./constants/commands.js";
-import { buildHelpTabs, buildScopeHint } from "./constants/keybindings.js";
+import { buildHelpTabs, buildScopeHint, triggerToString } from "./constants/keybindings.js";
 import {
   currentlySelectedServiceAtom,
   modeAtom,
@@ -143,15 +143,30 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   const selectedRow = filteredRows[selectedIndex] ?? null;
 
+  // -------------------------------------------------------------------------
+  // Base yank option (available in all adapters)
+  // -------------------------------------------------------------------------
+
+  const nameOption = {
+    trigger: { type: "key" as const, char: "n" },
+    label: "copy name",
+    feedback: "Copied Name",
+    isRelevant: () => true, // Always available
+    resolve: async (row: TableRow) => row.cells.name ?? null,
+  };
+
   const yankOptions = useMemo(() => {
-    const base = [{ key: "n", label: "copy name", feedback: "Copied Name" }];
-    if (!selectedRow) return [...base, { key: "Esc", label: "cancel", feedback: "" }];
-    const adapterOptions = adapter.capabilities?.yank?.getYankOptions(selectedRow) ?? [];
-    return [...base, ...adapterOptions, { key: "Esc", label: "cancel", feedback: "" }];
+    const adapterOptions = selectedRow
+      ? adapter.capabilities?.yank?.getYankOptions(selectedRow) ?? []
+      : [];
+    return [nameOption, ...adapterOptions];
   }, [adapter, selectedRow]);
 
   const yankHint = useMemo(
-    () => yankOptions.map((item) => `${item.key} · ${item.label}`).join(" • "),
+    () => [
+      ...yankOptions.map((o) => `${triggerToString(o.trigger)} · ${o.label}`),
+      "Esc cancel",
+    ].join(" • "),
     [yankOptions],
   );
 

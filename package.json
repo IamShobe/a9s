@@ -26,7 +26,8 @@
     "jotai": "^2.18.0",
     "open": "^11.0.0",
     "open-editor": "^6.0.0",
-    "react": "^19.2.4"
+    "react": "^19.2.4",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",

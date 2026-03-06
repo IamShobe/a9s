@@ -163,10 +163,10 @@ export function createS3ServiceAdapter(
   // Compose capabilities
   const detailCapability = createS3DetailCapability(client, getLevel);
   const editCapability = createS3EditCapability(client, getLevel);
-  const yankCapability = createS3YankCapability(
+  const yankCapability = createS3YankCapability({
     getLevel,
-    detailCapability.getDetails,
-  );
+    getDetails: detailCapability.getDetails,
+  });
   const actionCapability = createS3ActionCapability(
     client,
     getLevel,
