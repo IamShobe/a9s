@@ -14,6 +14,7 @@ export interface YankOptionDef<TMeta, TCtx extends object = Record<string, never
   trigger: KeyTrigger;
   label: string;
   feedback: string;
+  headerKey?: string;
   isRelevant(row: ParsedRow<TMeta>): boolean;
   resolve(row: ParsedRow<TMeta>, ctx: TCtx): Promise<string | null>;
 }
@@ -23,6 +24,7 @@ export interface YankOption {
   trigger: KeyTrigger;
   label: string;
   feedback: string;
+  headerKey?: string;
   isRelevant(row: TableRow): boolean;
   resolve(row: TableRow): Promise<string | null>;
 }
@@ -53,20 +55,26 @@ export function createYankCapability<TMeta, TCtx extends object = Record<string,
 
       return options
         .filter((def) => def.isRelevant(typedRow))
-        .map((def) => ({
-          trigger: def.trigger,
-          label: def.label,
-          feedback: def.feedback,
-          isRelevant: (r: TableRow): boolean => {
-            const tr = parse(r);
-            return tr !== null && def.isRelevant(tr);
-          },
-          resolve: (r: TableRow): Promise<string | null> => {
-            const tr = parse(r);
-            if (!tr) return Promise.resolve(null);
-            return def.resolve(tr, ctx);
-          },
-        }));
+        .map((def) => {
+          const option: YankOption = {
+            trigger: def.trigger,
+            label: def.label,
+            feedback: def.feedback,
+            isRelevant: (r: TableRow): boolean => {
+              const tr = parse(r);
+              return tr !== null && def.isRelevant(tr);
+            },
+            resolve: (r: TableRow): Promise<string | null> => {
+              const tr = parse(r);
+              if (!tr) return Promise.resolve(null);
+              return def.resolve(tr, ctx);
+            },
+          };
+          if (def.headerKey !== undefined) {
+            option.headerKey = def.headerKey;
+          }
+          return option;
+        });
     },
   };
 }

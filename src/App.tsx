@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Text, useApp } from "ink";
 import { useAtom } from "jotai";
-import TextInput from "ink-text-input";
 import clipboardy from "clipboardy";
 
 import { HUD } from "./components/HUD.js";
 import { ModeBar } from "./components/ModeBar.js";
+import { AdvancedTextInput } from "./components/AdvancedTextInput.js";
 import { FullscreenBox, useScreenSize } from "./utils/withFullscreen.js";
 import { useHelpPanel } from "./hooks/useHelpPanel.js";
 import { useAwsContext } from "./hooks/useAwsContext.js";
@@ -20,6 +20,7 @@ import { useDetailController } from "./hooks/useDetailController.js";
 import { useActionController } from "./hooks/useActionController.js";
 import { useUiHints } from "./hooks/useUiHints.js";
 import { useAppData } from "./hooks/useAppData.js";
+import { deriveYankHeaderMarkers } from "./hooks/yankHeaderMarkers.js";
 import { AppMainView } from "./features/AppMainView.js";
 import type { ServiceId } from "./services.js";
 import type { ServiceViewResult, TableRow } from "./types.js";
@@ -203,6 +204,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
     trigger: { type: "key" as const, char: "n" },
     label: "copy name",
     feedback: "Copied Name",
+    headerKey: "name",
     isRelevant: () => true,
     resolve: async (row: TableRow) => row.cells.name ?? null,
   };
@@ -217,6 +219,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const yankHint = useMemo(
     () => [...yankOptions.map((o) => `${triggerToString(o.trigger)} · ${o.label}`), "Esc cancel"].join(" • "),
     [yankOptions],
+  );
+  const yankHeaderMarkers = useMemo(
+    () => deriveYankHeaderMarkers(state.yankMode, yankOptions),
+    [state.yankMode, yankOptions],
   );
 
   const { bottomHint } = useUiHints({
@@ -308,6 +314,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       commandText: state.commandText,
       searchEntryFilter: state.searchEntryFilter,
       yankMode: state.yankMode,
+      yankHelpOpen: state.yankHelpOpen,
       selectedRow,
       helpOpen: helpPanel.helpOpen,
       pickerMode: pickers.activePicker?.pickerMode ?? null,
@@ -386,8 +393,20 @@ export function App({ initialService, endpointUrl }: AppProps) {
         enter: navigateIntoSelection,
       },
       yank: {
-        enter: () => actions.setYankMode(true),
-        cancel: () => actions.setYankMode(false),
+        enter: () => {
+          actions.setYankMode(true);
+          actions.setYankHelpOpen(false);
+        },
+        cancel: () => {
+          actions.setYankMode(false);
+          actions.setYankHelpOpen(false);
+        },
+        openHelp: () => {
+          actions.setYankHelpOpen(true);
+        },
+        closeHelp: () => {
+          actions.setYankHelpOpen(false);
+        },
       },
       details: {
         close: closeDetails,
@@ -446,6 +465,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
             adapter={adapter}
             termCols={termCols}
             tableHeight={tableHeight}
+            yankHelpOpen={state.yankHelpOpen}
+            yankOptions={yankOptions}
+            yankHelpRow={selectedRow}
+            {...(yankHeaderMarkers ? { headerMarkers: yankHeaderMarkers } : {})}
           />
         </Box>
         {!helpPanel.helpOpen && state.yankFeedbackMessage && (
@@ -456,7 +479,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
         {state.pendingAction && state.pendingAction.effect.type === "prompt" && (
           <Box paddingX={1}>
             <Text color="cyan">{state.pendingAction.effect.label} </Text>
-            <TextInput
+            <AdvancedTextInput
               value={state.pendingAction.inputValue}
               onChange={(value) => actions.setPendingInputValue(value)}
               onSubmit={() => submitPendingAction(state.pendingAction, true)}

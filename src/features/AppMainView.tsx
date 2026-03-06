@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text } from "ink";
 import { Table } from "../components/Table/index.js";
 import { HelpPanel } from "../components/HelpPanel.js";
+import { YankHelpPanel } from "../components/YankHelpPanel.js";
 import { DetailPanel } from "../components/DetailPanel.js";
 import { ErrorStatePanel } from "../components/ErrorStatePanel.js";
 import { TableSkeleton } from "../components/TableSkeleton.js";
@@ -11,6 +12,7 @@ import type { PickerManager } from "../hooks/usePickerManager.js";
 import type { ServiceAdapter } from "../adapters/ServiceAdapter.js";
 import type { DetailField } from "../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow } from "../types.js";
+import type { YankOption } from "../adapters/capabilities/YankCapability.js";
 
 interface AppMainViewProps {
   helpPanel: HelpPanelState;
@@ -31,6 +33,10 @@ interface AppMainViewProps {
   adapter: ServiceAdapter;
   termCols: number;
   tableHeight: number;
+  headerMarkers?: Record<string, string[]>;
+  yankHelpOpen: boolean;
+  yankOptions: YankOption[];
+  yankHelpRow: TableRow | null;
 }
 
 export function AppMainView({
@@ -48,6 +54,10 @@ export function AppMainView({
   adapter,
   termCols,
   tableHeight,
+  headerMarkers,
+  yankHelpOpen,
+  yankOptions,
+  yankHelpRow,
 }: AppMainViewProps) {
   if (helpPanel.helpOpen) {
     return (
@@ -78,6 +88,14 @@ export function AppMainView({
         scrollOffset={ap.scrollOffset}
         contextLabel={ap.contextLabel}
       />
+    );
+  }
+
+  if (yankHelpOpen) {
+    return (
+      <Box width="100%" borderStyle="round" borderColor="cyan">
+        <YankHelpPanel options={yankOptions} row={yankHelpRow} />
+      </Box>
     );
   }
 
@@ -124,6 +142,7 @@ export function AppMainView({
       maxHeight={tableHeight}
       scrollOffset={scrollOffset}
       contextLabel={adapter.getContextLabel?.() ?? ""}
+      {...(headerMarkers ? { headerMarkers } : {})}
     />
   );
 }

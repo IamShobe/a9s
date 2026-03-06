@@ -1,6 +1,6 @@
 import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Box, Text } from "ink";
-import TextInput from "ink-text-input";
+import { AdvancedTextInput } from "./AdvancedTextInput.js";
 
 export interface AutocompleteInputHandle {
   autocomplete: () => void;
@@ -61,13 +61,14 @@ export const AutocompleteInput = React.forwardRef<
 
     return (
       <Box>
-        <TextInput
+        <AdvancedTextInput
           key={`autocomplete-input-${inputKey}`}
           value={value}
           onChange={onChange}
           onSubmit={onSubmit}
           placeholder={placeholder}
           focus={focus}
+          {...(cursorToEndToken !== undefined ? { cursorToEndToken } : {})}
         />
         {suggestion && (
           <Text color="gray" dimColor>

@@ -29,6 +29,15 @@ export function useHelpPanel(helpTabs: HelpTab[], helpContainerHeight: number) {
     setHelpOpen(true);
   }, []);
 
+  const openAtTab = useCallback(
+    (idx: number) => {
+      setHelpScrollOffset(0);
+      setHelpTabIndex(clampTab(idx));
+      setHelpOpen(true);
+    },
+    [clampTab],
+  );
+
   const close = useCallback(() => setHelpOpen(false), []);
 
   const scrollUp = useCallback(
@@ -73,6 +82,7 @@ export function useHelpPanel(helpTabs: HelpTab[], helpContainerHeight: number) {
     helpScrollOffset,
     helpVisibleRows,
     open,
+    openAtTab,
     close,
     scrollUp,
     scrollDown,

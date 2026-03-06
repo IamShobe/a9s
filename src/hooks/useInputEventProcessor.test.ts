@@ -35,6 +35,7 @@ const baseRuntime: InputRuntimeState = {
   commandText: "",
   searchEntryFilter: null,
   yankMode: false,
+  yankHelpOpen: false,
   selectedRow: null,
   helpOpen: false,
   pickerMode: null,
@@ -87,6 +88,22 @@ describe("translateRawInputEvent", () => {
     );
 
     expect(yes.event).toEqual({ scope: "pending", type: "submit", confirmed: true });
+  });
+
+  it("maps y ? to yank help when yank mode is active", () => {
+    const result = translateRawInputEvent(
+      "?",
+      key(),
+      { ...baseRuntime, yankMode: true, selectedRow: { id: "r1", cells: { name: "x" } } },
+      {
+        resolve: () => null,
+        hasCommandAutocomplete: () => false,
+      },
+    );
+    expect(result).toEqual({
+      event: { scope: "modal", type: "openYankHelp" },
+      resetChord: true,
+    });
   });
 });
 
@@ -163,6 +180,8 @@ describe("applyInputEvent", () => {
       yank: {
         enter: vi.fn(),
         cancel: vi.fn(),
+        openHelp: vi.fn(),
+        closeHelp: vi.fn(),
       },
       details: {
         close: vi.fn(),
@@ -185,5 +204,8 @@ describe("applyInputEvent", () => {
 
     applyInputEvent({ scope: "modal", type: "openHelp" }, actions);
     expect(actions.help.open).toHaveBeenCalledTimes(1);
+
+    applyInputEvent({ scope: "modal", type: "openYankHelp" }, actions);
+    expect(actions.yank.openHelp).toHaveBeenCalledTimes(1);
   });
 });

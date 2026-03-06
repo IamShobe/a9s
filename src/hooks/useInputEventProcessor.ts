@@ -55,6 +55,8 @@ export interface InputEventActions {
   yank: {
     enter: () => void;
     cancel: () => void;
+    openHelp: () => void;
+    closeHelp: () => void;
   };
   details: {
     close: () => void;
@@ -198,6 +200,9 @@ export function translateRawInputEvent(
   if (runtime.yankMode) {
     if (!runtime.selectedRow) {
       return { event: null, resetChord: true };
+    }
+    if (input === "?") {
+      return { event: { scope: "modal", type: "openYankHelp" }, resetChord: true };
     }
     if (key.escape) {
       return { event: { scope: "modal", type: "cancelYank" }, resetChord: true };
@@ -376,6 +381,12 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
         case "openHelp":
           actions.help.open();
           return;
+        case "openYankHelp":
+          actions.yank.openHelp();
+          return;
+        case "closeYankHelp":
+          actions.yank.closeHelp();
+          return;
         case "closeDetails":
           actions.details.close();
           return;
@@ -471,6 +482,7 @@ export function useInputEventProcessor({
 }: UseInputEventProcessorArgs): InputDispatcher {
   const { resolve, reset } = useKeyChord(KEYBINDINGS);
   const adapterPendingRef = useRef<string[]>([]);
+  const pendingYankHelpRef = useRef(false);
 
   const resetAllChords = useCallback(() => {
     reset();
@@ -480,9 +492,33 @@ export function useInputEventProcessor({
   return useCallback(
     (event: InputEvent) => {
       if (event.scope === "raw") {
+        // Support fast "y ?" combo even before yankMode state is committed.
+        if (pendingYankHelpRef.current) {
+          if (event.input === "?") {
+            pendingYankHelpRef.current = false;
+            resetAllChords();
+            actions.yank.openHelp();
+            return;
+          }
+          pendingYankHelpRef.current = false;
+        }
+
+        if (runtime.yankHelpOpen) {
+          if (event.input === "?" || event.key.escape) {
+            resetAllChords();
+            actions.yank.closeHelp();
+          }
+          return;
+        }
+
         if (runtime.yankMode) {
           if (!runtime.selectedRow) {
             resetAllChords();
+            return;
+          }
+          if (event.input === "?") {
+            resetAllChords();
+            actions.yank.openHelp();
             return;
           }
           if (event.key.escape) {
@@ -511,6 +547,9 @@ export function useInputEventProcessor({
           resetAllChords();
         }
         if (translated.event) {
+          if (translated.event.scope === "navigation" && translated.event.type === "enterYank") {
+            pendingYankHelpRef.current = true;
+          }
           applyInputEvent(translated.event, actions);
           return;
         }

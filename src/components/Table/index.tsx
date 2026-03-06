@@ -22,10 +22,18 @@ interface TableProps {
   maxHeight: number;
   scrollOffset: number;
   contextLabel?: string;
+  headerMarkers?: Record<string, string[]>;
 }
 
 function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str.padEnd(maxLen);
+  return str.slice(0, maxLen - 1) + "…";
+}
+
+function truncateNoPad(str: string, maxLen: number): string {
+  if (maxLen <= 0) return "";
+  if (str.length <= maxLen) return str;
+  if (maxLen === 1) return "…";
   return str.slice(0, maxLen - 1) + "…";
 }
 
@@ -117,6 +125,7 @@ export const Table = React.memo(function Table({
   maxHeight,
   scrollOffset,
   contextLabel,
+  headerMarkers,
 }: TableProps) {
   // Memoize column widths computation
   const colWidths = useMemo(
@@ -138,11 +147,50 @@ export const Table = React.memo(function Table({
             │{" "}
           </Text>,
         );
+      const width = colWidths[i]!;
+      const markers = headerMarkers?.[col.key] ?? [];
+      const markerText = markers.length > 0 ? ` [${markers.join(",")}]` : "";
+
+      if (!markerText) {
+        parts.push(
+          <Text key={col.key} bold color={COLORS.headerText}>
+            {truncate(col.label, width)}
+          </Text>,
+        );
+        return;
+      }
+
+      if (markerText.length >= width) {
+        const markerDisplay = truncate(markerText, width);
+        parts.push(
+          <Text key={`${col.key}-markers-only`} color="cyan">
+            {markerDisplay}
+          </Text>,
+        );
+        return;
+      }
+
+      const labelMax = width - markerText.length;
+      const labelDisplay = truncateNoPad(col.label, labelMax);
+      const trailingPadLen = Math.max(0, width - (labelDisplay.length + markerText.length));
+
       parts.push(
-        <Text key={col.key} bold color={COLORS.headerText}>
-          {truncate(col.label, colWidths[i]!)}
+        <Text key={`${col.key}-label`} bold color={COLORS.headerText}>
+          {labelDisplay}
         </Text>,
       );
+      parts.push(
+        <Text key={`${col.key}-markers`} color="cyan">
+          {markerText}
+        </Text>,
+      );
+      if (trailingPadLen > 0) {
+        parts.push(
+          <Text key={`${col.key}-pad`} color={COLORS.headerText}>
+            {" ".repeat(trailingPadLen)}
+          </Text>,
+        );
+      }
     });
     return <Box>{parts}</Box>;
   };

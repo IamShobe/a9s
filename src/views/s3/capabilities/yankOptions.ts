@@ -10,6 +10,7 @@ export const s3YankOptions: YankOptionDef<S3RowMeta, S3YankCtx>[] = [
     trigger: { type: "key", char: "k" },
     label: "copy key/path",
     feedback: "Copied Key",
+    headerKey: "name",
     isRelevant: isS3Navigable,
     resolve: async (row, ctx) => {
       const level = ctx.getLevel();
@@ -22,6 +23,7 @@ export const s3YankOptions: YankOptionDef<S3RowMeta, S3YankCtx>[] = [
     trigger: { type: "key", char: "a" },
     label: "copy arn",
     feedback: "Copied ARN",
+    headerKey: "name",
     isRelevant: isS3Navigable,
     resolve: async (row, ctx) => {
       const level = ctx.getLevel();
@@ -34,6 +36,7 @@ export const s3YankOptions: YankOptionDef<S3RowMeta, S3YankCtx>[] = [
     trigger: { type: "key", char: "e" },
     label: "copy etag",
     feedback: "Copied ETag",
+    headerKey: "name",
     isRelevant: (row) => row.meta.type === "object",
     resolve: async (row, ctx) => {
       const fields = await ctx.getDetails(row);
@@ -45,6 +48,7 @@ export const s3YankOptions: YankOptionDef<S3RowMeta, S3YankCtx>[] = [
     trigger: { type: "key", char: "d" },
     label: "copy last-modified",
     feedback: "Copied Last Modified",
+    headerKey: "lastModified",
     isRelevant: (row) => row.meta.type === "object",
     resolve: async (row, ctx) => {
       const fields = await ctx.getDetails(row);

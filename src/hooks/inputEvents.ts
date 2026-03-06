@@ -7,6 +7,7 @@ export interface InputRuntimeState {
   commandText: string;
   searchEntryFilter: string | null;
   yankMode: boolean;
+  yankHelpOpen: boolean;
   selectedRow: TableRow | null;
   helpOpen: boolean;
   pickerMode: "navigate" | "search" | null;
@@ -21,7 +22,10 @@ export type InputEvent =
   | { scope: "help"; type: "close" | "prevTab" | "nextTab" | "scrollUp" | "scrollDown" }
   | { scope: "help"; type: "goToTab"; input: string }
   | { scope: "picker"; type: "close" | "cancelSearch" | "startSearch" | "down" | "up" | "top" | "bottom" | "confirm" }
-  | { scope: "modal"; type: "openHelp" | "closeDetails" | "cancelYank" | "cancelPendingPrompt" }
+  | {
+      scope: "modal";
+      type: "openHelp" | "openYankHelp" | "closeYankHelp" | "closeDetails" | "cancelYank" | "cancelPendingPrompt";
+    }
   | { scope: "pending"; type: "submit"; confirmed: boolean }
   | { scope: "upload"; type: "decision"; confirmed: boolean }
   | { scope: "mode"; type: "cancelSearchOrCommand" | "clearFilterOrNavigateBack" | "startSearch" | "startCommand" | "commandAutocomplete" }

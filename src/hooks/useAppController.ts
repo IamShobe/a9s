@@ -23,6 +23,7 @@ export interface AppControllerState {
   searchEntryFilter: string | null;
   commandCursorToEndToken: number;
   yankMode: boolean;
+  yankHelpOpen: boolean;
   yankFeedbackMessage: string | null;
   uploadPending: UploadPending | null;
   describeState: DescribeState | null;
@@ -36,6 +37,7 @@ type AppControllerAction =
   | { type: "setSearchEntryFilter"; value: string | null }
   | { type: "bumpCommandCursorToEnd" }
   | { type: "setYankMode"; value: boolean }
+  | { type: "setYankHelpOpen"; value: boolean }
   | { type: "setYankFeedback"; value: string | null }
   | { type: "setUploadPending"; value: UploadPending | null }
   | { type: "setDescribeState"; value: SetStateAction<DescribeState | null> }
@@ -49,6 +51,7 @@ export const initialAppControllerState: AppControllerState = {
   searchEntryFilter: null,
   commandCursorToEndToken: 0,
   yankMode: false,
+  yankHelpOpen: false,
   yankFeedbackMessage: null,
   uploadPending: null,
   describeState: null,
@@ -75,6 +78,8 @@ export function appControllerReducer(
       };
     case "setYankMode":
       return { ...state, yankMode: action.value };
+    case "setYankHelpOpen":
+      return { ...state, yankHelpOpen: action.value };
     case "setYankFeedback":
       return { ...state, yankFeedbackMessage: action.value };
     case "setUploadPending":
@@ -130,6 +135,7 @@ export function useAppController() {
         dispatch({ type: "setSearchEntryFilter", value }),
       bumpCommandCursorToEnd: () => dispatch({ type: "bumpCommandCursorToEnd" }),
       setYankMode: (value: boolean) => dispatch({ type: "setYankMode", value }),
+      setYankHelpOpen: (value: boolean) => dispatch({ type: "setYankHelpOpen", value }),
       setUploadPending: (value: UploadPending | null) =>
         dispatch({ type: "setUploadPending", value }),
       setDescribeState: (value: SetStateAction<DescribeState | null>) =>

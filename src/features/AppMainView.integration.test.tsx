@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render } from "ink-testing-library";
 import { AppMainView } from "./AppMainView.js";
 import type { PickerManager } from "../hooks/usePickerManager.js";
+import type { YankOption } from "../adapters/capabilities/YankCapability.js";
 
 function createPickerManager(active: PickerManager["activePicker"]): PickerManager {
   const noop = () => {};
@@ -50,6 +51,7 @@ const baseProps = {
     helpScrollOffset: 0,
     helpVisibleRows: 10,
     open: () => {},
+    openAtTab: () => {},
     close: () => {},
     scrollUp: () => {},
     scrollDown: () => {},
@@ -81,6 +83,9 @@ const baseProps = {
   },
   termCols: 120,
   tableHeight: 20,
+  yankHelpOpen: false,
+  yankOptions: [] as YankOption[],
+  yankHelpRow: null,
 };
 
 describe("AppMainView integration", () => {
@@ -130,5 +135,38 @@ describe("AppMainView integration", () => {
     );
 
     expect(lastFrame()).toContain("object-1");
+  });
+
+  it("renders yank header markers when provided", () => {
+    const { lastFrame } = render(
+      <AppMainView
+        {...baseProps}
+        headerMarkers={{ name: ["n", "k"] }}
+      />,
+    );
+
+    expect(lastFrame()).toContain("[n,k]");
+  });
+
+  it("renders lightweight yank help panel", () => {
+    const { lastFrame } = render(
+      <AppMainView
+        {...baseProps}
+        yankHelpOpen={true}
+        yankOptions={[
+          {
+            trigger: { type: "key", char: "n" },
+            label: "copy name",
+            feedback: "Copied",
+            isRelevant: () => true,
+            resolve: async () => "x",
+          },
+        ]}
+        yankHelpRow={{ id: "row", cells: { name: "item" } }}
+      />,
+    );
+
+    expect(lastFrame()).toContain("Yank Options");
+    expect(lastFrame()).toContain("copy name");
   });
 });
