@@ -1,8 +1,5 @@
-import { execFile } from "child_process";
-import { promisify } from "util";
 import { useEffect, useState } from "react";
-
-const execFileAsync = promisify(execFile);
+import { runAwsCli } from "../utils/aws.js";
 
 interface AwsContext {
   accountName: string;
@@ -14,18 +11,6 @@ interface AwsContext {
 
 const DEFAULT_REGION =
   process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "us-east-1";
-
-async function runAwsCli(args: string[], timeoutMs = 2000): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync("aws", args, {
-      timeout: timeoutMs,
-      env: process.env,
-    });
-    return stdout;
-  } catch {
-    return null;
-  }
-}
 
 export function useAwsContext(endpointUrl?: string, selectedRegion?: string, selectedProfile?: string): AwsContext {
   const explicitProfile =

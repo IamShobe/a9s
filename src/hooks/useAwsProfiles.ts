@@ -1,110 +1,52 @@
-import { execFile } from "child_process";
-import { promisify } from "util";
 import { useEffect, useState } from "react";
-
-const execFileAsync = promisify(execFile);
+import { runAwsCli } from "../utils/aws.js";
 
 export interface AwsProfileOption {
   name: string;
   description: string;
 }
 
-let cachedProfiles: AwsProfileOption[] | null = null;
-let pendingProfilesPromise: Promise<AwsProfileOption[]> | null = null;
-
-async function getProfileRegion(profile: string): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync(
-      "aws",
-      ["configure", "get", "region", "--profile", profile],
-      { timeout: 1500, env: process.env },
-    );
-    const region = stdout.trim();
-    return region || null;
-  } catch {
-    return null;
-  }
-}
+const DEFAULT_PROFILE: AwsProfileOption = {
+  name: "$default",
+  description: "use process credentials/environment",
+};
 
 async function fetchProfiles(): Promise<AwsProfileOption[]> {
-  try {
-    const { stdout } = await execFileAsync("aws", ["configure", "list-profiles"], {
-      timeout: 3000,
-      env: process.env,
-    });
+  const stdout = await runAwsCli(["configure", "list-profiles"], 3000);
+  if (!stdout) return [DEFAULT_PROFILE];
 
-    const profileNames = stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
+  const profileNames = stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 
-    if (profileNames.length > 0) {
-      const withMeta = await Promise.all(
-        profileNames.map(async (name) => {
-          const region = await getProfileRegion(name);
-          return {
-            name,
-            description: region ? `region: ${region}` : "region: not set",
-          };
-        }),
+  if (profileNames.length === 0) return [DEFAULT_PROFILE];
+
+  const withMeta = await Promise.all(
+    profileNames.map(async (name) => {
+      const region = await runAwsCli(
+        ["configure", "get", "region", "--profile", name],
+        1500,
       );
-      return withMeta;
-    }
-  } catch {
-    // ignore and fall through to fallback
-  }
+      return {
+        name,
+        description: region?.trim() ? `region: ${region.trim()}` : "region: not set",
+      };
+    }),
+  );
 
-  return [
-    {
-      name: "$default",
-      description: "use process credentials/environment",
-    },
-  ];
+  const hasDefault = withMeta.some((p) => p.name === "$default");
+  return hasDefault ? withMeta : [DEFAULT_PROFILE, ...withMeta];
 }
 
 export function useAwsProfiles(): AwsProfileOption[] {
-  const [profiles, setProfiles] = useState<AwsProfileOption[]>(
-    cachedProfiles ?? [],
-  );
+  const [profiles, setProfiles] = useState<AwsProfileOption[]>([]);
 
   useEffect(() => {
     let alive = true;
-
-    if (cachedProfiles) {
-      const hasDefault = cachedProfiles.some((p) => p.name === "$default");
-      setProfiles(
-        hasDefault
-          ? cachedProfiles
-          : [
-              { name: "$default", description: "use process credentials/environment" },
-              ...cachedProfiles,
-            ],
-      );
-      return () => {
-        alive = false;
-      };
-    }
-
-    if (!pendingProfilesPromise) {
-      pendingProfilesPromise = fetchProfiles().then((result) => {
-        cachedProfiles = result;
-        return result;
-      });
-    }
-
-    void pendingProfilesPromise.then((result) => {
-      if (!alive) return;
-      const hasDefault = result.some((p) => p.name === "$default");
-      const withDefault = hasDefault
-        ? result
-        : [
-            { name: "$default", description: "use process credentials/environment" },
-            ...result,
-          ];
-      setProfiles(withDefault);
-      cachedProfiles = withDefault;
+    void fetchProfiles().then((result) => {
+      if (alive) setProfiles(result);
     });
-
     return () => {
       alive = false;
     };

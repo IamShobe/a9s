@@ -1,11 +1,12 @@
-import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import type {
   ServiceAdapter,
   DetailField,
+  YankOption,
 } from "../../adapters/ServiceAdapter.js";
+import { runAwsJson } from "../../utils/aws.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 
 type IamLevel =
@@ -47,28 +48,14 @@ interface AwsAttachedPolicy {
   PolicyArn: string;
 }
 
-function runAwsJson<T>(args: string[]): T {
-  try {
-    const output = execFileSync("aws", [...args, "--output", "json"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    return JSON.parse(output) as T;
-  } catch (error) {
-    const message = (error as Error).message;
-    const isIamDisabled =
-      message.includes("Service 'iam' is not enabled") ||
-      message.includes("when calling the ListRoles operation");
-    const usingLocalstack = Boolean(process.env.AWS_ENDPOINT_URL);
+type IamRowMeta =
+  | { type: "menu"; kind: string; roleName?: string }
+  | { type: "role"; roleName: string; arn: string }
+  | { type: "inline-policy"; roleName: string; policyName: string }
+  | { type: "managed-policy"; policyArn: string; policyName: string };
 
-    if (isIamDisabled && usingLocalstack) {
-      throw new Error(
-        "IAM is not enabled in LocalStack. Add iam to SERVICES (for example: SERVICES=s3,iam,sts) and restart LocalStack.",
-      );
-    }
-
-    throw error;
-  }
+function getIamMeta(row: TableRow): IamRowMeta | undefined {
+  return row.meta as IamRowMeta | undefined;
 }
 
 function safeString(value: unknown): string {
@@ -240,32 +227,32 @@ export class IamServiceAdapter implements ServiceAdapter {
 
   async onSelect(row: TableRow): Promise<SelectResult> {
     const backStack = [...this.backStack, { level: this.level, selectedIndex: 0 }];
-    const kind = row.meta?.kind as string | undefined;
+    const meta = getIamMeta(row);
 
-    if (this.level.kind === "root" && kind === "roles") {
+    if (this.level.kind === "root" && meta?.type === "menu" && meta.kind === "roles") {
       this.backStack = backStack;
       this.level = { kind: "roles" };
       return { action: "navigate" };
     }
-    if (this.level.kind === "root" && kind === "policies") {
+    if (this.level.kind === "root" && meta?.type === "menu" && meta.kind === "policies") {
       this.backStack = backStack;
       this.level = { kind: "policies" };
       return { action: "navigate" };
     }
 
-    if (this.level.kind === "roles" && (row.meta?.type as string) === "role") {
+    if (this.level.kind === "roles" && meta?.type === "role") {
       this.backStack = backStack;
       this.level = { kind: "role-menu", roleName: row.id };
       return { action: "navigate" };
     }
 
-    if (this.level.kind === "role-menu" && kind === "role-inline-policies") {
+    if (this.level.kind === "role-menu" && meta?.type === "menu" && meta.kind === "role-inline-policies") {
       this.backStack = backStack;
       this.level = { kind: "role-inline-policies", roleName: this.level.roleName };
       return { action: "navigate" };
     }
 
-    if (this.level.kind === "role-menu" && kind === "role-attached-policies") {
+    if (this.level.kind === "role-menu" && meta?.type === "menu" && meta.kind === "role-attached-policies") {
       this.backStack = backStack;
       this.level = { kind: "role-attached-policies", roleName: this.level.roleName };
       return { action: "navigate" };
@@ -275,10 +262,10 @@ export class IamServiceAdapter implements ServiceAdapter {
   }
 
   async onEdit(row: TableRow): Promise<SelectResult> {
-    const type = row.meta?.type as string | undefined;
+    const meta = getIamMeta(row);
 
-    if (type === "role") {
-      const roleName = row.meta?.roleName as string;
+    if (meta?.type === "role") {
+      const roleName = meta.roleName;
       const roleData = runAwsJson<{ Role: AwsRole }>([
         "iam",
         "get-role",
@@ -293,9 +280,8 @@ export class IamServiceAdapter implements ServiceAdapter {
       return { action: "edit", filePath, metadata: {} };
     }
 
-    if (type === "inline-policy") {
-      const roleName = row.meta?.roleName as string;
-      const policyName = row.meta?.policyName as string;
+    if (meta?.type === "inline-policy") {
+      const { roleName, policyName } = meta;
       const data = runAwsJson<{ PolicyDocument?: unknown }>([
         "iam",
         "get-role-policy",
@@ -311,8 +297,8 @@ export class IamServiceAdapter implements ServiceAdapter {
       return { action: "edit", filePath, metadata: {} };
     }
 
-    if (type === "managed-policy") {
-      const policyArn = row.meta?.policyArn as string;
+    if (meta?.type === "managed-policy") {
+      const { policyArn, policyName } = meta;
       const policyMeta = runAwsJson<{ Policy: AwsManagedPolicy }>([
         "iam",
         "get-policy",
@@ -330,7 +316,7 @@ export class IamServiceAdapter implements ServiceAdapter {
         versionId,
       ]);
       const filePath = await writeTempJsonFile(
-        `${(row.meta?.policyName as string) || "policy"}-${versionId}`,
+        `${policyName || "policy"}-${versionId}`,
         policyVersion.PolicyVersion?.Document ?? {},
       );
       return { action: "edit", filePath, metadata: {} };
@@ -383,11 +369,28 @@ export class IamServiceAdapter implements ServiceAdapter {
     }
   }
 
-  async getDetails(row: TableRow): Promise<DetailField[]> {
-    const type = row.meta?.type as string | undefined;
+  getYankOptions(row: TableRow): YankOption[] {
+    const meta = getIamMeta(row);
+    if (meta?.type === "role" || meta?.type === "managed-policy") {
+      return [{ key: "a", label: "copy arn", feedback: "Copied ARN" }];
+    }
+    return [];
+  }
 
-    if (type === "role") {
-      const roleName = row.meta?.roleName as string;
+  async getClipboardValue(row: TableRow, yankKey: string): Promise<string | null> {
+    const meta = getIamMeta(row);
+    if (yankKey === "a") {
+      if (meta?.type === "role") return meta.arn;
+      if (meta?.type === "managed-policy") return meta.policyArn;
+    }
+    return null;
+  }
+
+  async getDetails(row: TableRow): Promise<DetailField[]> {
+    const meta = getIamMeta(row);
+
+    if (meta?.type === "role") {
+      const roleName = meta.roleName;
       const data = runAwsJson<{ Role: AwsRole }>([
         "iam",
         "get-role",
@@ -419,9 +422,8 @@ export class IamServiceAdapter implements ServiceAdapter {
       ];
     }
 
-    if (type === "inline-policy") {
-      const roleName = row.meta?.roleName as string;
-      const policyName = row.meta?.policyName as string;
+    if (meta?.type === "inline-policy") {
+      const { roleName, policyName } = meta;
       const data = runAwsJson<{ PolicyDocument?: unknown }>([
         "iam",
         "get-role-policy",
@@ -434,12 +436,12 @@ export class IamServiceAdapter implements ServiceAdapter {
         { label: "Name", value: policyName },
         { label: "Type", value: "Inline Policy" },
         { label: "Role", value: roleName },
-        { label: "Statements", value: safeString((data.PolicyDocument as any)?.Statement?.length ?? "-") },
+        { label: "Statements", value: safeString((data.PolicyDocument as Record<string, unknown>)?.["Statement"] as unknown) },
       ];
     }
 
-    if (type === "managed-policy") {
-      const policyArn = row.meta?.policyArn as string;
+    if (meta?.type === "managed-policy") {
+      const { policyArn } = meta;
       const data = runAwsJson<{ Policy: AwsManagedPolicy }>([
         "iam",
         "get-policy",
@@ -453,10 +455,7 @@ export class IamServiceAdapter implements ServiceAdapter {
         { label: "ARN", value: p.Arn },
         { label: "Path", value: p.Path ?? "/" },
         { label: "Description", value: p.Description ?? "-" },
-        {
-          label: "Default Version",
-          value: p.DefaultVersionId ?? "-",
-        },
+        { label: "Default Version", value: p.DefaultVersionId ?? "-" },
         {
           label: "Attachment Count",
           value: p.AttachmentCount !== undefined ? String(p.AttachmentCount) : "-",
@@ -469,7 +468,7 @@ export class IamServiceAdapter implements ServiceAdapter {
     const label = row.cells.name ?? row.id;
     return [
       { label: "Name", value: label },
-      { label: "Type", value: safeString(type ?? "Item") },
+      { label: "Type", value: safeString(meta?.type ?? "Item") },
     ];
   }
 }

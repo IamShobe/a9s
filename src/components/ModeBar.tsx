@@ -1,10 +1,11 @@
-import React, { useMemo, useRef } from "react";
+import React, { useRef } from "react";
 import { Box, Text } from "ink";
 import type { AppMode } from "../types.js";
 import {
   AutocompleteInput,
   type AutocompleteInputHandle,
 } from "./AutocompleteInput.js";
+import { AVAILABLE_COMMANDS } from "../constants/commands.js";
 
 interface ModeBarProps {
   mode: AppMode;
@@ -31,29 +32,6 @@ const MODE_COLORS: Record<AppMode, string> = {
   search: "blue",
   command: "blue",
 };
-
-const MODE_HINTS: Record<AppMode, string> = {
-  navigate:
-    " j/k ↑↓ move  •  Enter select  •  / search  •  : command  •  Esc/q back/quit",
-  search: " Type to filter  •  Esc cancel  •  Enter confirm",
-  command: " Commands: s3 route53 dynamodb iam quit  •  Esc cancel",
-};
-
-const AVAILABLE_COMMANDS = [
-  "s3",
-  "route53",
-  "dynamodb",
-  "iam",
-  "regions",
-  "profiles",
-  "resources",
-  "region",
-  "profile",
-  "use-region",
-  "use-profile",
-  "$default",
-  "quit",
-];
 
 export const ModeBar = React.forwardRef<
   {
@@ -94,7 +72,7 @@ export const ModeBar = React.forwardRef<
           </Text>
           <Text> </Text>
           {mode === "navigate" && (
-            <Text color="gray" wrap="truncate-end">{hintOverride ?? MODE_HINTS.navigate}</Text>
+            <Text color="gray" wrap="truncate-end">{hintOverride ?? ""}</Text>
           )}
           {mode === "search" && (
             <AutocompleteInput
@@ -113,7 +91,7 @@ export const ModeBar = React.forwardRef<
               onChange={onCommandChange}
               onSubmit={onCommandSubmit}
               placeholder={"Type a command"}
-              suggestions={AVAILABLE_COMMANDS}
+              suggestions={[...AVAILABLE_COMMANDS]}
               focus={mode === "command"}
               {...(commandCursorToEndToken !== undefined
                 ? { cursorToEndToken: commandCursorToEndToken }

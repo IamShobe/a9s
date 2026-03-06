@@ -5,6 +5,12 @@ export interface DetailField {
   value: string;
 }
 
+export interface YankOption {
+  key: string;
+  label: string;
+  feedback: string;
+}
+
 export interface ServiceAdapter {
   id: string;
   label: string;
@@ -22,4 +28,6 @@ export interface ServiceAdapter {
   getDetails?(row: TableRow): Promise<DetailField[]>; // Get detail fields for a row
   fetchTo?(row: TableRow, destinationPath: string, overwrite?: boolean): Promise<string>; // Download object to destination path
   jumpTo?(target: string): Promise<void>; // Jump to logical location (service-specific)
+  getYankOptions?(row: TableRow): YankOption[]; // Adapter-specific copy options (beyond "n" for name)
+  getClipboardValue?(row: TableRow, yankKey: string): Promise<string | null>; // Resolve value for a yank key
 }

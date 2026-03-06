@@ -10,13 +10,14 @@ import { HUD } from "./components/HUD.js";
 import { ModeBar } from "./components/ModeBar.js";
 import { DetailPanel } from "./components/DetailPanel.js";
 import { ErrorStatePanel } from "./components/ErrorStatePanel.js";
-import {
-  HelpPanel,
-  type HelpItem,
-  type HelpTab,
-} from "./components/HelpPanel.js";
+import { HelpPanel } from "./components/HelpPanel.js";
 import { FullscreenBox, useScreenSize } from "./utils/withFullscreen.js";
 import { useNavigation } from "./hooks/useNavigation.js";
+import { usePickerTable } from "./hooks/usePickerTable.js";
+import { usePickerState } from "./hooks/usePickerState.js";
+import { useYankMode } from "./hooks/useYankMode.js";
+import { useHelpPanel } from "./hooks/useHelpPanel.js";
+import { useFetchFlow } from "./hooks/useFetchFlow.js";
 import { useServiceView } from "./hooks/useServiceView.js";
 import { useAwsContext } from "./hooks/useAwsContext.js";
 import { useAwsRegions } from "./hooks/useAwsRegions.js";
@@ -26,71 +27,25 @@ import type { ServiceId } from "./services.js";
 import { s3LevelAtom, s3BackStackAtom } from "./views/s3/adapter.js";
 import type { AppMode, TableRow } from "./types.js";
 import type { DetailField, ServiceAdapter } from "./adapters/ServiceAdapter.js";
+import { AVAILABLE_COMMANDS, COMMAND_MODE_HINT } from "./constants/commands.js";
+import { buildHelpTabs } from "./constants/keybindings.js";
 
+// Persistent atoms: survive HMR / re-renders, cross-feature state
 const currentlySelectedServiceAtom = atom<ServiceId>("s3");
 const modeAtom = atom<AppMode>("navigate");
 const filterTextAtom = atom("");
 const commandTextAtom = atom("");
-const uploadPendingAtom = atom<{
-  filePath: string;
-  metadata: Record<string, unknown>;
-} | null>(null);
-const describeStateAtom = atom<{
-  row: TableRow;
-  fields: DetailField[] | null;
-  loading: boolean;
-  requestId: number;
-} | null>(null);
-const yankModeAtom = atom(false);
-const yankFeedbackAtom = atom<{
-  message: string;
-  timer: NodeJS.Timeout;
-} | null>(null);
-const helpOpenAtom = atom(false);
-const helpTabIndexAtom = atom(0);
-const helpScrollOffsetAtom = atom(0);
-const filterStackAtom = atom<string[]>([""]);
-const selectedIndexStackAtom = atom<number[]>([0]);
-const searchEntryFilterAtom = atom<string | null>(null);
+const hierarchyStateAtom = atom<{ filters: string[]; indices: number[] }>({
+  filters: [""],
+  indices: [0],
+});
 const selectedRegionAtom = atom(
   process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "us-east-1",
 );
 const selectedProfileAtom = atom(process.env.AWS_PROFILE ?? "$default");
-const regionPickerOpenAtom = atom(false);
-const regionPickerFilterAtom = atom("");
-const regionPickerSearchEntryAtom = atom<string | null>(null);
-const profilePickerOpenAtom = atom(false);
-const profilePickerFilterAtom = atom("");
-const profilePickerSearchEntryAtom = atom<string | null>(null);
-const resourcePickerOpenAtom = atom(false);
-const resourcePickerFilterAtom = atom("");
-const resourcePickerSearchEntryAtom = atom<string | null>(null);
-const fetchPromptAtom = atom<{ row: TableRow; destinationPath: string } | null>(
-  null,
-);
-const fetchOverwritePendingAtom = atom<{
-  row: TableRow;
-  destinationPath: string;
-  finalPath: string;
-} | null>(null);
-const jumpPromptAtom = atom<string | null>(null);
+
 let detailRequestSeq = 0;
 const INITIAL_AWS_PROFILE = process.env.AWS_PROFILE;
-const COMMAND_SUGGESTIONS = [
-  "s3",
-  "route53",
-  "dynamodb",
-  "iam",
-  "regions",
-  "profiles",
-  "resources",
-  "region",
-  "profile",
-  "use-region",
-  "use-profile",
-  "$default",
-  "quit",
-];
 
 function nextDetailRequestId(): number {
   detailRequestSeq += 1;
@@ -112,58 +67,34 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const { accountName, accountId, awsProfile, currentIdentity, region } =
     useAwsContext(endpointUrl, selectedRegion, selectedProfile);
 
-  const [currentService, setCurrentService] = useAtom(
-    currentlySelectedServiceAtom,
-  );
+  const [currentService, setCurrentService] = useAtom(currentlySelectedServiceAtom);
   const [mode, setMode] = useAtom(modeAtom);
   const [filterText, setFilterText] = useAtom(filterTextAtom);
   const [commandText, setCommandText] = useAtom(commandTextAtom);
-  const [uploadPending, setUploadPending] = useAtom(uploadPendingAtom);
-  const [describeState, setDescribeState] = useAtom(describeStateAtom);
-  const [yankMode, setYankMode] = useAtom(yankModeAtom);
-  const [yankFeedback, setYankFeedback] = useAtom(yankFeedbackAtom);
-  const [helpOpen, setHelpOpen] = useAtom(helpOpenAtom);
-  const [helpTabIndex, setHelpTabIndex] = useAtom(helpTabIndexAtom);
-  const [helpScrollOffset, setHelpScrollOffset] = useAtom(helpScrollOffsetAtom);
-  const [filterStack, setFilterStack] = useAtom(filterStackAtom);
-  const [selectedIndexStack, setSelectedIndexStack] = useAtom(
-    selectedIndexStackAtom,
-  );
-  const [searchEntryFilter, setSearchEntryFilter] = useAtom(
-    searchEntryFilterAtom,
-  );
-  const [regionPickerOpen, setRegionPickerOpen] = useAtom(regionPickerOpenAtom);
-  const [regionPickerFilter, setRegionPickerFilter] = useAtom(
-    regionPickerFilterAtom,
-  );
-  const [regionPickerSearchEntry, setRegionPickerSearchEntry] = useAtom(
-    regionPickerSearchEntryAtom,
-  );
-  const [profilePickerOpen, setProfilePickerOpen] = useAtom(
-    profilePickerOpenAtom,
-  );
-  const [profilePickerFilter, setProfilePickerFilter] = useAtom(
-    profilePickerFilterAtom,
-  );
-  const [profilePickerSearchEntry, setProfilePickerSearchEntry] = useAtom(
-    profilePickerSearchEntryAtom,
-  );
-  const [resourcePickerOpen, setResourcePickerOpen] = useAtom(
-    resourcePickerOpenAtom,
-  );
-  const [resourcePickerFilter, setResourcePickerFilter] = useAtom(
-    resourcePickerFilterAtom,
-  );
-  const [resourcePickerSearchEntry, setResourcePickerSearchEntry] = useAtom(
-    resourcePickerSearchEntryAtom,
-  );
-  const [fetchPrompt, setFetchPrompt] = useAtom(fetchPromptAtom);
-  const [fetchOverwritePending, setFetchOverwritePending] = useAtom(
-    fetchOverwritePendingAtom,
-  );
-  const [jumpPrompt, setJumpPrompt] = useAtom(jumpPromptAtom);
+  const [hierarchyState, setHierarchyState] = useAtom(hierarchyStateAtom);
+
+  // Local UI state
+  const [uploadPending, setUploadPending] = useState<{
+    filePath: string;
+    metadata: Record<string, unknown>;
+  } | null>(null);
+  const [describeState, setDescribeState] = useState<{
+    row: TableRow;
+    fields: DetailField[] | null;
+    loading: boolean;
+    requestId: number;
+  } | null>(null);
+  const [searchEntryFilter, setSearchEntryFilter] = useState<string | null>(null);
+  const [jumpPrompt, setJumpPrompt] = useState<string | null>(null);
   const [gPrefixPending, setGPrefixPending] = useState(false);
   const [commandCursorToEndToken, setCommandCursorToEndToken] = useState(0);
+
+  // Feature hooks
+  const { yankMode, setYankMode, yankFeedback, setYankFeedback, pushYankFeedback } = useYankMode();
+  const { fetchPrompt, setFetchPrompt, fetchOverwritePending, setFetchOverwritePending } = useFetchFlow();
+  const regionPicker = usePickerState();
+  const profilePicker = usePickerState();
+  const resourcePicker = usePickerState();
 
   const adapter = useMemo<ServiceAdapter>(() => {
     if (currentService === "s3") {
@@ -177,7 +108,6 @@ export function App({ initialService, endpointUrl }: AppProps) {
         (stack) => store.set(s3BackStackAtom, stack),
       );
     }
-
     return SERVICE_REGISTRY[currentService](endpointUrl, selectedRegion);
   }, [currentService, endpointUrl, selectedRegion, selectedProfile]);
 
@@ -218,33 +148,25 @@ export function App({ initialService, endpointUrl }: AppProps) {
     );
   }, [rows, filterText]);
 
-  const {
-    selectedIndex,
-    scrollOffset,
-    moveUp,
-    moveDown,
-    reset,
-    setIndex,
-    toTop,
-    toBottom,
-  } = useNavigation(filteredRows.length, tableHeight);
+  const { selectedIndex, scrollOffset, moveUp, moveDown, reset, setIndex, toTop, toBottom } =
+    useNavigation(filteredRows.length, tableHeight);
+
+  const currentFilterStack = hierarchyState.filters;
+  const currentIndexStack = hierarchyState.indices;
+
+  // Picker tables
   const regionRows = useMemo(
     () =>
-      availableRegions.map((regionItem) => ({
-        id: regionItem.name,
-        cells: { region: regionItem.name, description: regionItem.description },
+      availableRegions.map((r) => ({
+        id: r.name,
+        cells: { region: r.name, description: r.description },
         meta: {},
       })),
     [availableRegions],
   );
-  const filteredRegionRows = useMemo(() => {
-    if (!regionPickerFilter) return regionRows;
-    const f = regionPickerFilter.toLowerCase();
-    return regionRows.filter((row) =>
-      row.cells.region.toLowerCase().includes(f),
-    );
-  }, [regionPickerFilter, regionRows]);
   const {
+    filteredRows: filteredRegionRows,
+    selectedRow: selectedRegionRow,
     selectedIndex: regionSelectedIndex,
     scrollOffset: regionScrollOffset,
     moveUp: moveRegionUp,
@@ -252,27 +174,20 @@ export function App({ initialService, endpointUrl }: AppProps) {
     reset: resetRegionNav,
     toTop: toRegionTop,
     toBottom: toRegionBottom,
-  } = useNavigation(filteredRegionRows.length, tableHeight);
+  } = usePickerTable({ rows: regionRows, filterText: regionPicker.filter, maxHeight: tableHeight });
+
   const profileRows = useMemo(
     () =>
-      availableProfiles.map((profileItem) => ({
-        id: profileItem.name,
-        cells: {
-          profile: profileItem.name,
-          description: profileItem.description,
-        },
+      availableProfiles.map((p) => ({
+        id: p.name,
+        cells: { profile: p.name, description: p.description },
         meta: {},
       })),
     [availableProfiles],
   );
-  const filteredProfileRows = useMemo(() => {
-    if (!profilePickerFilter) return profileRows;
-    const f = profilePickerFilter.toLowerCase();
-    return profileRows.filter((row) =>
-      row.cells.profile.toLowerCase().includes(f),
-    );
-  }, [profilePickerFilter, profileRows]);
   const {
+    filteredRows: filteredProfileRows,
+    selectedRow: selectedProfileRow,
     selectedIndex: profileSelectedIndex,
     scrollOffset: profileScrollOffset,
     moveUp: moveProfileUp,
@@ -280,27 +195,20 @@ export function App({ initialService, endpointUrl }: AppProps) {
     reset: resetProfileNav,
     toTop: toProfileTop,
     toBottom: toProfileBottom,
-  } = useNavigation(filteredProfileRows.length, tableHeight);
+  } = usePickerTable({ rows: profileRows, filterText: profilePicker.filter, maxHeight: tableHeight });
+
   const resourceRows = useMemo(
     () =>
       (Object.keys(SERVICE_REGISTRY) as ServiceId[]).map((serviceId) => ({
         id: serviceId,
-        cells: {
-          resource: serviceId,
-          description: `${serviceId.toUpperCase()} service`,
-        },
+        cells: { resource: serviceId, description: `${serviceId.toUpperCase()} service` },
         meta: {},
       })),
     [],
   );
-  const filteredResourceRows = useMemo(() => {
-    if (!resourcePickerFilter) return resourceRows;
-    const f = resourcePickerFilter.toLowerCase();
-    return resourceRows.filter((row) =>
-      Object.values(row.cells).some((v) => v.toLowerCase().includes(f)),
-    );
-  }, [resourcePickerFilter, resourceRows]);
   const {
+    filteredRows: filteredResourceRows,
+    selectedRow: selectedResourceRow,
     selectedIndex: resourceSelectedIndex,
     scrollOffset: resourceScrollOffset,
     moveUp: moveResourceUp,
@@ -308,53 +216,34 @@ export function App({ initialService, endpointUrl }: AppProps) {
     reset: resetResourceNav,
     toTop: toResourceTop,
     toBottom: toResourceBottom,
-  } = useNavigation(filteredResourceRows.length, tableHeight);
+  } = usePickerTable({ rows: resourceRows, filterText: resourcePicker.filter, maxHeight: tableHeight });
 
   const selectedRow = filteredRows[selectedIndex] ?? null;
-  const selectedRegionRow = filteredRegionRows[regionSelectedIndex] ?? null;
-  const selectedProfileRow = filteredProfileRows[profileSelectedIndex] ?? null;
-  const selectedResourceRow = filteredResourceRows[resourceSelectedIndex] ?? null;
+
   const yankOptions = useMemo(() => {
-    if (!selectedRow) return [{ key: "Esc", label: "cancel" }];
+    const base = [{ key: "n", label: "copy name", feedback: "Copied Name" }];
+    if (!selectedRow) return [...base, { key: "Esc", label: "cancel", feedback: "" }];
+    const adapterOptions = adapter.getYankOptions?.(selectedRow) ?? [];
+    return [...base, ...adapterOptions, { key: "Esc", label: "cancel", feedback: "" }];
+  }, [adapter, selectedRow]);
 
-    const type = selectedRow.meta?.type as string | undefined;
-    const options: Array<{ key: string; label: string }> = [
-      { key: "n", label: "copy name" },
-    ];
-
-    if (adapter.id === "s3") {
-      if (type === "bucket" || type === "folder" || type === "object") {
-        options.push({ key: "k", label: "copy key/path" });
-      }
-      if (type === "bucket" || type === "folder" || type === "object") {
-        options.push({ key: "a", label: "copy arn" });
-      }
-      if (type === "object") {
-        options.push({ key: "e", label: "copy etag" });
-        options.push({ key: "d", label: "copy last-modified" });
-      }
-    }
-    if (adapter.id === "iam") {
-      const arn = selectedRow.meta?.arn ?? selectedRow.meta?.policyArn;
-      if (typeof arn === "string" && arn.length > 0) {
-        options.push({ key: "a", label: "copy arn" });
-      }
-    }
-
-    options.push({ key: "Esc", label: "cancel" });
-    return options;
-  }, [adapter.id, selectedRow]);
   const yankHint = useMemo(
     () => yankOptions.map((item) => `${item.key} ${item.label}`).join("  •  "),
     [yankOptions],
   );
-  const uiScope = helpOpen
+
+  // Help panel
+  const helpTabs = useMemo(() => buildHelpTabs(adapter.id), [adapter.id]);
+  const helpContainerHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES);
+  const helpPanel = useHelpPanel(helpTabs, helpContainerHeight);
+
+  const uiScopeActual = helpPanel.helpOpen
     ? "help"
-    : regionPickerOpen
+    : regionPicker.open
       ? "regions"
-      : profilePickerOpen
+      : profilePicker.open
         ? "profiles"
-        : resourcePickerOpen
+        : resourcePicker.open
           ? "resources"
         : jumpPrompt !== null
           ? "jump"
@@ -370,119 +259,8 @@ export function App({ initialService, endpointUrl }: AppProps) {
                     ? "yank"
                     : mode;
 
-  const helpTabs = useMemo<HelpTab[]>(() => {
-    const navigateItems: HelpItem[] = [
-      { key: "j / ↓", description: "Move selection down" },
-      { key: "k / ↑", description: "Move selection up" },
-      { key: "g p", description: "Go path jump prompt (S3 only)" },
-      { key: "g g / G", description: "Top / bottom" },
-      { key: "Enter", description: "Open bucket/folder (navigate only)" },
-      { key: "e", description: "Edit selected item" },
-      { key: "Esc", description: "Clear filter, then go back level" },
-      { key: "d", description: "Open details panel" },
-      { key: "y", description: "Open yank mode" },
-      { key: "/", description: "Search mode" },
-      { key: ":", description: "Command mode" },
-      { key: "r / q", description: "Refresh / quit" },
-      { key: "?", description: "Open this help (navigate mode only)" },
-    ];
-
-    if (adapter.id === "s3") {
-      navigateItems.splice(3, 0, {
-        key: "y then k",
-        description: "Copy selected S3 URI",
-      });
-    }
-
-    return [
-      {
-        title: "Navigate",
-        items: navigateItems,
-      },
-      {
-        title: "Search",
-        items: [
-          { key: "Open", description: "Press / in navigate mode" },
-          { key: "Type", description: "Update filter text" },
-          { key: "Tab", description: "Autocomplete input" },
-          { key: "Enter", description: "Apply filter and return to navigate" },
-          { key: "Esc", description: "Cancel and restore previous filter" },
-        ],
-      },
-      {
-        title: "Command",
-        items: [
-          { key: "Open", description: "Press : in navigate mode" },
-          {
-            key: "Type",
-            description: "Enter command (s3/route53/dynamodb/iam/quit)",
-          },
-          { key: "Tab", description: "Autocomplete command" },
-          { key: "Enter", description: "Run command" },
-          { key: "Esc", description: "Cancel command mode" },
-        ],
-      },
-      {
-        title: "Yank",
-        items: [
-          { key: "Open", description: "Press y in navigate mode" },
-          { key: "n", description: "Copy selected name" },
-          { key: "a", description: "Copy ARN (when available)" },
-          { key: "k", description: "Copy selected S3/object key path" },
-          { key: "e", description: "Copy ETag (objects only)" },
-          { key: "d", description: "Copy Last Modified (objects only)" },
-          { key: "Esc", description: "Cancel yank mode" },
-        ],
-      },
-      {
-        title: "Details",
-        items: [
-          { key: "Open", description: "Press d in navigate mode" },
-          { key: "Esc", description: "Close details panel" },
-        ],
-      },
-      {
-        title: "Upload",
-        items: [
-          { key: "When", description: "After editing if file changed" },
-          { key: "y", description: "Upload edited file" },
-          { key: "n / Esc", description: "Cancel upload" },
-        ],
-      },
-    ];
-  }, [adapter.id]);
-
-  const helpTabsCount = helpTabs.length;
-  const helpContainerHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES);
-  // Fixed rows in HelpPanel: title + scope + tab row.
-  const baseHelpVisibleRows = Math.max(1, helpContainerHeight - 3);
-  const activeHelpItemsCount = helpTabs[helpTabIndex]?.items.length ?? 0;
-  const overflowRows = Math.max(0, activeHelpItemsCount - baseHelpVisibleRows);
-  const scrollReserveRows = Math.min(3, overflowRows);
-  const helpVisibleRows =
-    overflowRows > 0
-      ? Math.max(1, baseHelpVisibleRows - scrollReserveRows - 1)
-      : Math.max(1, baseHelpVisibleRows - 1);
-
-  const clampHelpTab = useCallback(
-    (idx: number) => ((idx % helpTabsCount) + helpTabsCount) % helpTabsCount,
-    [helpTabsCount],
-  );
-
-  const getHelpTabFromInput = useCallback(
-    (input: string): number | null => {
-      if (input.length !== 1) return null;
-      const num = Number.parseInt(input, 10);
-      if (Number.isNaN(num) || num < 1 || num > helpTabsCount) return null;
-      return num - 1;
-    },
-    [helpTabsCount],
-  );
-
-  const helpScopeLabel = "All modes reference";
-
   const bottomHint = useMemo(() => {
-    switch (uiScope) {
+    switch (uiScopeActual) {
       case "help":
         return " ←/→ or h/l switch tabs  •  ↑/↓ or j/k scroll  •  Esc/? close";
       case "regions":
@@ -506,24 +284,11 @@ export function App({ initialService, endpointUrl }: AppProps) {
       case "search":
         return " Type filter  •  Tab autocomplete  •  Enter apply  •  Esc cancel";
       case "command":
-        return " Commands: s3 route53 dynamodb iam quit regions profiles resources  •  Enter run  •  Esc cancel";
+        return COMMAND_MODE_HINT;
       default:
         return " j/k ↑/↓ move  •  gp go-path  •  gg/G top/bottom  •  Enter navigate  •  e edit  •  f fetch  •  / search";
     }
-  }, [uiScope, yankHint]);
-
-  const helpItems = useMemo<HelpItem[]>(() => {
-    return [
-      { key: "Type", description: "Update filter text" },
-      { key: "?", description: "Open help from navigate mode" },
-    ];
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (yankFeedback?.timer) clearTimeout(yankFeedback.timer);
-    };
-  }, [yankFeedback]);
+  }, [uiScopeActual, yankHint]);
 
   const switchAdapter = useCallback(
     (serviceId: ServiceId) => {
@@ -531,19 +296,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
       setFilterText("");
       setDescribeState(null);
       setSearchEntryFilter(null);
-      setFilterStack([""]);
-      setSelectedIndexStack([0]);
+      setHierarchyState({ filters: [""], indices: [0] });
       reset();
     },
-    [
-      reset,
-      setCurrentService,
-      setDescribeState,
-      setFilterStack,
-      setFilterText,
-      setSearchEntryFilter,
-      setSelectedIndexStack,
-    ],
+    [reset, setCurrentService, setFilterText, setHierarchyState],
   );
 
   const handleCommandSubmit = useCallback(() => {
@@ -551,24 +307,18 @@ export function App({ initialService, endpointUrl }: AppProps) {
     setCommandText("");
     setMode("navigate");
     if (command === "profiles") {
-      setProfilePickerFilter("");
-      setProfilePickerSearchEntry(null);
+      profilePicker.openPicker();
       resetProfileNav();
-      setProfilePickerOpen(true);
       return;
     }
     if (command === "regions") {
-      setRegionPickerFilter("");
-      setRegionPickerSearchEntry(null);
+      regionPicker.openPicker();
       resetRegionNav();
-      setRegionPickerOpen(true);
       return;
     }
     if (command === "resources") {
-      setResourcePickerFilter("");
-      setResourcePickerSearchEntry(null);
+      resourcePicker.openPicker();
       resetResourceNav();
-      setResourcePickerOpen(true);
       return;
     }
     const regionMatch = command.match(/^(region|use-region)\s+([a-z0-9-]+)$/i);
@@ -583,209 +333,124 @@ export function App({ initialService, endpointUrl }: AppProps) {
       if (nextProfile) setSelectedProfile(nextProfile);
       return;
     }
-
     if (command === "quit" || command === "q") {
       exit();
       return;
     }
-
     if (command in SERVICE_REGISTRY) {
       switchAdapter(command as ServiceId);
     }
   }, [
     commandText,
     exit,
+    profilePicker,
+    regionPicker,
+    resourcePicker,
     resetProfileNav,
     resetRegionNav,
     resetResourceNav,
     setCommandText,
     setMode,
-    setProfilePickerFilter,
-    setProfilePickerOpen,
-    setProfilePickerSearchEntry,
-    setRegionPickerFilter,
-    setRegionPickerOpen,
-    setRegionPickerSearchEntry,
-    setResourcePickerFilter,
-    setResourcePickerOpen,
-    setResourcePickerSearchEntry,
     setSelectedProfile,
     setSelectedRegion,
     switchAdapter,
   ]);
 
   const handleFilterSubmit = useCallback(() => {
-    if (regionPickerOpen) {
-      setRegionPickerSearchEntry(null);
-      setMode("navigate");
-      return;
-    }
-    if (profilePickerOpen) {
-      setProfilePickerSearchEntry(null);
-      setMode("navigate");
-      return;
-    }
-    if (resourcePickerOpen) {
-      setResourcePickerSearchEntry(null);
-      setMode("navigate");
-      return;
-    }
+    if (regionPicker.open) { regionPicker.confirmSearch(); setMode("navigate"); return; }
+    if (profilePicker.open) { profilePicker.confirmSearch(); setMode("navigate"); return; }
+    if (resourcePicker.open) { resourcePicker.confirmSearch(); setMode("navigate"); return; }
     setSearchEntryFilter(null);
     setMode("navigate");
-  }, [
-    profilePickerOpen,
-    regionPickerOpen,
-    resourcePickerOpen,
-    setMode,
-    setProfilePickerSearchEntry,
-    setRegionPickerSearchEntry,
-    setResourcePickerSearchEntry,
-    setSearchEntryFilter,
-  ]);
+  }, [profilePicker, regionPicker, resourcePicker, setMode]);
 
   const handleFilterChange = useCallback(
     (value: string) => {
-      if (regionPickerOpen) {
-        setRegionPickerFilter(value);
-        return;
-      }
-      if (profilePickerOpen) {
-        setProfilePickerFilter(value);
-        return;
-      }
-      if (resourcePickerOpen) {
-        setResourcePickerFilter(value);
-        return;
-      }
+      if (regionPicker.open) { regionPicker.setFilter(value); return; }
+      if (profilePicker.open) { profilePicker.setFilter(value); return; }
+      if (resourcePicker.open) { resourcePicker.setFilter(value); return; }
       setFilterText(value);
-      setFilterStack((prev) => {
-        if (prev.length === 0) return [value];
-        const next = [...prev];
-        next[next.length - 1] = value;
-        return next;
+      setHierarchyState((prev) => {
+        const nextFilters =
+          prev.filters.length === 0
+            ? [value]
+            : [...prev.filters.slice(0, -1), value];
+        return { ...prev, filters: nextFilters };
       });
     },
-    [
-      profilePickerOpen,
-      regionPickerOpen,
-      resourcePickerOpen,
-      setFilterStack,
-      setFilterText,
-      setProfilePickerFilter,
-      setRegionPickerFilter,
-      setResourcePickerFilter,
-    ],
+    [profilePicker, regionPicker, resourcePicker, setHierarchyState, setFilterText],
   );
 
   const navigateBack = useCallback(() => {
     if (!adapter.canGoBack()) return;
-
     void goBack().then(() => {
       setDescribeState(null);
       setSearchEntryFilter(null);
       const nextStack =
-        filterStack.length > 1 ? filterStack.slice(0, -1) : filterStack;
-      setFilterStack(nextStack);
+        currentFilterStack.length > 1
+          ? currentFilterStack.slice(0, -1)
+          : currentFilterStack;
       const nextIndexStack =
-        selectedIndexStack.length > 1
-          ? selectedIndexStack.slice(0, -1)
-          : selectedIndexStack;
-      setSelectedIndexStack(nextIndexStack);
+        currentIndexStack.length > 1
+          ? currentIndexStack.slice(0, -1)
+          : currentIndexStack;
+      setHierarchyState({ filters: nextStack, indices: nextIndexStack });
       const poppedIndex =
-        selectedIndexStack.length > 1
-          ? (selectedIndexStack[selectedIndexStack.length - 1] ?? 0)
-          : (selectedIndexStack[0] ?? 0);
+        currentIndexStack.length > 1
+          ? (currentIndexStack[currentIndexStack.length - 1] ?? 0)
+          : (currentIndexStack[0] ?? 0);
       const previousFilter = nextStack[nextStack.length - 1] ?? "";
       setFilterText(previousFilter);
       setIndex(poppedIndex);
     });
   }, [
-    adapter,
-    filterStack,
-    goBack,
-    selectedIndexStack,
-    setDescribeState,
-    setFilterStack,
-    setFilterText,
-    setSearchEntryFilter,
-    setSelectedIndexStack,
-    setIndex,
+    adapter, currentFilterStack, goBack, currentIndexStack,
+    setFilterText, setHierarchyState, setIndex,
   ]);
 
   const navigateIntoSelection = useCallback(() => {
     if (!selectedRow) return;
     if ((selectedRow.meta?.type as string) === "object") return;
-
     void select(selectedRow).then((result: any) => {
       if (result?.action === "navigate") {
         setSearchEntryFilter(null);
-        setFilterStack((prev) => [...prev, ""]);
-        setSelectedIndexStack((prev) => [...prev, selectedIndex]);
+        setHierarchyState((prev) => ({
+          filters: [...prev.filters, ""],
+          indices: [...prev.indices, selectedIndex],
+        }));
         setFilterText("");
         setDescribeState(null);
         reset();
         return;
       }
-
       if (result?._needsUpload && result.metadata) {
-        setUploadPending({
-          filePath: result.filePath,
-          metadata: result.metadata,
-        });
+        setUploadPending({ filePath: result.filePath, metadata: result.metadata });
       }
     });
-  }, [
-    reset,
-    select,
-    selectedRow,
-    setDescribeState,
-    setFilterStack,
-    setSelectedIndexStack,
-    setFilterText,
-    setSearchEntryFilter,
-    setUploadPending,
-    selectedIndex,
-  ]);
+  }, [reset, select, selectedRow, setFilterText, setHierarchyState, selectedIndex]);
 
   const editSelection = useCallback(() => {
     if (!selectedRow) return;
-
     void edit(selectedRow).then((result: any) => {
       if (result?._needsUpload && result.metadata) {
-        setUploadPending({
-          filePath: result.filePath,
-          metadata: result.metadata,
-        });
+        setUploadPending({ filePath: result.filePath, metadata: result.metadata });
       }
     });
-  }, [edit, selectedRow, setUploadPending]);
+  }, [edit, selectedRow]);
 
   const showDetails = useCallback(() => {
     if (!selectedRow) return;
     const requestId = nextDetailRequestId();
-    setDescribeState({
-      row: selectedRow,
-      fields: null,
-      loading: true,
-      requestId,
-    });
-
+    setDescribeState({ row: selectedRow, fields: null, loading: true, requestId });
     void (async () => {
       try {
         const fields = adapter.getDetails
           ? await adapter.getDetails(selectedRow)
           : [
-              {
-                label: "Name",
-                value: selectedRow.cells.name ?? selectedRow.id,
-              },
-              {
-                label: "Type",
-                value: String(selectedRow.meta?.type ?? "Unknown"),
-              },
+              { label: "Name", value: selectedRow.cells.name ?? selectedRow.id },
+              { label: "Type", value: String(selectedRow.meta?.type ?? "Unknown") },
               { label: "Details", value: "Not available for this service" },
             ];
-
         setDescribeState((prev) =>
           prev && prev.requestId === requestId
             ? { ...prev, fields, loading: false, requestId }
@@ -797,10 +462,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
             ? {
                 ...prev,
                 fields: [
-                  {
-                    label: "Name",
-                    value: selectedRow.cells.name ?? selectedRow.id,
-                  },
+                  { label: "Name", value: selectedRow.cells.name ?? selectedRow.id },
                   { label: "Error", value: (error as Error).message },
                 ],
                 loading: false,
@@ -810,24 +472,14 @@ export function App({ initialService, endpointUrl }: AppProps) {
         );
       }
     })();
-  }, [adapter, selectedRow, setDescribeState]);
-
-  const pushYankFeedback = useCallback(
-    (message: string) => {
-      const timer = setTimeout(() => setYankFeedback(null), 1500);
-      setYankFeedback({ message, timer });
-    },
-    [setYankFeedback],
-  );
+  }, [adapter, selectedRow]);
 
   const openFetchPrompt = useCallback(() => {
     if (!selectedRow || (selectedRow.meta?.type as string) !== "object") return;
     const configured = process.env.DOWNLOAD_LOCATION;
     const cwd = process.cwd();
     const defaultPath = configured
-      ? isAbsolute(configured)
-        ? configured
-        : resolve(cwd, configured)
+      ? isAbsolute(configured) ? configured : resolve(cwd, configured)
       : cwd;
     setFetchPrompt({ row: selectedRow, destinationPath: defaultPath });
   }, [selectedRow, setFetchPrompt]);
@@ -847,11 +499,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
         const message = (err as Error).message;
         if (message.startsWith("EEXIST_FILE:")) {
           const finalPath = message.slice("EEXIST_FILE:".length);
-          setFetchOverwritePending({
-            row: fetchPrompt.row,
-            destinationPath: target,
-            finalPath,
-          });
+          setFetchOverwritePending({ row: fetchPrompt.row, destinationPath: target, finalPath });
           setFetchPrompt(null);
           return;
         }
@@ -859,24 +507,15 @@ export function App({ initialService, endpointUrl }: AppProps) {
         setYankFeedback({ message: `Fetch failed: ${message}`, timer });
       })
       .finally(() => {
-        setFetchPrompt((prev) =>
-          prev && prev.row.id === fetchPrompt.row.id ? null : prev,
-        );
+        setFetchPrompt((prev) => prev && prev.row.id === fetchPrompt.row.id ? null : prev);
       });
-  }, [
-    adapter,
-    fetchPrompt,
-    setFetchOverwritePending,
-    setFetchPrompt,
-    setYankFeedback,
-  ]);
+  }, [adapter, fetchPrompt, setFetchOverwritePending, setFetchPrompt, setYankFeedback]);
 
   const submitJumpPrompt = useCallback(() => {
     if (jumpPrompt === null) return;
     const target = jumpPrompt.trim();
     if (!target) return;
     if (!adapter.jumpTo) return;
-
     void adapter
       .jumpTo(target)
       .then(async () => {
@@ -884,124 +523,52 @@ export function App({ initialService, endpointUrl }: AppProps) {
         setMode("navigate");
         setFilterText("");
         setSearchEntryFilter(null);
-        setFilterStack((prev) => [...prev, ""]);
-        setSelectedIndexStack((prev) => [...prev, selectedIndex]);
+        setHierarchyState((prev) => ({
+          filters: [...prev.filters, ""],
+          indices: [...prev.indices, selectedIndex],
+        }));
         reset();
         await refresh();
       })
       .catch((err) => {
         const timer = setTimeout(() => setYankFeedback(null), 3000);
-        setYankFeedback({
-          message: `Jump failed: ${(err as Error).message}`,
-          timer,
-        });
+        setYankFeedback({ message: `Jump failed: ${(err as Error).message}`, timer });
       });
-  }, [
-    adapter,
-    jumpPrompt,
-    refresh,
-    reset,
-    setFilterStack,
-    setSelectedIndexStack,
-    setFilterText,
-    setJumpPrompt,
-    setMode,
-    setSearchEntryFilter,
-    setYankFeedback,
-    selectedIndex,
-  ]);
+  }, [adapter, jumpPrompt, refresh, reset, setFilterText, setHierarchyState, setMode, setYankFeedback, selectedIndex]);
 
   useInput(
     (input, key) => {
-      if (helpOpen) {
+      if (helpPanel.helpOpen) {
         if (gPrefixPending) setGPrefixPending(false);
-        if (key.escape || input === "?") {
-          setHelpOpen(false);
-          return;
-        }
-        if (key.leftArrow || input === "h") {
-          setHelpScrollOffset(0);
-          setHelpTabIndex((prev) => clampHelpTab(prev - 1));
-          return;
-        }
-        if (key.rightArrow || input === "l") {
-          setHelpScrollOffset(0);
-          setHelpTabIndex((prev) => clampHelpTab(prev + 1));
-          return;
-        }
-        if (key.upArrow || input === "k") {
-          setHelpScrollOffset((prev) => Math.max(0, prev - 1));
-          return;
-        }
-        if (key.downArrow || input === "j") {
-          const maxOffset = Math.max(
-            0,
-            (helpTabs[helpTabIndex]?.items.length ?? 0) - helpVisibleRows,
-          );
-          setHelpScrollOffset((prev) => Math.min(maxOffset, prev + 1));
-          return;
-        }
-        const numericTab = getHelpTabFromInput(input);
-        if (numericTab !== null) {
-          setHelpScrollOffset(0);
-          setHelpTabIndex(numericTab);
-        }
+        if (key.escape || input === "?") { helpPanel.close(); return; }
+        if (key.leftArrow || input === "h") { helpPanel.goToPrevTab(); return; }
+        if (key.rightArrow || input === "l") { helpPanel.goToNextTab(); return; }
+        if (key.upArrow || input === "k") { helpPanel.scrollUp(); return; }
+        if (key.downArrow || input === "j") { helpPanel.scrollDown(); return; }
+        helpPanel.goToTab(input);
         return;
       }
 
-      if (resourcePickerOpen) {
-        if (input === "G") {
-          setGPrefixPending(false);
-          toResourceBottom();
-          return;
-        }
+      if (resourcePicker.open) {
+        if (input === "G") { setGPrefixPending(false); toResourceBottom(); return; }
         if (input === "g") {
-          if (gPrefixPending) {
-            setGPrefixPending(false);
-            toResourceTop();
-          } else {
-            setGPrefixPending(true);
-          }
+          if (gPrefixPending) { setGPrefixPending(false); toResourceTop(); }
+          else { setGPrefixPending(true); }
           return;
         }
         if (gPrefixPending) setGPrefixPending(false);
         if (key.escape) {
-          if (mode === "search") {
-            if (
-              resourcePickerSearchEntry !== null &&
-              resourcePickerFilter !== ""
-            ) {
-              setResourcePickerFilter(resourcePickerSearchEntry);
-            }
-            setResourcePickerSearchEntry(null);
-            setMode("navigate");
-          } else {
-            setResourcePickerOpen(false);
-            setResourcePickerFilter("");
-            setResourcePickerSearchEntry(null);
-            setMode("navigate");
-          }
+          if (mode === "search") { resourcePicker.cancelSearch(); setMode("navigate"); }
+          else { resourcePicker.closePicker(); setMode("navigate"); }
           return;
         }
         if (mode === "search") return;
-        if (input === "/") {
-          setResourcePickerSearchEntry(resourcePickerFilter);
-          setMode("search");
-          return;
-        }
-        if (key.downArrow || input === "j") {
-          moveResourceDown();
-          return;
-        }
-        if (key.upArrow || input === "k") {
-          moveResourceUp();
-          return;
-        }
+        if (input === "/") { resourcePicker.startSearch(); setMode("search"); return; }
+        if (key.downArrow || input === "j") { moveResourceDown(); return; }
+        if (key.upArrow || input === "k") { moveResourceUp(); return; }
         if (key.return && selectedResourceRow) {
           switchAdapter(selectedResourceRow.id as ServiceId);
-          setResourcePickerOpen(false);
-          setResourcePickerFilter("");
-          setResourcePickerSearchEntry(null);
+          resourcePicker.closePicker();
           setMode("navigate");
         }
         return;
@@ -1009,52 +576,31 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
       if (input === "?") {
         if (gPrefixPending) setGPrefixPending(false);
-        if (
-          mode === "navigate" &&
-          !uploadPending &&
-          !describeState &&
-          !yankMode
-        ) {
-          setHelpScrollOffset(0);
-          setHelpTabIndex(0);
-          setHelpOpen(true);
+        if (mode === "navigate" && !uploadPending && !describeState && !yankMode) {
+          helpPanel.open();
         }
         return;
       }
 
       if (jumpPrompt !== null) {
-        if (key.escape) {
-          setJumpPrompt(null);
-        }
+        if (key.escape) setJumpPrompt(null);
         return;
       }
 
       if (fetchOverwritePending) {
         if (input === "y" || input === "Y") {
-          if (!adapter.fetchTo) {
-            setFetchOverwritePending(null);
-            return;
-          }
+          if (!adapter.fetchTo) { setFetchOverwritePending(null); return; }
           void adapter
-            .fetchTo(
-              fetchOverwritePending.row,
-              fetchOverwritePending.destinationPath,
-              true,
-            )
+            .fetchTo(fetchOverwritePending.row, fetchOverwritePending.destinationPath, true)
             .then((savedTo) => {
               const timer = setTimeout(() => setYankFeedback(null), 2500);
               setYankFeedback({ message: `Downloaded to ${savedTo}`, timer });
             })
             .catch((err) => {
               const timer = setTimeout(() => setYankFeedback(null), 3000);
-              setYankFeedback({
-                message: `Fetch failed: ${(err as Error).message}`,
-                timer,
-              });
+              setYankFeedback({ message: `Fetch failed: ${(err as Error).message}`, timer });
             })
-            .finally(() => {
-              setFetchOverwritePending(null);
-            });
+            .finally(() => { setFetchOverwritePending(null); });
         } else if (input === "n" || input === "N" || key.escape) {
           setFetchOverwritePending(null);
         }
@@ -1062,120 +608,55 @@ export function App({ initialService, endpointUrl }: AppProps) {
       }
 
       if (fetchPrompt) {
-        if (key.escape) {
-          setFetchPrompt(null);
-        }
+        if (key.escape) setFetchPrompt(null);
         return;
       }
 
-      if (regionPickerOpen) {
-        if (input === "G") {
-          setGPrefixPending(false);
-          toRegionBottom();
-          return;
-        }
+      if (regionPicker.open) {
+        if (input === "G") { setGPrefixPending(false); toRegionBottom(); return; }
         if (input === "g") {
-          if (gPrefixPending) {
-            setGPrefixPending(false);
-            toRegionTop();
-          } else {
-            setGPrefixPending(true);
-          }
+          if (gPrefixPending) { setGPrefixPending(false); toRegionTop(); }
+          else { setGPrefixPending(true); }
           return;
         }
         if (gPrefixPending) setGPrefixPending(false);
         if (key.escape) {
-          if (mode === "search") {
-            if (regionPickerSearchEntry !== null && regionPickerFilter !== "") {
-              setRegionPickerFilter(regionPickerSearchEntry);
-            }
-            setRegionPickerSearchEntry(null);
-            setMode("navigate");
-          } else {
-            setRegionPickerOpen(false);
-            setRegionPickerFilter("");
-            setRegionPickerSearchEntry(null);
-            setMode("navigate");
-          }
+          if (mode === "search") { regionPicker.cancelSearch(); setMode("navigate"); }
+          else { regionPicker.closePicker(); setMode("navigate"); }
           return;
         }
         if (mode === "search") return;
-        if (input === "/") {
-          setRegionPickerSearchEntry(regionPickerFilter);
-          setMode("search");
-          return;
-        }
-        if (key.downArrow || input === "j") {
-          moveRegionDown();
-          return;
-        }
-        if (key.upArrow || input === "k") {
-          moveRegionUp();
-          return;
-        }
+        if (input === "/") { regionPicker.startSearch(); setMode("search"); return; }
+        if (key.downArrow || input === "j") { moveRegionDown(); return; }
+        if (key.upArrow || input === "k") { moveRegionUp(); return; }
         if (key.return && selectedRegionRow) {
           setSelectedRegion(selectedRegionRow.id);
-          setRegionPickerOpen(false);
-          setRegionPickerFilter("");
-          setRegionPickerSearchEntry(null);
+          regionPicker.closePicker();
           setMode("navigate");
         }
         return;
       }
 
-      if (profilePickerOpen) {
-        if (input === "G") {
-          setGPrefixPending(false);
-          toProfileBottom();
-          return;
-        }
+      if (profilePicker.open) {
+        if (input === "G") { setGPrefixPending(false); toProfileBottom(); return; }
         if (input === "g") {
-          if (gPrefixPending) {
-            setGPrefixPending(false);
-            toProfileTop();
-          } else {
-            setGPrefixPending(true);
-          }
+          if (gPrefixPending) { setGPrefixPending(false); toProfileTop(); }
+          else { setGPrefixPending(true); }
           return;
         }
         if (gPrefixPending) setGPrefixPending(false);
         if (key.escape) {
-          if (mode === "search") {
-            if (
-              profilePickerSearchEntry !== null &&
-              profilePickerFilter !== ""
-            ) {
-              setProfilePickerFilter(profilePickerSearchEntry);
-            }
-            setProfilePickerSearchEntry(null);
-            setMode("navigate");
-          } else {
-            setProfilePickerOpen(false);
-            setProfilePickerFilter("");
-            setProfilePickerSearchEntry(null);
-            setMode("navigate");
-          }
+          if (mode === "search") { profilePicker.cancelSearch(); setMode("navigate"); }
+          else { profilePicker.closePicker(); setMode("navigate"); }
           return;
         }
         if (mode === "search") return;
-        if (input === "/") {
-          setProfilePickerSearchEntry(profilePickerFilter);
-          setMode("search");
-          return;
-        }
-        if (key.downArrow || input === "j") {
-          moveProfileDown();
-          return;
-        }
-        if (key.upArrow || input === "k") {
-          moveProfileUp();
-          return;
-        }
+        if (input === "/") { profilePicker.startSearch(); setMode("search"); return; }
+        if (key.downArrow || input === "j") { moveProfileDown(); return; }
+        if (key.upArrow || input === "k") { moveProfileUp(); return; }
         if (key.return && selectedProfileRow) {
           setSelectedProfile(selectedProfileRow.id);
-          setProfilePickerOpen(false);
-          setProfilePickerFilter("");
-          setProfilePickerSearchEntry(null);
+          profilePicker.closePicker();
           setMode("navigate");
         }
         return;
@@ -1186,10 +667,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
         if (input === "y" || input === "Y") {
           void (async () => {
             try {
-              await adapter.uploadFile?.(
-                uploadPending.filePath,
-                uploadPending.metadata,
-              );
+              await adapter.uploadFile?.(uploadPending.filePath, uploadPending.metadata);
             } catch (err) {
               console.error("Upload failed:", (err as Error).message);
             } finally {
@@ -1212,107 +690,34 @@ export function App({ initialService, endpointUrl }: AppProps) {
         if (gPrefixPending) setGPrefixPending(false);
         if (!selectedRow) return;
 
-        const type = selectedRow.meta?.type as string;
-        const allowKey = yankOptions.some((option) => option.key === "k");
-        const allowArn = yankOptions.some((option) => option.key === "a");
-        const allowEtag = yankOptions.some((option) => option.key === "e");
-        const allowDate = yankOptions.some((option) => option.key === "d");
-
-        if (input === "n") {
+        if (key.escape) {
           setYankMode(false);
-          void clipboardy.write(selectedRow.cells.name ?? "").then(() => {
-            pushYankFeedback("Copied Name");
-          });
-        } else if (input === "k" && allowKey) {
+        } else if (input === "n") {
           setYankMode(false);
-          let value = "";
-          if (type === "bucket") {
-            value = `s3://${selectedRow.id}`;
-          } else if (adapter.id === "s3") {
-            const keyPath = (selectedRow.meta?.key as string) ?? "";
-            const bucket = path.split("/")[1] ?? "unknown";
-            value = `s3://${bucket}/${keyPath}`;
-          }
-
-          if (value) {
-            void clipboardy.write(value).then(() => {
-              pushYankFeedback("Copied Key");
+          void clipboardy.write(selectedRow.cells.name ?? "").then(() => pushYankFeedback("Copied Name"));
+        } else {
+          const option = yankOptions.find((o) => o.key === input && o.key !== "Esc");
+          if (option && adapter.getClipboardValue) {
+            setYankMode(false);
+            void adapter.getClipboardValue(selectedRow, input).then((value) => {
+              if (value) void clipboardy.write(value).then(() => pushYankFeedback(option.feedback));
             });
           }
-        } else if (input === "a" && allowArn) {
-          setYankMode(false);
-          let value = "";
-
-          if (adapter.id === "iam") {
-            const arn =
-              (selectedRow.meta?.arn as string | undefined) ??
-              (selectedRow.meta?.policyArn as string | undefined);
-            value = arn ?? "";
-          } else if (adapter.id === "s3") {
-            if (type === "bucket") {
-              value = `arn:aws:s3:::${selectedRow.id}`;
-            } else if (type === "object" || type === "folder") {
-              const keyPath = (selectedRow.meta?.key as string) ?? "";
-              const bucket = path.split("/")[2] ?? "";
-              if (bucket && keyPath) {
-                value = `arn:aws:s3:::${bucket}/${keyPath}`;
-              }
-            }
-          }
-
-          if (value) {
-            void clipboardy.write(value).then(() => {
-              pushYankFeedback("Copied ARN");
-            });
-          }
-        } else if (input === "e" && allowEtag && type === "object") {
-          setYankMode(false);
-          void (async () => {
-            const fields = (await adapter.getDetails?.(selectedRow)) ?? [];
-            const etag =
-              fields.find((field) => field.label === "ETag")?.value ?? "";
-            if (etag && etag !== "-") {
-              await clipboardy.write(etag);
-              pushYankFeedback("Copied ETag");
-            }
-          })();
-        } else if (input === "d" && allowDate && type === "object") {
-          setYankMode(false);
-          void (async () => {
-            const fields = (await adapter.getDetails?.(selectedRow)) ?? [];
-            const lastModified =
-              fields.find((field) => field.label === "Last Modified")?.value ??
-              "";
-            if (lastModified && lastModified !== "-") {
-              await clipboardy.write(lastModified);
-              pushYankFeedback("Copied Last Modified");
-            }
-          })();
-        } else if (key.escape) {
-          setYankMode(false);
         }
-
         return;
       }
 
       if (key.escape) {
         if (gPrefixPending) setGPrefixPending(false);
         if (mode === "search" || mode === "command") {
-          if (
-            mode === "search" &&
-            searchEntryFilter !== null &&
-            filterText !== ""
-          ) {
+          if (mode === "search" && searchEntryFilter !== null && filterText !== "") {
             handleFilterChange(searchEntryFilter);
           }
           if (mode === "search") setSearchEntryFilter(null);
           setMode("navigate");
         } else {
-          if (filterText !== "") {
-            handleFilterChange("");
-          } else {
-            navigateBack();
-          }
+          if (filterText !== "") { handleFilterChange(""); }
+          else { navigateBack(); }
         }
         return;
       }
@@ -1320,13 +725,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
       if (key.tab) {
         if (gPrefixPending) setGPrefixPending(false);
         if (mode === "command" && commandText) {
-          const match = COMMAND_SUGGESTIONS.find((cmd) =>
+          const match = AVAILABLE_COMMANDS.find((cmd) =>
             cmd.toLowerCase().startsWith(commandText.toLowerCase()),
           );
-          if (match) {
-            setCommandText(match);
-            setCommandCursorToEndToken((t) => t + 1);
-          }
+          if (match) { setCommandText(match); setCommandCursorToEndToken((t) => t + 1); }
         }
         return;
       }
@@ -1347,81 +749,32 @@ export function App({ initialService, endpointUrl }: AppProps) {
         return;
       }
 
-      if (input === "q") {
-        if (gPrefixPending) setGPrefixPending(false);
-        exit();
-        return;
-      }
+      if (input === "q") { if (gPrefixPending) setGPrefixPending(false); exit(); return; }
+      if (input === "r") { if (gPrefixPending) setGPrefixPending(false); void refresh(); return; }
+      if (input === "y") { if (gPrefixPending) setGPrefixPending(false); setYankMode(true); return; }
+      if (input === "d") { if (gPrefixPending) setGPrefixPending(false); showDetails(); return; }
+      if (input === "e") { if (gPrefixPending) setGPrefixPending(false); editSelection(); return; }
+      if (input === "f") { if (gPrefixPending) setGPrefixPending(false); openFetchPrompt(); return; }
 
-      if (input === "r") {
-        if (gPrefixPending) setGPrefixPending(false);
-        void refresh();
-        return;
-      }
-
-      if (input === "y") {
-        if (gPrefixPending) setGPrefixPending(false);
-        setYankMode(true);
-        return;
-      }
-
-      if (input === "d") {
-        if (gPrefixPending) setGPrefixPending(false);
-        showDetails();
-        return;
-      }
-
-      if (input === "e") {
-        if (gPrefixPending) setGPrefixPending(false);
-        editSelection();
-        return;
-      }
-
-      if (input === "f") {
-        if (gPrefixPending) setGPrefixPending(false);
-        openFetchPrompt();
-        return;
-      }
-
-      if (input === "G") {
-        setGPrefixPending(false);
-        toBottom();
-        return;
-      }
+      if (input === "G") { setGPrefixPending(false); toBottom(); return; }
 
       if (input === "p" && gPrefixPending) {
         setGPrefixPending(false);
-        if (adapter.id === "s3") {
-          setJumpPrompt("/");
-        }
+        if (adapter.id === "s3") setJumpPrompt("/");
         return;
       }
 
       if (input === "g") {
-        if (gPrefixPending) {
-          setGPrefixPending(false);
-          toTop();
-        } else {
-          setGPrefixPending(true);
-        }
+        if (gPrefixPending) { setGPrefixPending(false); toTop(); }
+        else { setGPrefixPending(true); }
         return;
       }
 
       if (gPrefixPending) setGPrefixPending(false);
 
-      if (key.downArrow || input === "j") {
-        moveDown();
-        return;
-      }
-
-      if (key.upArrow || input === "k") {
-        moveUp();
-        return;
-      }
-
-      if (key.return) {
-        navigateIntoSelection();
-      }
+      if (key.downArrow || input === "j") { moveDown(); return; }
+      if (key.upArrow || input === "k") { moveUp(); return; }
+      if (key.return) { navigateIntoSelection(); }
     },
     { isActive: true },
   );
@@ -1430,12 +783,17 @@ export function App({ initialService, endpointUrl }: AppProps) {
     const handle = (data: Buffer) => {
       if (data.toString() === "\x03") exit();
     };
-
     process.stdin.on("data", handle);
-    return () => {
-      process.stdin.off("data", handle);
-    };
+    return () => { process.stdin.off("data", handle); };
   }, [exit]);
+
+  const activePickerFilter = regionPicker.open
+    ? regionPicker.filter
+    : profilePicker.open
+      ? profilePicker.filter
+      : resourcePicker.open
+        ? resourcePicker.filter
+        : filterText;
 
   return (
     <FullscreenBox>
@@ -1452,19 +810,19 @@ export function App({ initialService, endpointUrl }: AppProps) {
           terminalWidth={termCols}
         />
         <Box flexDirection="row" width="100%" flexGrow={1}>
-          {helpOpen ? (
+          {helpPanel.helpOpen ? (
             <Box width="100%" borderStyle="round" borderColor="blue">
               <HelpPanel
                 title="Keyboard Help"
-                scopeLabel={helpScopeLabel}
+                scopeLabel="All modes reference"
                 tabs={helpTabs}
-                activeTab={helpTabIndex}
+                activeTab={helpPanel.helpTabIndex}
                 terminalWidth={termCols}
-                maxRows={helpVisibleRows}
-                scrollOffset={helpScrollOffset}
+                maxRows={helpPanel.helpVisibleRows}
+                scrollOffset={helpPanel.helpScrollOffset}
               />
             </Box>
-          ) : regionPickerOpen ? (
+          ) : regionPicker.open ? (
             <Table
               rows={filteredRegionRows}
               columns={[
@@ -1472,13 +830,13 @@ export function App({ initialService, endpointUrl }: AppProps) {
                 { key: "description", label: "Description" },
               ]}
               selectedIndex={regionSelectedIndex}
-              filterText={regionPickerFilter}
+              filterText={regionPicker.filter}
               terminalWidth={termCols}
               maxHeight={tableHeight}
               scrollOffset={regionScrollOffset}
               contextLabel="Select AWS Region"
             />
-          ) : profilePickerOpen ? (
+          ) : profilePicker.open ? (
             <Table
               rows={filteredProfileRows}
               columns={[
@@ -1486,13 +844,13 @@ export function App({ initialService, endpointUrl }: AppProps) {
                 { key: "description", label: "Description" },
               ]}
               selectedIndex={profileSelectedIndex}
-              filterText={profilePickerFilter}
+              filterText={profilePicker.filter}
               terminalWidth={termCols}
               maxHeight={tableHeight}
               scrollOffset={profileScrollOffset}
               contextLabel="Select AWS Profile"
             />
-          ) : resourcePickerOpen ? (
+          ) : resourcePicker.open ? (
             <Table
               rows={filteredResourceRows}
               columns={[
@@ -1500,7 +858,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
                 { key: "description", label: "Description" },
               ]}
               selectedIndex={resourceSelectedIndex}
-              filterText={resourcePickerFilter}
+              filterText={resourcePicker.filter}
               terminalWidth={termCols}
               maxHeight={tableHeight}
               scrollOffset={resourceScrollOffset}
@@ -1523,9 +881,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           ) : isLoading && filteredRows.length === 0 ? (
             <Box width="100%" borderStyle="round" borderColor="blue">
               <Box flexDirection="column" paddingX={1}>
-                <Text bold color="blue">
-                  Loading {adapter.label}...
-                </Text>
+                <Text bold color="blue">Loading {adapter.label}...</Text>
               </Box>
             </Box>
           ) : (
@@ -1541,7 +897,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
             />
           )}
         </Box>
-        {!helpOpen && yankFeedback && (
+        {!helpPanel.helpOpen && yankFeedback && (
           <Box paddingX={1}>
             <Text color="green">{yankFeedback.message}</Text>
           </Box>
@@ -1552,9 +908,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
             <TextInput
               value={fetchPrompt.destinationPath}
               onChange={(value) =>
-                setFetchPrompt((prev) =>
-                  prev ? { ...prev, destinationPath: value } : prev,
-                )
+                setFetchPrompt((prev) => prev ? { ...prev, destinationPath: value } : prev)
               }
               onSubmit={submitFetchPrompt}
               focus
@@ -1581,15 +935,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
         )}
         <ModeBar
           mode={mode}
-          filterText={
-            regionPickerOpen
-              ? regionPickerFilter
-              : profilePickerOpen
-                ? profilePickerFilter
-                : resourcePickerOpen
-                  ? resourcePickerFilter
-                : filterText
-          }
+          filterText={activePickerFilter}
           commandText={commandText}
           commandCursorToEndToken={commandCursorToEndToken}
           hintOverride={bottomHint}
