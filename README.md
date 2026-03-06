@@ -1,73 +1,168 @@
 # a9s
 
-![](https://img.shields.io/github/v/release/IamShobe/a9s) ![](https://img.shields.io/github/workflow/status/IamShobe/a9s/Create%20and%20publish%20a%20Python%20package?label=pypi%20build) ![](https://img.shields.io/github/workflow/status/IamShobe/a9s/Create%20and%20publish%20a%20Docker%20image?label=docker%20build)  
-Cli tool for easily navigating in AWS services.  
-Highly inspired from [k9s](https://github.com/derailed/k9s). 
+![npm version](https://img.shields.io/npm/v/@a9s/cli) ![CI](https://img.shields.io/github/actions/workflow/status/IamShobe/a9s/ci.yaml?label=CI) ![GitHub release](https://img.shields.io/github/v/release/IamShobe/a9s)
 
+**k9s-style TUI navigator for AWS services.** Inspired by [k9s](https://github.com/derailed/k9s).
 
-## How to install
+## Installation
 
-```shell
-pip install a9s
-```
-
-### Docker build
+### Global install (recommended)
 
 ```shell
-docker build . -t a9s
-docker run -v ~/.aws/:/root/.aws -it --rm a9s
+npm install -g @a9s/cli
+a9s
 ```
 
-### Running docker from cloud
+### Local install + npx
 
 ```shell
-docker run -v ~/.aws/:/root/.aws -it --rm ghcr.io/iamshobe/a9s
+npm install @a9s/cli
+npx @a9s/cli
 ```
 
+## Usage
 
-### How to develop
+Launch the TUI:
 
-#### Running mock server
-Install poetry env:
-```bash
-poetry install
-```
-Start dev server:
-```bash
-poetry run moto_server -p 54321
-```
-Run mock data:
-```bash
-poetry run python -m mocked_env.main
+```shell
+a9s
 ```
 
-#### Running mock server with docker-compose
+### Navigation
+
+- **Arrow keys / hjkl**: Navigate between rows
+- **Tab**: Switch between columns (sort/filter)
+- **Enter**: Drill into details or navigate to the next level
+- **Backspace**: Go back to the previous level
+- **/** (slash): Search/filter current view
+- **:**: Command mode (e.g., `:services` to list available services)
+- **?**: Show help panel with all keybindings for current context
+
+### Service Switching
+
+Press `:services` to see the list of available AWS services and switch between them.
+
+### Common Operations
+
+- **d**: Open detail panel for selected row (shows metadata like ARN, tags, etc.)
+- **y + key**: Yank/copy shortcuts:
+  - `y+n` → copy name
+  - `y+a` → copy ARN
+  - `y+k` → copy S3 key or other identifiers
+- **f**: Fetch/download S3 objects to local path
+- **e**: Edit and upload (opens selected item in `$EDITOR`)
+- **v**: Toggle reveal/hide secrets (Secrets Manager)
+
+## Services Supported
+
+| Service         | Status | Features                                        |
+| --------------- | ------ | ----------------------------------------------- |
+| S3              | ✅     | Browse buckets, objects, download, edit, delete |
+| IAM             | ✅     | List users, roles, policies                     |
+| Route 53        | ✅     | List hosted zones, records                      |
+| Secrets Manager | ✅     | View, edit, and upload secrets                  |
+| DynamoDB        | ✅     | List tables, view items                         |
+
+## Features
+
+- **Responsive tables** with sortable columns
+- **Service switching** with `:services` command
+- **VIM-inspired shortcuts** (hjkl navigation, commands)
+- **Yank mode** for quick copy operations
+- **Detail panels** showing rich metadata
+- **In-editor editing** with upload confirmation
+- **Search/filter** with `/` key
+- **Help system** with context-sensitive keybindings
+- **LocalStack support** for offline development
+
+## Development
+
+### Prerequisites
+
+- Node.js 18+
+- pnpm (for package management)
+- Docker (for LocalStack)
+
+### Setup
+
 ```bash
-docker-compose -f mocked_env/docker-compose.yaml up --build
+pnpm install
 ```
 
-#### Running a9s in with mocked server
-Run a9s in local mode (connects to mock server on port 54321):
+### Run Against LocalStack
+
+Start LocalStack + seed data:
+
 ```bash
-LOCAL=true poetry run a9s
+pnpm localstack:setup
+```
+
+Run the TUI (connects to LocalStack on port 4566):
+
+```bash
+pnpm dev:local
+```
+
+### Run Against AWS
+
+Connect to your AWS account:
+
+```bash
+pnpm dev
+```
+
+This will use your `~/.aws/credentials` and `AWS_REGION` environment variable.
+
+### Testing
+
+```bash
+pnpm test       # Run tests
+pnpm typecheck  # Type checking
+pnpm build      # Build TypeScript to dist/
+```
+
+### Project Structure
+
+```
+src/
+  index.tsx          - CLI entry point (commander)
+  App.tsx            - Main TUI state machine & layout
+  types.ts           - Core types (ColumnDef, TableRow, etc.)
+  services.ts        - Service registry
+  adapters/          - ServiceAdapter implementations for each AWS service
+  views/             - Service-specific views (s3, iam, route53, dynamodb, secretsmanager)
+  components/        - Ink/React components (Table, HUD, DetailPanel, etc.)
+  hooks/             - Custom React hooks (navigation, state, etc.)
+  constants/         - Keybindings, commands
+scripts/
+  seed.ts            - LocalStack test data seeding
+docker/
+  docker-compose.yml - LocalStack with services
 ```
 
 ## Goals
 
-### Services
-- [X] s3 support
-- [X] route53 support
-- [X] DynamoDB support
-- [ ] EC2 support
-- [ ] ELB support
-- [ ] Cloudfront support
+### Services (Planned)
 
+- [x] S3
+- [x] IAM
+- [x] Route 53
+- [x] DynamoDB
+- [x] Secrets Manager
+- [ ] EC2
+- [ ] ELB
+- [ ] CloudFront
 
-### Features
-- [X] responsive tables
-- [X] allow to easily switch between services
-- [X] auto-complete commands
-- [X] vim shortcuts support
-- [X] opening files in S3
-- [X] quick yank
-- [ ] smart navigation between services - route53 pointing to ELB etc..
+### Features (Planned)
+
+- [x] Responsive tables
+- [x] Service switching
+- [x] VIM shortcuts
+- [x] Yank operations
+- [x] Detail panels
+- [x] Edit & upload
+- [ ] Smart cross-service navigation (e.g., Route53 → ELB)
+
+## License
+
+MIT
