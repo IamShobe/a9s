@@ -19,7 +19,7 @@
     "url": "https://github.com/IamShobe/a9s.git"
   },
   "bin": {
-    "a9s": "./dist/index.js"
+    "a9s": "./dist/src/index.js"
   },
   "files": [
     "dist/"
