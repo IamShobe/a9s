@@ -19,7 +19,7 @@ jobs:
         with:
           version: 8
 
-      - run: pnpm install
+      - run: pnpm ci
 
       - run: pnpm lint
 
@@ -36,7 +36,7 @@ jobs:
         with:
           version: 8
 
-      - run: pnpm install
+      - run: pnpm ci
 
       - run: pnpm typecheck
 
@@ -53,6 +53,6 @@ jobs:
         with:
           version: 8
 
-      - run: pnpm install
+      - run: pnpm ci
 
       - run: pnpm test
