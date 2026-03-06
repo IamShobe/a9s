@@ -8,7 +8,7 @@ import { textCell } from "../types.js";
 
 function createPickerManager(active: PickerManager["activePicker"]): PickerManager {
   const noop = () => {};
-  const mkEntry = (id: "region" | "profile" | "resource") => ({
+  const mkEntry = (id: "region" | "profile" | "resource" | "theme") => ({
     id,
     columns: [{ key: id, label: id }],
     contextLabel: id,
@@ -37,6 +37,7 @@ function createPickerManager(active: PickerManager["activePicker"]): PickerManag
     region: mkEntry("region"),
     profile: mkEntry("profile"),
     resource: mkEntry("resource"),
+    theme: mkEntry("theme"),
     activePicker: active,
     openPicker: (_id) => {},
     closeActivePicker: noop,

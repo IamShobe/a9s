@@ -1,6 +1,7 @@
 import React, { useEffect, useImperativeHandle, useMemo, useState } from "react";
 import { Box, Text } from "ink";
 import { AdvancedTextInput } from "./AdvancedTextInput.js";
+import { useTheme } from "../contexts/ThemeContext.js";
 
 export interface AutocompleteInputHandle {
   autocomplete: () => void;
@@ -21,6 +22,7 @@ export const AutocompleteInput = React.forwardRef<AutocompleteInputHandle, Autoc
     { value, onChange, onSubmit, placeholder, suggestions = [], focus = true, cursorToEndToken },
     ref,
   ) => {
+    const THEME = useTheme();
     const [inputKey, setInputKey] = useState(0);
 
     const matchingSuggestions = useMemo(() => {
@@ -58,7 +60,7 @@ export const AutocompleteInput = React.forwardRef<AutocompleteInputHandle, Autoc
           {...(cursorToEndToken !== undefined ? { cursorToEndToken } : {})}
         />
         {suggestion && (
-          <Text color="gray" dimColor>
+          <Text color={THEME.input.suggestionText} dimColor>
             {suggestion}
           </Text>
         )}

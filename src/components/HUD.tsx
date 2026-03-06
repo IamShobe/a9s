@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
+import { useTheme } from "../contexts/ThemeContext.js";
 
 interface HUDProps {
   serviceLabel: string;
@@ -26,6 +27,7 @@ export function HUD({
   terminalWidth,
   loading = false,
 }: HUDProps) {
+  const THEME = useTheme();
   const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
   const [spinnerIndex, setSpinnerIndex] = React.useState(0);
 
@@ -60,32 +62,32 @@ export function HUD({
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color="blue" bold>
+        <Text color={THEME.hud.accountNameText} bold>
           {compactName}
         </Text>
-        <Text color="yellow" bold>
+        <Text color={THEME.hud.accountIdText} bold>
           {idPart}
         </Text>
-        <Text color="gray" bold>
+        <Text color={THEME.hud.separatorText} bold>
           ·
         </Text>
-        <Text color="green" bold>
+        <Text color={THEME.hud.regionText} bold>
           {region}
         </Text>
-        <Text color="gray" bold>
+        <Text color={THEME.hud.separatorText} bold>
           ·
         </Text>
-        <Text color="magenta" bold>
+        <Text color={THEME.hud.profileText} bold>
           {profilePart}
         </Text>
         <Text>{" ".repeat(topPadLen)}</Text>
         {loading ? (
-          <Text color="cyan" bold>
+          <Text color={THEME.hud.loadingSpinnerText} bold>
             {SPINNER_FRAMES[spinnerIndex]}
           </Text>
         ) : null}
       </Box>
-      <Text color="cyan" wrap="truncate-end">
+      <Text color={THEME.hud.currentIdentityText} wrap="truncate-end">
         {identityLine}
         {" ".repeat(identityPadLen)}
       </Text>
@@ -93,7 +95,7 @@ export function HUD({
         <Text backgroundColor={hudColor.bg} color={hudColor.fg} bold>
           {label}
         </Text>
-        <Text backgroundColor="gray" color="white">
+        <Text backgroundColor={THEME.hud.pathBarBg} color={THEME.hud.pathBarText}>
           {pathDisplay}
           {" ".repeat(padLen)}
         </Text>

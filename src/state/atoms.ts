@@ -1,6 +1,8 @@
 import { atom } from "jotai";
 import type { AppMode } from "../types.js";
 import type { ServiceId } from "../services.js";
+import type { ThemeName } from "../constants/theme.js";
+import { loadConfig } from "../utils/config.js";
 
 /** Persists across HMR / re-renders. Currently selected AWS service. */
 export const currentlySelectedServiceAtom = atom<ServiceId>("s3");
@@ -38,3 +40,6 @@ export const adapterSessionAtom = atom((get) => {
 
 /** Toggle state for revealing/hiding secret values. Persists across HMR. */
 export const revealSecretsAtom = atom(false);
+
+/** Active UI theme name — initialized from ~/.config/a9s/config.json on startup. */
+export const themeNameAtom = atom<ThemeName>(loadConfig().theme ?? "monokai");

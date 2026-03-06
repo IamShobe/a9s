@@ -10,6 +10,7 @@ import { createSecretsManagerDetailCapability } from "./capabilities/detailCapab
 import { createSecretsManagerYankCapability } from "./capabilities/yankCapability.js";
 import { createSecretsManagerActionCapability } from "./capabilities/actionCapability.js";
 import { createSecretsManagerEditCapability } from "./capabilities/editCapability.js";
+import { SERVICE_COLORS } from "../../constants/theme.js";
 
 interface SecretNavFrame extends NavFrame {
   level: SecretLevel;
@@ -196,7 +197,7 @@ export function createSecretsManagerServiceAdapter(
   return {
     id: "secretsmanager",
     label: "Secrets Manager",
-    hudColor: { bg: "blue", fg: "white" },
+    hudColor: SERVICE_COLORS.secretsmanager,
     getColumns,
     getRows,
     onSelect,

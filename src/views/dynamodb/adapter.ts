@@ -22,6 +22,7 @@ import {
 } from "./utils.js";
 import { createDynamoDBDetailCapability } from "./capabilities/detailCapability.js";
 import { createDynamoDBYankCapability } from "./capabilities/yankCapability.js";
+import { SERVICE_COLORS } from "../../constants/theme.js";
 
 interface DynamoDBNavFrame extends NavFrame {
   level: DynamoDBLevel;
@@ -370,7 +371,7 @@ export function createDynamoDBServiceAdapter(
   return {
     id: "dynamodb",
     label: "DynamoDB",
-    hudColor: { bg: "green", fg: "white" },
+    hudColor: SERVICE_COLORS.dynamodb,
     getColumns,
     getRows,
     onSelect,

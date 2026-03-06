@@ -11,6 +11,7 @@ import { createS3EditCapability } from "./capabilities/editCapability.js";
 import { createS3DetailCapability } from "./capabilities/detailCapability.js";
 import { createS3YankCapability } from "./capabilities/yankCapability.js";
 import { createS3ActionCapability } from "./capabilities/actionCapability.js";
+import { SERVICE_COLORS } from "../../constants/theme.js";
 
 export type S3Level = { kind: "buckets" } | { kind: "objects"; bucket: string; prefix: string };
 
@@ -165,7 +166,7 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
   return {
     id: "s3",
     label: "S3",
-    hudColor: { bg: "red", fg: "white" },
+    hudColor: SERVICE_COLORS.s3,
     getColumns,
     getRows,
     onSelect,

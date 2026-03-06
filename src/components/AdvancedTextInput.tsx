@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Text, useInput } from "ink";
 import type { Key } from "ink";
+import { useTheme } from "../contexts/ThemeContext.js";
 
 export interface AdvancedTextInputProps {
   value: string;
@@ -195,6 +196,7 @@ export function AdvancedTextInput({
   focus = true,
   cursorToEndToken,
 }: AdvancedTextInputProps) {
+  const THEME = useTheme();
   const [cursor, setCursor] = useState(value.length);
 
   useEffect(() => {
@@ -246,7 +248,7 @@ export function AdvancedTextInput({
   }, [cursor, placeholder, value]);
 
   if (rendered.isPlaceholder) {
-    return <Text color="gray">{rendered.text}</Text>;
+    return <Text color={THEME.input.placeholderText}>{rendered.text}</Text>;
   }
 
   return (
