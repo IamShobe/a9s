@@ -35,7 +35,7 @@
     "localstack:setup": "pnpm localstack:up && sleep 3 && pnpm localstack:seed",
     "dev:local": "AWS_ENDPOINT_URL=http://localhost:4566 AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test tsx --watch src/index.tsx",
     "dev": "tsx --watch src/index.tsx",
-    "build": "tsc",
+    "build": "tsc && node scripts/add-shebang.js",
     "lint": "oxlint",
     "format": "oxfmt --write",
     "test": "vitest run",
