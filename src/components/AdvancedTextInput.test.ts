@@ -61,12 +61,26 @@ describe("AdvancedTextInput helpers", () => {
     expect(back.value).toBe("hell");
     expect(back.cursor).toBe(4);
 
+    // Note: delete key without meta is treated as backspace (deletes before cursor)
+    // because some terminals report backspace as delete key
     const del = applyAdvancedInputEdit("hello", 1, "", makeKey({ delete: true }));
-    expect(del.value).toBe("hllo");
-    expect(del.cursor).toBe(1);
+    expect(del.value).toBe("ello");
+    expect(del.cursor).toBe(0);
 
     const submit = applyAdvancedInputEdit("hello", 5, "", makeKey({ return: true }));
     expect(submit.submit).toBe(true);
+  });
+
+  it("handles backspace with single character", () => {
+    // Backspace after single character should delete it
+    const singleCharEnd = applyAdvancedInputEdit("a", 1, "", makeKey({ backspace: true }));
+    expect(singleCharEnd.value).toBe("");
+    expect(singleCharEnd.cursor).toBe(0);
+
+    // Backspace at start should do nothing
+    const singleCharStart = applyAdvancedInputEdit("a", 0, "", makeKey({ backspace: true }));
+    expect(singleCharStart.value).toBe("a");
+    expect(singleCharStart.cursor).toBe(0);
   });
 
   it("treats raw terminal backspace/delete sequences as editing signals", () => {
