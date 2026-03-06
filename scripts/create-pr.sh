@@ -15,6 +15,12 @@ fi
 echo "Creating PR from $BRANCH to master..."
 echo "Title: $TITLE"
 
+# Push branch if not yet on remote
+if ! git ls-remote --exit-code origin "$BRANCH" &>/dev/null; then
+  echo "Pushing $BRANCH to origin..."
+  git push -u origin "$BRANCH"
+fi
+
 # Read body from second argument, stdin, or fall back to commit list
 if [ -n "${2:-}" ]; then
   BODY="$2"
