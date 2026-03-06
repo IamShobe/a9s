@@ -107,7 +107,7 @@ async function checkLocalStack() {
   }
 }
 
-async function runAws(args: string[]): Promise<string> {
+async function runAws(args: string[], timeoutMs = 10000): Promise<string> {
   const env = {
     ...process.env,
     AWS_ACCESS_KEY_ID: "test",
@@ -119,7 +119,7 @@ async function runAws(args: string[]): Promise<string> {
     ["--endpoint-url", "http://localhost:4566", ...args],
     {
       env,
-      timeout: 5000,
+      timeout: timeoutMs,
     },
   );
   return stdout;
@@ -227,6 +227,206 @@ async function ensureAttachedRolePolicy(roleName: string, policyArn: string) {
 
   await runAws(["iam", "attach-role-policy", "--role-name", roleName, "--policy-arn", policyArn]);
   console.log(`  Attached managed policy to ${roleName}`);
+}
+
+async function seedDynamoDB() {
+  console.log("\nSeeding DynamoDB:");
+
+  const tables = [
+    {
+      name: "Users",
+      pkName: "userId",
+      skName: "timestamp",
+      items: [
+        { userId: "user-001", timestamp: "2024-01-15T10:00:00Z", email: "alice@example.com", role: "admin" },
+        { userId: "user-002", timestamp: "2024-01-16T14:30:00Z", email: "bob@example.com", role: "user" },
+        { userId: "user-003", timestamp: "2024-01-17T09:45:00Z", email: "charlie@example.com", role: "user" },
+      ],
+    },
+    {
+      name: "Orders",
+      pkName: "orderId",
+      items: [
+        { orderId: "order-001", status: "completed", total: "99.99", items: "3" },
+        { orderId: "order-002", status: "pending", total: "149.50", items: "5" },
+        { orderId: "order-003", status: "shipped", total: "299.00", items: "1" },
+      ],
+    },
+  ];
+
+  for (const table of tables) {
+    // Try to create table
+    try {
+      const keySchema = [{ AttributeName: table.pkName, KeyType: "HASH" }];
+      const attrDefs = [{ AttributeName: table.pkName, AttributeType: "S" }];
+
+      if (table.skName) {
+        keySchema.push({ AttributeName: table.skName, KeyType: "RANGE" });
+        attrDefs.push({ AttributeName: table.skName, AttributeType: "S" });
+      }
+
+      await runAws(
+        [
+          "dynamodb",
+          "create-table",
+          "--table-name",
+          table.name,
+          "--key-schema",
+          JSON.stringify(keySchema),
+          "--attribute-definitions",
+          JSON.stringify(attrDefs),
+          "--billing-mode",
+          "PAY_PER_REQUEST",
+          "--output",
+          "json",
+        ],
+        15000,
+      );
+      console.log(`  Created table: ${table.name}`);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      if (err.message?.includes("already exists")) {
+        console.log(`  Table already exists: ${table.name}`);
+      } else {
+        throw e;
+      }
+    }
+
+    // Add items to the table (whether newly created or existing)
+    let addedCount = 0;
+    for (const item of table.items) {
+      const itemObj: Record<string, { S: string }> = {};
+      for (const [k, v] of Object.entries(item)) {
+        itemObj[k] = { S: String(v) };
+      }
+
+      try {
+        await runAws(
+          [
+            "dynamodb",
+            "put-item",
+            "--table-name",
+            table.name,
+            "--item",
+            JSON.stringify(itemObj),
+          ],
+          10000,
+        );
+        addedCount++;
+      } catch (e: unknown) {
+        console.log(`    Warning: could not add item: ${(e as Error).message}`);
+      }
+    }
+    console.log(`    Added ${addedCount}/${table.items.length} items`);
+  }
+}
+
+async function seedRoute53() {
+  console.log("\nSeeding Route53:");
+
+  const zones = [
+    { name: "example.com.", isPrivate: false },
+    { name: "internal.local.", isPrivate: true },
+    { name: "staging.test.", isPrivate: false },
+  ];
+
+  for (const zone of zones) {
+    try {
+      // First check if zone already exists
+      const listOut = await runAws(
+        [
+          "route53",
+          "list-hosted-zones",
+          "--output",
+          "json",
+        ],
+        10000,
+      ).catch(() => "");
+
+      let zoneId: string | undefined;
+      if (listOut) {
+        try {
+          const listParsed = JSON.parse(listOut) as {
+            HostedZones?: Array<{ Id: string; Name: string }>;
+          };
+          const existingZone = listParsed.HostedZones?.find((z) => z.Name === zone.name);
+          if (existingZone) {
+            zoneId = existingZone.Id;
+            console.log(`  Hosted zone already exists: ${zone.name}`);
+          }
+        } catch (e) {
+          // Ignore parse errors
+          console.log(`  List zones error: ${(e as Error).message}`);
+        }
+      }
+
+      // If not found, create it
+      if (!zoneId) {
+        const createOut = await runAws(
+          [
+            "route53",
+            "create-hosted-zone",
+            "--name",
+            zone.name,
+            "--caller-reference",
+            `zone-${Date.now()}-${Math.random()}`,
+            "--hosted-zone-config",
+            JSON.stringify({ PrivateZone: zone.isPrivate, Comment: `Test zone for ${zone.name}` }),
+            "--output",
+            "json",
+          ],
+          10000,
+        );
+        const parsed = JSON.parse(createOut) as { HostedZone?: { Id?: string } };
+        zoneId = parsed.HostedZone?.Id;
+        if (!zoneId) throw new Error(`Failed creating hosted zone ${zone.name}`);
+        console.log(`  Created hosted zone: ${zone.name} (${zoneId})`);
+      }
+
+      // Add some DNS records to the zone
+      const records = [
+        { name: `www.${zone.name}`, type: "A", value: "192.0.2.1" },
+        { name: `api.${zone.name}`, type: "A", value: "192.0.2.2" },
+        { name: `mail.${zone.name}`, type: "A", value: "192.0.2.3" },
+        { name: zone.name, type: "MX", value: "10 mail.example.com." },
+      ];
+
+      for (const record of records) {
+        try {
+          await runAws(
+            [
+              "route53",
+              "change-resource-record-sets",
+              "--hosted-zone-id",
+              zoneId,
+              "--change-batch",
+              JSON.stringify({
+                Changes: [
+                  {
+                    Action: "UPSERT",
+                    ResourceRecordSet: {
+                      Name: record.name,
+                      Type: record.type,
+                      TTL: 300,
+                      ResourceRecords: [{ Value: record.value }],
+                    },
+                  },
+                ],
+              }),
+            ],
+            10000,
+          );
+          console.log(`    Ensured record: ${record.name} (${record.type})`);
+        } catch (e: unknown) {
+          const err = e as { message?: string };
+          console.log(`    Warning adding record ${record.name}: ${err.message ?? String(e)}`);
+        }
+      }
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      console.error(`  Error seeding zone ${zone.name}: ${err.message ?? String(e)}`);
+    }
+  }
 }
 
 async function seedSecretsManager() {
@@ -344,8 +544,29 @@ async function main() {
     await seedBucket(bucket);
   }
 
-  await seedIam();
-  await seedSecretsManager();
+  try {
+    await seedDynamoDB();
+  } catch (e) {
+    console.error(`\nDynamoDB seeding failed: ${(e as Error).message}`);
+  }
+
+  try {
+    await seedRoute53();
+  } catch (e) {
+    console.error(`\nRoute53 seeding failed: ${(e as Error).message}`);
+  }
+
+  try {
+    await seedIam();
+  } catch (e) {
+    console.error(`\nIAM seeding failed: ${(e as Error).message}`);
+  }
+
+  try {
+    await seedSecretsManager();
+  } catch (e) {
+    console.error(`\nSecrets Manager seeding failed: ${(e as Error).message}`);
+  }
 
   console.log("\nDone! LocalStack seeded with test data.");
   console.log("Run: pnpm dev:local");
