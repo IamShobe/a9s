@@ -12,6 +12,13 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Extract version from tag
+        run: |
+          VERSION=$(git describe --tags --exact-match 2>/dev/null | sed 's/^v//')
+          npm version --no-git-tag-version --allow-same-version "$VERSION"
 
       - uses: actions/setup-node@v4
         with:

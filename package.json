@@ -1,6 +1,6 @@
 {
   "name": "@a9s/cli",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "k9s-style TUI navigator for AWS services",
   "keywords": [
     "aws",
