@@ -65,56 +65,18 @@ export function AppMainView({
     );
   }
 
-  if (pickers.region.open) {
+  if (pickers.activePicker) {
+    const ap = pickers.activePicker;
     return (
       <Table
-        rows={pickers.region.filteredRows}
-        columns={[
-          { key: "region", label: "Region" },
-          { key: "description", label: "Description" },
-        ]}
-        selectedIndex={pickers.region.selectedIndex}
-        filterText={pickers.region.filter}
+        rows={ap.filteredRows}
+        columns={ap.columns}
+        selectedIndex={ap.selectedIndex}
+        filterText={ap.filter}
         terminalWidth={termCols}
         maxHeight={tableHeight}
-        scrollOffset={pickers.region.scrollOffset}
-        contextLabel="Select AWS Region"
-      />
-    );
-  }
-
-  if (pickers.profile.open) {
-    return (
-      <Table
-        rows={pickers.profile.filteredRows}
-        columns={[
-          { key: "profile", label: "Profile" },
-          { key: "description", label: "Description" },
-        ]}
-        selectedIndex={pickers.profile.selectedIndex}
-        filterText={pickers.profile.filter}
-        terminalWidth={termCols}
-        maxHeight={tableHeight}
-        scrollOffset={pickers.profile.scrollOffset}
-        contextLabel="Select AWS Profile"
-      />
-    );
-  }
-
-  if (pickers.resource.open) {
-    return (
-      <Table
-        rows={pickers.resource.filteredRows}
-        columns={[
-          { key: "resource", label: "Resource" },
-          { key: "description", label: "Description" },
-        ]}
-        selectedIndex={pickers.resource.selectedIndex}
-        filterText={pickers.resource.filter}
-        terminalWidth={termCols}
-        maxHeight={tableHeight}
-        scrollOffset={pickers.resource.scrollOffset}
-        contextLabel="Select AWS Resource"
+        scrollOffset={ap.scrollOffset}
+        contextLabel={ap.contextLabel}
       />
     );
   }

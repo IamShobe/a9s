@@ -116,69 +116,49 @@ export function useMainInput(state: MainInputState, handlers: MainInputHandlers)
   const { resolve, reset: resetChord } = useKeyChord(KEYBINDINGS);
 
   const getActivePicker = useCallback(() => {
-    if (pickers.resource.open) {
-      return {
-        entry: pickers.resource,
-        onConfirm: () => {
-          if (pickers.resource.selectedRow) {
-            switchAdapter(pickers.resource.selectedRow.id as ServiceId);
-            pickers.resource.closePicker();
-            setMode("navigate");
-          }
-        },
-      };
-    }
-    if (pickers.region.open) {
-      return {
-        entry: pickers.region,
-        onConfirm: () => {
-          if (pickers.region.selectedRow) {
-            setSelectedRegion(pickers.region.selectedRow.id);
-            pickers.region.closePicker();
-            setMode("navigate");
-          }
-        },
-      };
-    }
-    if (pickers.profile.open) {
-      return {
-        entry: pickers.profile,
-        onConfirm: () => {
-          if (pickers.profile.selectedRow) {
-            setSelectedProfile(pickers.profile.selectedRow.id);
-            pickers.profile.closePicker();
-            setMode("navigate");
-          }
-        },
-      };
-    }
-    return null;
-  }, [pickers.profile, pickers.region, pickers.resource, setMode, setSelectedProfile, setSelectedRegion, switchAdapter]);
+    const { activePicker } = pickers;
+    if (!activePicker) return null;
+
+    const onConfirm = () => {
+      const row = activePicker.selectedRow;
+      if (!row) return;
+      switch (activePicker.id) {
+        case "resource":
+          switchAdapter(row.id as ServiceId);
+          break;
+        case "region":
+          setSelectedRegion(row.id);
+          break;
+        case "profile":
+          setSelectedProfile(row.id);
+          break;
+      }
+      activePicker.closePicker();
+    };
+    return { entry: activePicker, onConfirm };
+  }, [pickers.activePicker, setSelectedProfile, setSelectedRegion, switchAdapter]);
 
   const handleActivePickerInput = useCallback(
     (input: string, key: Key): boolean => {
       const active = getActivePicker();
       if (!active) return false;
 
-      if (mode === "search" && !key.escape) return true;
+      if (active.entry.pickerMode === "search" && !key.escape) return true;
 
       const action = resolve(input, key, "picker");
       switch (action) {
         case KB.PICKER_CLOSE:
           resetChord();
-          if (mode === "search") {
+          if (active.entry.pickerMode === "search") {
             active.entry.cancelSearch();
-            setMode("navigate");
           } else {
             active.entry.closePicker();
-            setMode("navigate");
           }
           return true;
         case KB.PICKER_FILTER:
           resetChord();
-          if (mode !== "search") {
+          if (active.entry.pickerMode !== "search") {
             active.entry.startSearch();
-            setMode("search");
           }
           return true;
         case KB.PICKER_DOWN:
@@ -205,7 +185,7 @@ export function useMainInput(state: MainInputState, handlers: MainInputHandlers)
           return true;
       }
     },
-    [getActivePicker, mode, resetChord, resolve, setMode],
+    [getActivePicker, resetChord, resolve],
   );
 
   // Ctrl-C fallback

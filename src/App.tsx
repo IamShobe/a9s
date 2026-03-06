@@ -184,30 +184,26 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   const uiScopeActual = helpPanel.helpOpen
     ? "help"
-    : pickers.region.open
-      ? "regions"
-      : pickers.profile.open
-        ? "profiles"
-        : pickers.resource.open
-          ? "resources"
-          : pendingAction
-            ? "adapter-action"
-            : uploadPending
-              ? "upload"
-              : describeState
-                ? "details"
-                : yankMode
-                  ? "yank"
-                  : mode;
+    : pickers.activePicker
+      ? "picker"
+      : pendingAction
+        ? "adapter-action"
+        : uploadPending
+          ? "upload"
+          : describeState
+            ? "details"
+            : yankMode
+              ? "yank"
+              : mode;
 
   const bottomHint = useMemo(() => {
     switch (uiScopeActual) {
       case "help":
         return buildScopeHint("help", adapterBindings);
-      case "regions":
-      case "profiles":
-      case "resources":
-        return buildScopeHint("picker", adapterBindings);
+      case "picker":
+        return pickers.activePicker?.pickerMode === "search"
+          ? buildScopeHint("search", adapterBindings)
+          : buildScopeHint("picker", adapterBindings);
       case "adapter-action":
         if (pendingAction?.effect.type === "prompt") {
           return " Enter value  •  Esc cancel";
@@ -229,7 +225,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       default:
         return buildScopeHint("navigate", adapterBindings, 4);
     }
-  }, [adapterBindings, uiScopeActual, yankHint, pendingAction]);
+  }, [adapterBindings, uiScopeActual, yankHint, pendingAction, pickers.activePicker]);
 
   const switchAdapter = useCallback(
     (serviceId: ServiceId) => {
@@ -287,18 +283,20 @@ export function App({ initialService, endpointUrl }: AppProps) {
   ]);
 
   const handleFilterSubmit = useCallback(() => {
-    if (pickers.region.open) { pickers.region.confirmSearch(); setMode("navigate"); return; }
-    if (pickers.profile.open) { pickers.profile.confirmSearch(); setMode("navigate"); return; }
-    if (pickers.resource.open) { pickers.resource.confirmSearch(); setMode("navigate"); return; }
+    if (pickers.activePicker) {
+      pickers.activePicker.confirmSearch();
+      return;
+    }
     setSearchEntryFilter(null);
     setMode("navigate");
   }, [pickers, setMode]);
 
   const handleFilterChange = useCallback(
     (value: string) => {
-      if (pickers.region.open) { pickers.region.setFilter(value); return; }
-      if (pickers.profile.open) { pickers.profile.setFilter(value); return; }
-      if (pickers.resource.open) { pickers.resource.setFilter(value); return; }
+      if (pickers.activePicker) {
+        pickers.activePicker.setFilter(value);
+        return;
+      }
       setFilterText(value);
       updateCurrentFilter(value);
     },
@@ -520,13 +518,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
     },
   );
 
-  const activePickerFilter = pickers.region.open
-    ? pickers.region.filter
-    : pickers.profile.open
-      ? pickers.profile.filter
-      : pickers.resource.open
-        ? pickers.resource.filter
-        : filterText;
+  const activePickerFilter = pickers.activePicker?.filter ?? filterText;
 
   return (
     <FullscreenBox>
@@ -597,6 +589,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           commandText={commandText}
           commandCursorToEndToken={commandCursorToEndToken}
           hintOverride={bottomHint}
+          pickerSearchActive={pickers.activePicker?.pickerMode === "search"}
           onFilterChange={handleFilterChange}
           onCommandChange={setCommandText}
           onFilterSubmit={handleFilterSubmit}

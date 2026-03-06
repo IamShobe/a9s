@@ -1,17 +1,22 @@
 import { useMemo } from "react";
 import type { AwsRegionOption } from "./useAwsRegions.js";
 import type { AwsProfileOption } from "./useAwsProfiles.js";
-import type { TableRow } from "../types.js";
+import type { ColumnDef, TableRow } from "../types.js";
 import { usePickerState } from "./usePickerState.js";
 import { usePickerTable } from "./usePickerTable.js";
 import { SERVICE_REGISTRY } from "../services.js";
 import type { ServiceId } from "../services.js";
 
 export interface PickerEntry {
+  // Picker identity
+  id: "region" | "profile" | "resource";
+  columns: ColumnDef[];
+  contextLabel: string;
   // Picker open/filter/search state
   open: boolean;
   filter: string;
   searchEntry: string | null;
+  pickerMode: "navigate" | "search";
   setFilter: (v: string) => void;
   openPicker: () => void;
   closePicker: () => void;
@@ -40,6 +45,7 @@ export interface PickerManager {
   region: PickerEntry;
   profile: PickerEntry;
   resource: PickerEntry;
+  activePicker: PickerEntry | null;
 }
 
 export function usePickerManager({
@@ -85,9 +91,57 @@ export function usePickerManager({
   const profileTable  = usePickerTable({ rows: profileRows,  filterText: profile.filter,  maxHeight: tableHeight });
   const resourceTable = usePickerTable({ rows: resourceRows, filterText: resource.filter, maxHeight: tableHeight });
 
+  const regionColumns: ColumnDef[] = [
+    { key: "region", label: "Region" },
+    { key: "description", label: "Description" },
+  ];
+
+  const profileColumns: ColumnDef[] = [
+    { key: "profile", label: "Profile" },
+    { key: "description", label: "Description" },
+  ];
+
+  const resourceColumns: ColumnDef[] = [
+    { key: "resource", label: "Resource" },
+    { key: "description", label: "Description" },
+  ];
+
+  const regionEntry: PickerEntry = {
+    id: "region",
+    columns: regionColumns,
+    contextLabel: "Select AWS Region",
+    ...region,
+    ...regionTable,
+  };
+
+  const profileEntry: PickerEntry = {
+    id: "profile",
+    columns: profileColumns,
+    contextLabel: "Select AWS Profile",
+    ...profile,
+    ...profileTable,
+  };
+
+  const resourceEntry: PickerEntry = {
+    id: "resource",
+    columns: resourceColumns,
+    contextLabel: "Select AWS Resource",
+    ...resource,
+    ...resourceTable,
+  };
+
+  const activePicker = resourceEntry.open
+    ? resourceEntry
+    : regionEntry.open
+      ? regionEntry
+      : profileEntry.open
+        ? profileEntry
+        : null;
+
   return {
-    region:   { ...region,   ...regionTable },
-    profile:  { ...profile,  ...profileTable },
-    resource: { ...resource, ...resourceTable },
+    region: regionEntry,
+    profile: profileEntry,
+    resource: resourceEntry,
+    activePicker,
   };
 }

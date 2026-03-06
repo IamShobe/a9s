@@ -13,6 +13,7 @@ interface ModeBarProps {
   commandText: string;
   commandCursorToEndToken?: number;
   hintOverride?: string;
+  pickerSearchActive?: boolean;
   onFilterChange: (value: string) => void;
   onCommandChange: (value: string) => void;
   onFilterSubmit: () => void;
@@ -47,6 +48,7 @@ export const ModeBar = React.forwardRef<
       commandText,
       commandCursorToEndToken,
       hintOverride,
+      pickerSearchActive,
       onFilterChange,
       onCommandChange,
       onFilterSubmit,
@@ -90,24 +92,29 @@ export const ModeBar = React.forwardRef<
       filterInput: filterInputRef.current ?? ({} as AutocompleteInputHandle),
     }));
 
+    const isPickerSearch = pickerSearchActive === true;
+    const icon = isPickerSearch ? "/" : MODE_ICONS[mode];
+    const showNavigateHint = mode === "navigate" && !isPickerSearch;
+    const showFilterInput = mode === "search" || isPickerSearch;
+
     return (
       <Box flexDirection="column" width="100%">
         <Box paddingX={1}>
           <Text color={MODE_COLORS[mode]} bold>
-            {MODE_ICONS[mode]}
+            {icon}
           </Text>
           <Text> </Text>
-          {mode === "navigate" && (
+          {showNavigateHint && (
             renderHint(hintOverride ?? "")
           )}
-          {mode === "search" && (
+          {showFilterInput && (
             <AutocompleteInput
               ref={filterInputRef}
               value={filterText}
               onChange={onFilterChange}
               onSubmit={onFilterSubmit}
               placeholder={"Type to filter"}
-              focus={mode === "search"}
+              focus={showFilterInput}
             />
           )}
           {mode === "command" && (
