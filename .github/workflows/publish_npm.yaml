@@ -22,7 +22,7 @@ jobs:
         with:
           version: 8
 
-      - run: pnpm ci
+      - run: pnpm install --frozen-lockfile
 
       - run: pnpm typecheck
 
