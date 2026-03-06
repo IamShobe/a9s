@@ -47,14 +47,46 @@ pnpm release:create-pr [title]
 
 **What it does:**
 - Creates a PR from your current branch to master
+- Auto-pushes the branch if not yet on remote
 - Uses your latest commit message as the default title if you don't provide one
-- Example: `pnpm release:create-pr "Add awesome feature"`
+- **Automatically applies GitHub labels** based on the conventional commit prefix in the title (see Version Bumps below)
+- Body is read from stdin if piped, otherwise falls back to the commit list
+
+**Example (pipe body from stdin):**
+```bash
+pnpm release:create-pr "feat: add theme switcher" <<'EOF'
+## Summary
+- Add 6 themes switchable via :theme command
+- Live hover preview with Escape to cancel
+EOF
+```
 
 **Requirements:**
 - You must be on a feature branch (not master)
 - GitHub CLI (gh) must be authenticated: `gh auth login`
 
 **Output:** PR URL and number
+
+---
+
+### Version Bumps — How They Work
+
+Version bumping is driven by **GitHub labels** on the PR, set automatically from the PR title prefix:
+
+| Title prefix | Labels applied | Version bump |
+|---|---|---|
+| `feat:` / `feature:` | `minor`, `enhancement` | **minor** (1.x.0) |
+| `fix:` / `bugfix:` | `patch`, `fix` | **patch** (1.0.x) |
+| `chore:` / `docs:` / `refactor:` / `ci:` | `patch`, `chore` | **patch** (1.0.x) |
+| `BREAKING CHANGE` / `major:` | `major`, `enhancement` | **major** (x.0.0) |
+| *(anything else)* | `patch` | **patch** (1.0.x) |
+
+**Always use conventional commit prefixes in PR titles** so Release Drafter picks the right version.
+
+The labels also control which changelog section the PR appears under:
+- `feature` / `enhancement` → 🚀 Features
+- `fix` / `bugfix` / `bug` → 🐛 Bug Fixes
+- `chore` → 🧰 Maintenance
 
 ---
 
