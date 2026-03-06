@@ -6,7 +6,7 @@ import type {
   DetailField,
   YankOption,
 } from "../../adapters/ServiceAdapter.js";
-import { runAwsJson } from "../../utils/aws.js";
+import { runAwsJsonAsync } from "../../utils/aws.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 
 type IamLevel =
@@ -125,7 +125,10 @@ export class IamServiceAdapter implements ServiceAdapter {
           },
         ];
       case "roles": {
-        const data = runAwsJson<{ Roles?: AwsRole[] }>(["iam", "list-roles"]);
+        const data = await runAwsJsonAsync<{ Roles?: AwsRole[] }>([
+          "iam",
+          "list-roles",
+        ]);
         return (data.Roles ?? []).map((role) => ({
           id: role.RoleName,
           cells: {
@@ -159,7 +162,7 @@ export class IamServiceAdapter implements ServiceAdapter {
         ];
       case "role-inline-policies": {
         const { roleName } = this.level;
-        const data = runAwsJson<{ PolicyNames?: string[] }>([
+        const data = await runAwsJsonAsync<{ PolicyNames?: string[] }>([
           "iam",
           "list-role-policies",
           "--role-name",
@@ -181,7 +184,7 @@ export class IamServiceAdapter implements ServiceAdapter {
       }
       case "role-attached-policies": {
         const { roleName } = this.level;
-        const data = runAwsJson<{ AttachedPolicies?: AwsAttachedPolicy[] }>([
+        const data = await runAwsJsonAsync<{ AttachedPolicies?: AwsAttachedPolicy[] }>([
           "iam",
           "list-attached-role-policies",
           "--role-name",
@@ -202,7 +205,7 @@ export class IamServiceAdapter implements ServiceAdapter {
         }));
       }
       case "policies": {
-        const data = runAwsJson<{ Policies?: AwsManagedPolicy[] }>([
+        const data = await runAwsJsonAsync<{ Policies?: AwsManagedPolicy[] }>([
           "iam",
           "list-policies",
           "--scope",
@@ -266,7 +269,7 @@ export class IamServiceAdapter implements ServiceAdapter {
 
     if (meta?.type === "role") {
       const roleName = meta.roleName;
-      const roleData = runAwsJson<{ Role: AwsRole }>([
+      const roleData = await runAwsJsonAsync<{ Role: AwsRole }>([
         "iam",
         "get-role",
         "--role-name",
@@ -282,7 +285,7 @@ export class IamServiceAdapter implements ServiceAdapter {
 
     if (meta?.type === "inline-policy") {
       const { roleName, policyName } = meta;
-      const data = runAwsJson<{ PolicyDocument?: unknown }>([
+      const data = await runAwsJsonAsync<{ PolicyDocument?: unknown }>([
         "iam",
         "get-role-policy",
         "--role-name",
@@ -299,7 +302,7 @@ export class IamServiceAdapter implements ServiceAdapter {
 
     if (meta?.type === "managed-policy") {
       const { policyArn, policyName } = meta;
-      const policyMeta = runAwsJson<{ Policy: AwsManagedPolicy }>([
+      const policyMeta = await runAwsJsonAsync<{ Policy: AwsManagedPolicy }>([
         "iam",
         "get-policy",
         "--policy-arn",
@@ -307,7 +310,9 @@ export class IamServiceAdapter implements ServiceAdapter {
       ]);
       const versionId = policyMeta.Policy.DefaultVersionId;
       if (!versionId) return { action: "none" };
-      const policyVersion = runAwsJson<{ PolicyVersion?: { Document?: unknown } }>([
+      const policyVersion = await runAwsJsonAsync<{
+        PolicyVersion?: { Document?: unknown };
+      }>([
         "iam",
         "get-policy-version",
         "--policy-arn",
@@ -391,7 +396,7 @@ export class IamServiceAdapter implements ServiceAdapter {
 
     if (meta?.type === "role") {
       const roleName = meta.roleName;
-      const data = runAwsJson<{ Role: AwsRole }>([
+      const data = await runAwsJsonAsync<{ Role: AwsRole }>([
         "iam",
         "get-role",
         "--role-name",
@@ -424,7 +429,7 @@ export class IamServiceAdapter implements ServiceAdapter {
 
     if (meta?.type === "inline-policy") {
       const { roleName, policyName } = meta;
-      const data = runAwsJson<{ PolicyDocument?: unknown }>([
+      const data = await runAwsJsonAsync<{ PolicyDocument?: unknown }>([
         "iam",
         "get-role-policy",
         "--role-name",
@@ -442,7 +447,7 @@ export class IamServiceAdapter implements ServiceAdapter {
 
     if (meta?.type === "managed-policy") {
       const { policyArn } = meta;
-      const data = runAwsJson<{ Policy: AwsManagedPolicy }>([
+      const data = await runAwsJsonAsync<{ Policy: AwsManagedPolicy }>([
         "iam",
         "get-policy",
         "--policy-arn",

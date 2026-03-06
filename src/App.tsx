@@ -156,7 +156,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
   }, [adapter, selectedRow]);
 
   const yankHint = useMemo(
-    () => yankOptions.map((item) => `${item.key} ${item.label}`).join("  •  "),
+    () => yankOptions.map((item) => `${item.key} · ${item.label}`).join(" • "),
     [yankOptions],
   );
 
@@ -212,7 +212,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       case "command":
         return COMMAND_MODE_HINT;
       default:
-        return buildScopeHint("navigate", adapter.id);
+        return buildScopeHint("navigate", adapter.id, 4);
     }
   }, [adapter.id, uiScopeActual, yankHint]);
 
@@ -472,6 +472,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           currentIdentity={currentIdentity}
           region={region}
           terminalWidth={termCols}
+          loading={isLoading || Boolean(describeState?.loading)}
         />
         <Box flexDirection="row" width="100%" flexGrow={1}>
           <AppMainView

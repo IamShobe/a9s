@@ -59,6 +59,32 @@ export const ModeBar = React.forwardRef<
     const commandInputRef = useRef<AutocompleteInputHandle>(null);
     const filterInputRef = useRef<AutocompleteInputHandle>(null);
 
+    const renderHint = (hint: string) => {
+      const entries = hint
+        .trim()
+        .split("•")
+        .map((x) => x.trim())
+        .filter(Boolean);
+
+      return (
+        <Text color="gray" wrap="truncate-end">
+          {entries.map((entry, idx) => {
+            const [rawKey, rawDesc] = entry.split("·").map((x) => x.trim());
+            const keyPart = rawKey ?? entry;
+            const descPart = rawDesc ?? "";
+
+            return (
+              <React.Fragment key={`hint-${idx}`}>
+                <Text color="yellow">{keyPart}</Text>
+                {descPart ? <Text color="gray"> {descPart}</Text> : null}
+                {idx < entries.length - 1 ? <Text color="gray"> • </Text> : null}
+              </React.Fragment>
+            );
+          })}
+        </Text>
+      );
+    };
+
     React.useImperativeHandle(ref, () => ({
       commandInput: commandInputRef.current ?? ({} as AutocompleteInputHandle),
       filterInput: filterInputRef.current ?? ({} as AutocompleteInputHandle),
@@ -72,7 +98,7 @@ export const ModeBar = React.forwardRef<
           </Text>
           <Text> </Text>
           {mode === "navigate" && (
-            <Text color="gray" wrap="truncate-end">{hintOverride ?? ""}</Text>
+            renderHint(hintOverride ?? "")
           )}
           {mode === "search" && (
             <AutocompleteInput

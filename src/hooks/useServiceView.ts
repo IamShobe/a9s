@@ -38,23 +38,42 @@ async function openFile(filePath: string): Promise<void> {
 export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
   const [rows, setRows] = useState<TableRow[]>([]);
   const [columns, setColumns] = useState<ColumnDef[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingCount, setLoadingCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  const beginLoading = useCallback(() => {
+    setLoadingCount((prev) => prev + 1);
+  }, []);
+
+  const endLoading = useCallback(() => {
+    setLoadingCount((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  const runWithLoading = useCallback(
+    async <T>(fn: () => Promise<T>, clearError = false): Promise<T> => {
+      beginLoading();
+      if (clearError) setError(null);
+      try {
+        return await fn();
+      } finally {
+        endLoading();
+      }
+    },
+    [beginLoading, endLoading]
+  );
+
   const refresh = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    setColumns(adapter.getColumns());
-    try {
-      const r = await adapter.getRows();
-      setRows(r);
+    return runWithLoading(async () => {
       setColumns(adapter.getColumns());
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [adapter]);
+      try {
+        const r = await adapter.getRows();
+        setRows(r);
+        setColumns(adapter.getColumns());
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    }, true);
+  }, [adapter, runWithLoading]);
 
   useEffect(() => {
     void refresh();
@@ -89,32 +108,38 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
 
   const select = useCallback(
     async (row: TableRow) => {
-      const result = await adapter.onSelect(row);
-      return processResult(result);
+      return runWithLoading(async () => {
+        const result = await adapter.onSelect(row);
+        return processResult(result);
+      });
     },
-    [adapter, processResult]
+    [adapter, processResult, runWithLoading]
   );
 
   const edit = useCallback(
     async (row: TableRow) => {
-      const result = adapter.onEdit
-        ? await adapter.onEdit(row)
-        : await adapter.onSelect(row);
-      return processResult(result);
+      return runWithLoading(async () => {
+        const result = adapter.onEdit
+          ? await adapter.onEdit(row)
+          : await adapter.onSelect(row);
+        return processResult(result);
+      });
     },
-    [adapter, processResult]
+    [adapter, processResult, runWithLoading]
   );
 
   const goBack = useCallback(async () => {
     if (!adapter.canGoBack()) return;
-    adapter.goBack();
-    await refresh();
-  }, [adapter, refresh]);
+    await runWithLoading(async () => {
+      adapter.goBack();
+      await refresh();
+    });
+  }, [adapter, refresh, runWithLoading]);
 
   return {
     rows,
     columns,
-    isLoading,
+    isLoading: loadingCount > 0,
     error,
     select,
     edit,

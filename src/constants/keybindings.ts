@@ -101,7 +101,7 @@ export const KEYBINDINGS: KeyBinding[] = [
   { action: KB.COMMAND_MODE,  trigger: { type: "key", char: ":" },                 scope: "navigate", label: "Command mode" },
   { action: KB.REFRESH,       trigger: { type: "key", char: "r" },                 scope: "navigate", label: "Refresh" },
   { action: KB.QUIT,          trigger: { type: "key", char: "q" },                 scope: "navigate", label: "Quit" },
-  { action: KB.HELP,          trigger: { type: "key", char: "?" },                 scope: "navigate", label: "Open this help (navigate mode only)" },
+  { action: KB.HELP,          trigger: { type: "key", char: "?" },                 scope: "navigate", label: "Open help (navigate mode only)" },
 
   // --- Search (informational — text input handles actual typing) ---
   { action: KB.SEARCH_MODE,   trigger: { type: "key", char: "/" },                 scope: "search",  label: "Open: press / in navigate mode" },
@@ -218,7 +218,7 @@ export function buildNavigateHint(): string {
 export function buildScopeHint(
   scope: KeyScope,
   adapterId?: string,
-  maxItems = 6,
+  maxItems = 8,
 ): string {
   const filtered = KEYBINDINGS.filter((kb) => {
     if (kb.scope !== scope) return false;
@@ -234,14 +234,41 @@ export function buildScopeHint(
     return true;
   });
 
-  const parts = compact.slice(0, maxItems).map((kb) => {
-    const label = kb.label
-      .replace(/^Open: /, "")
-      .replace(/\(navigate mode only\)/g, "")
+  const shortLabel = (label: string): string =>
+    label
+      .replace(/^Open:\s*/i, "")
+      .replace(/\(navigate mode only\)/gi, "")
+      .replace(/^Move selection /i, "")
+      .replace(/^Jump to /i, "")
+      .replace(/^Open /i, "")
+      .replace(/^Apply filter and /i, "")
+      .replace(/^Cancel and /i, "")
+      .replace(/^Copy selected /i, "copy ")
+      .replace(/^Copy /i, "copy ")
+      .replace(/\s+/g, " ")
       .trim()
       .toLowerCase();
-    return `${triggerToString(kb.trigger)} ${label}`;
+
+  let ordered = compact;
+  if (scope === "navigate") {
+    const priority: KeyAction[] = [
+      KB.MOVE_DOWN,
+      KB.MOVE_UP,
+      KB.SEARCH_MODE,
+      KB.HELP,
+    ];
+    ordered = [
+      ...priority
+        .map((action) => compact.find((kb) => kb.action === action))
+        .filter((kb): kb is KeyBinding => Boolean(kb)),
+      ...compact.filter((kb) => !priority.includes(kb.action)),
+    ];
+  }
+
+  const parts = ordered.slice(0, maxItems).map((kb) => {
+    const label = shortLabel(kb.label);
+    return `${triggerToString(kb.trigger)} · ${label}`;
   });
 
-  return parts.length > 0 ? ` ${parts.join("  •  ")}` : "";
+  return parts.length > 0 ? ` ${parts.join(" • ")}` : "";
 }
