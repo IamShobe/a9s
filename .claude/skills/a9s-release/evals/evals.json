@@ -1,0 +1,23 @@
+{
+  "skill_name": "a9s-release",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I've got a fix for the picker navigation issue on my feat/picker-fix branch. I want to release it - can you walk me through the process?",
+      "expected_output": "Skill should explain the complete release workflow and offer to guide through creating PR, waiting for CI, merging, and releasing the draft.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I just pushed my changes for the secrets manager enhancements. Create a PR called 'Add secrets manager enhancements' and then merge it when CI passes.",
+      "expected_output": "Skill should create PR with specified title, then watch CI and auto-merge when checks pass.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "We have a draft release ready. How do I release it to npm? What's the version?",
+      "expected_output": "Skill should guide finding and releasing the latest draft, showing version and asking for confirmation.",
+      "files": []
+    }
+  ]
+}
