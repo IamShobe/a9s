@@ -45,11 +45,15 @@ export function useAwsContext(endpointUrl?: string, selectedRegion?: string, sel
       }
 
       const profile = explicitProfile ?? process.env.AWS_PROFILE ?? "default";
-      const stsOut = await runAwsCli([
-        "sts",
-        "get-caller-identity",
-        "--output",
-        "json",
+      const [stsOut, aliasOut] = await Promise.all([
+        runAwsCli(
+          ["sts", "get-caller-identity", "--output", "json"],
+          1500,
+        ),
+        runAwsCli(
+          ["iam", "list-account-aliases", "--output", "json"],
+          1500,
+        ),
       ]);
 
       let accountId = "";
@@ -69,13 +73,6 @@ export function useAwsContext(endpointUrl?: string, selectedRegion?: string, sel
           // ignore parse issues, fallback below
         }
       }
-
-      const aliasOut = await runAwsCli([
-        "iam",
-        "list-account-aliases",
-        "--output",
-        "json",
-      ]);
 
       let alias = "";
       if (aliasOut) {

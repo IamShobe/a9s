@@ -11,6 +11,9 @@ const DEFAULT_PROFILE: AwsProfileOption = {
   description: "use process credentials/environment",
 };
 
+let cachedProfiles: AwsProfileOption[] | null = null;
+let pendingProfilesPromise: Promise<AwsProfileOption[]> | null = null;
+
 async function fetchProfiles(): Promise<AwsProfileOption[]> {
   const stdout = await runAwsCli(["configure", "list-profiles"], 3000);
   if (!stdout) return [DEFAULT_PROFILE];
@@ -22,18 +25,11 @@ async function fetchProfiles(): Promise<AwsProfileOption[]> {
 
   if (profileNames.length === 0) return [DEFAULT_PROFILE];
 
-  const withMeta = await Promise.all(
-    profileNames.map(async (name) => {
-      const region = await runAwsCli(
-        ["configure", "get", "region", "--profile", name],
-        1500,
-      );
-      return {
-        name,
-        description: region?.trim() ? `region: ${region.trim()}` : "region: not set",
-      };
-    }),
-  );
+  // Keep startup snappy: avoid N additional AWS CLI calls for region enrichment here.
+  const withMeta = profileNames.map((name) => ({
+    name,
+    description: "configured profile",
+  }));
 
   const hasDefault = withMeta.some((p) => p.name === "$default");
   return hasDefault ? withMeta : [DEFAULT_PROFILE, ...withMeta];
@@ -44,9 +40,27 @@ export function useAwsProfiles(): AwsProfileOption[] {
 
   useEffect(() => {
     let alive = true;
-    void fetchProfiles().then((result) => {
+
+    if (cachedProfiles) {
+      setProfiles(cachedProfiles);
+      return () => {
+        alive = false;
+      };
+    }
+
+    setProfiles([DEFAULT_PROFILE]);
+
+    if (!pendingProfilesPromise) {
+      pendingProfilesPromise = fetchProfiles().then((result) => {
+        cachedProfiles = result;
+        return result;
+      });
+    }
+
+    void pendingProfilesPromise.then((result) => {
       if (alive) setProfiles(result);
     });
+
     return () => {
       alive = false;
     };

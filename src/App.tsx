@@ -145,6 +145,14 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   // Unified picker manager (replaces 3× usePickerState + 3× usePickerTable)
   const pickers = usePickerManager({ tableHeight, availableRegions, availableProfiles });
+  const [didOpenInitialResources, setDidOpenInitialResources] = useState(false);
+
+  useEffect(() => {
+    if (didOpenInitialResources) return;
+    pickers.resource.openPicker();
+    pickers.resource.reset();
+    setDidOpenInitialResources(true);
+  }, [didOpenInitialResources, pickers.resource]);
 
   const selectedRow = filteredRows[selectedIndex] ?? null;
 

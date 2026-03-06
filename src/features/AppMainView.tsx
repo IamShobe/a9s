@@ -4,6 +4,7 @@ import { Table } from "../components/Table/index.js";
 import { HelpPanel } from "../components/HelpPanel.js";
 import { DetailPanel } from "../components/DetailPanel.js";
 import { ErrorStatePanel } from "../components/ErrorStatePanel.js";
+import { TableSkeleton } from "../components/TableSkeleton.js";
 import type { HelpTab } from "../components/HelpPanel.js";
 import type { HelpPanelState } from "../hooks/useHelpPanel.js";
 import type { PickerManager } from "../hooks/usePickerManager.js";
@@ -118,16 +119,6 @@ export function AppMainView({
     );
   }
 
-  if (error) {
-    return (
-      <ErrorStatePanel
-        title={`Failed to load ${adapter.label}`}
-        message={error}
-        hint="Press r to retry"
-      />
-    );
-  }
-
   if (describeState) {
     return (
       <Box width="100%" borderStyle="round" borderColor="gray">
@@ -140,15 +131,24 @@ export function AppMainView({
     );
   }
 
-  if (isLoading && filteredRows.length === 0) {
+  if (isLoading) {
     return (
-      <Box width="100%" borderStyle="round" borderColor="blue">
-        <Box flexDirection="column" paddingX={1}>
-          <Text bold color="blue">
-            Loading {adapter.label}...
-          </Text>
-        </Box>
-      </Box>
+      <TableSkeleton
+        columns={columns}
+        terminalWidth={termCols}
+        rows={1}
+        contextLabel={adapter.getContextLabel?.() ?? ""}
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <ErrorStatePanel
+        title={`Failed to load ${adapter.label}`}
+        message={error}
+        hint="Press r to retry"
+      />
     );
   }
 
