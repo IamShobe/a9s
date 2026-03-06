@@ -1,5 +1,5 @@
-import React from 'react';
-import { Box, Text } from 'ink';
+import React from "react";
+import { Box, Text } from "ink";
 
 interface HUDProps {
   serviceLabel: string;
@@ -26,7 +26,7 @@ export function HUD({
   terminalWidth,
   loading = false,
 }: HUDProps) {
-  const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
   const [spinnerIndex, setSpinnerIndex] = React.useState(0);
 
   React.useEffect(() => {
@@ -45,9 +45,7 @@ export function HUD({
 
   const nameMaxLen = Math.max(8, terminalWidth - 44);
   const compactName =
-    accountName.length > nameMaxLen
-      ? `${accountName.slice(0, nameMaxLen - 1)}…`
-      : accountName;
+    accountName.length > nameMaxLen ? `${accountName.slice(0, nameMaxLen - 1)}…` : accountName;
   const idPart = `(${accountId})`;
   const profilePart = `[${awsProfile}]`;
   const leftTopRaw = `${compactName}${idPart}·${region}·${profilePart}`;
@@ -62,15 +60,29 @@ export function HUD({
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color="blue" bold>{compactName}</Text>
-        <Text color="yellow" bold>{idPart}</Text>
-        <Text color="gray" bold>·</Text>
-        <Text color="green" bold>{region}</Text>
-        <Text color="gray" bold>·</Text>
-        <Text color="magenta" bold>{profilePart}</Text>
+        <Text color="blue" bold>
+          {compactName}
+        </Text>
+        <Text color="yellow" bold>
+          {idPart}
+        </Text>
+        <Text color="gray" bold>
+          ·
+        </Text>
+        <Text color="green" bold>
+          {region}
+        </Text>
+        <Text color="gray" bold>
+          ·
+        </Text>
+        <Text color="magenta" bold>
+          {profilePart}
+        </Text>
         <Text>{" ".repeat(topPadLen)}</Text>
         {loading ? (
-          <Text color="cyan" bold>{SPINNER_FRAMES[spinnerIndex]}</Text>
+          <Text color="cyan" bold>
+            {SPINNER_FRAMES[spinnerIndex]}
+          </Text>
         ) : null}
       </Box>
       <Text color="cyan" wrap="truncate-end">

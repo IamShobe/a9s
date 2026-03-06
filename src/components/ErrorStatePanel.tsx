@@ -20,4 +20,3 @@ export function ErrorStatePanel({ title, message, hint }: ErrorStatePanelProps) 
     </Box>
   );
 }
-

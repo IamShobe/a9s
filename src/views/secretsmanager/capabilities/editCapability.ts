@@ -67,10 +67,7 @@ export function createSecretsManagerEditCapability(
     return { action: "none" };
   };
 
-  const uploadFile = async (
-    filePath: string,
-    metadata: Record<string, unknown>,
-  ): Promise<void> => {
+  const uploadFile = async (filePath: string, metadata: Record<string, unknown>): Promise<void> => {
     const fieldKey = metadata.fieldKey as string | undefined;
     const secretArn = metadata.secretArn as string | undefined;
 

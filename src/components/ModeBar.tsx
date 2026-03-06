@@ -1,10 +1,7 @@
 import React, { useRef } from "react";
 import { Box, Text } from "ink";
 import type { AppMode } from "../types.js";
-import {
-  AutocompleteInput,
-  type AutocompleteInputHandle,
-} from "./AutocompleteInput.js";
+import { AutocompleteInput, type AutocompleteInputHandle } from "./AutocompleteInput.js";
 import { AVAILABLE_COMMANDS } from "../constants/commands.js";
 
 interface ModeBarProps {
@@ -53,8 +50,8 @@ export const ModeBar = React.forwardRef<
       onCommandChange,
       onFilterSubmit,
       onCommandSubmit,
-      onCommandAutocomplete,
-      onFilterAutocomplete,
+      _onCommandAutocomplete,
+      _onFilterAutocomplete,
     },
     ref,
   ) => {
@@ -104,9 +101,7 @@ export const ModeBar = React.forwardRef<
             {icon}
           </Text>
           <Text> </Text>
-          {showNavigateHint && (
-            renderHint(hintOverride ?? "")
-          )}
+          {showNavigateHint && renderHint(hintOverride ?? "")}
           {showFilterInput && (
             <AutocompleteInput
               ref={filterInputRef}

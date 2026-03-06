@@ -21,15 +21,44 @@ export type InputEvent =
   | { scope: "raw"; type: "key"; input: string; key: Key }
   | { scope: "help"; type: "close" | "prevTab" | "nextTab" | "scrollUp" | "scrollDown" }
   | { scope: "help"; type: "goToTab"; input: string }
-  | { scope: "picker"; type: "close" | "cancelSearch" | "startSearch" | "down" | "up" | "top" | "bottom" | "confirm" }
+  | {
+      scope: "picker";
+      type: "close" | "cancelSearch" | "startSearch" | "down" | "up" | "top" | "bottom" | "confirm";
+    }
   | {
       scope: "modal";
-      type: "openHelp" | "openYankHelp" | "closeYankHelp" | "closeDetails" | "cancelYank" | "cancelPendingPrompt";
+      type:
+        | "openHelp"
+        | "openYankHelp"
+        | "closeYankHelp"
+        | "closeDetails"
+        | "cancelYank"
+        | "cancelPendingPrompt";
     }
   | { scope: "pending"; type: "submit"; confirmed: boolean }
   | { scope: "upload"; type: "decision"; confirmed: boolean }
-  | { scope: "mode"; type: "cancelSearchOrCommand" | "clearFilterOrNavigateBack" | "startSearch" | "startCommand" | "commandAutocomplete" }
-  | { scope: "navigation"; type: "quit" | "refresh" | "reveal" | "enterYank" | "showDetails" | "edit" | "bottom" | "top" | "enter" }
+  | {
+      scope: "mode";
+      type:
+        | "cancelSearchOrCommand"
+        | "clearFilterOrNavigateBack"
+        | "startSearch"
+        | "startCommand"
+        | "commandAutocomplete";
+    }
+  | {
+      scope: "navigation";
+      type:
+        | "quit"
+        | "refresh"
+        | "reveal"
+        | "enterYank"
+        | "showDetails"
+        | "edit"
+        | "bottom"
+        | "top"
+        | "enter";
+    }
   | { scope: "scroll"; type: "up" | "down" }
   | { scope: "adapterAction"; type: "run"; actionId: string; row: TableRow | null };
 

@@ -1,9 +1,6 @@
-import type { ColumnDef } from '../../types.js';
+import type { ColumnDef } from "../../types.js";
 
-export function computeColumnWidths(
-  columns: ColumnDef[],
-  terminalWidth: number
-): number[] {
+export function computeColumnWidths(columns: ColumnDef[], terminalWidth: number): number[] {
   const MIN_WIDTH = 4;
   const GAP = 3; // " │ " between columns (space-bar-space = 3 chars)
 

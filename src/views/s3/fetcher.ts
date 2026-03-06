@@ -66,9 +66,7 @@ export async function downloadObject(
   bucket: string,
   key: string,
 ): Promise<string> {
-  const response = await client.send(
-    new GetObjectCommand({ Bucket: bucket, Key: key }),
-  );
+  const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
 
   if (!response.Body) throw new Error("Empty response body");
 
@@ -86,9 +84,7 @@ export async function downloadObjectToPath(
   destinationPath: string,
   overwrite = false,
 ): Promise<string> {
-  const response = await client.send(
-    new GetObjectCommand({ Bucket: bucket, Key: key }),
-  );
+  const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
 
   if (!response.Body) throw new Error("Empty response body");
 
@@ -124,21 +120,15 @@ export async function headObject(
   bucket: string,
   key: string,
 ): Promise<Record<string, string | undefined>> {
-  const res = await client.send(
-    new HeadObjectCommand({ Bucket: bucket, Key: key }),
-  );
+  const res = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
   return {
     contentType: res.ContentType,
     contentLength: res.ContentLength?.toString(),
     etag: res.ETag?.replace(/"/g, ""),
-    lastModified: res.LastModified?.toISOString()
-      .replace("T", " ")
-      .slice(0, 19),
+    lastModified: res.LastModified?.toISOString().replace("T", " ").slice(0, 19),
     storageClass: res.StorageClass ?? "STANDARD",
     versionId: res.VersionId,
     serverSideEncryption: res.ServerSideEncryption,
-    ...Object.fromEntries(
-      Object.entries(res.Metadata ?? {}).map(([k, v]) => [`meta:${k}`, v]),
-    ),
+    ...Object.fromEntries(Object.entries(res.Metadata ?? {}).map(([k, v]) => [`meta:${k}`, v])),
   };
 }

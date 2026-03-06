@@ -47,22 +47,18 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   const [selectedRegion, setSelectedRegion] = useAtom(selectedRegionAtom);
   const [selectedProfile, setSelectedProfile] = useAtom(selectedProfileAtom);
-  const [currentService, setCurrentService] = useAtom(
-    currentlySelectedServiceAtom,
-  );
+  const [currentService, setCurrentService] = useAtom(currentlySelectedServiceAtom);
   const [revealSecrets, setRevealSecrets] = useAtom(revealSecretsAtom);
 
-  const { accountName, accountId, awsProfile, currentIdentity, region } =
-    useAwsContext(endpointUrl, selectedRegion, selectedProfile);
+  const { accountName, accountId, awsProfile, currentIdentity, region } = useAwsContext(
+    endpointUrl,
+    selectedRegion,
+    selectedProfile,
+  );
   const availableRegions = useAwsRegions(selectedRegion, selectedProfile);
   const availableProfiles = useAwsProfiles();
 
-  const {
-    reset: resetHierarchy,
-    updateCurrentFilter,
-    pushLevel,
-    popLevel,
-  } = useHierarchyState();
+  const { reset: resetHierarchy, updateCurrentFilter, pushLevel, popLevel } = useHierarchyState();
   const { state, actions } = useAppController();
 
   useEffect(() => {
@@ -84,10 +80,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const HUD_LINES = 3;
   const MODEBAR_LINES = 1;
   const HEADER_LINES = 2;
-  const tableHeight = Math.max(
-    1,
-    termRows - HUD_LINES - MODEBAR_LINES - HEADER_LINES - 4,
-  );
+  const tableHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES - HEADER_LINES - 4);
 
   const {
     adapter,
@@ -159,11 +152,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
         navigation.reset();
         return;
       }
-      if (
-        result.action === "edit" &&
-        "needsUpload" in result &&
-        result.needsUpload
-      ) {
+      if (result.action === "edit" && "needsUpload" in result && result.needsUpload) {
         actions.setUploadPending({
           filePath: result.filePath,
           metadata: result.metadata,
@@ -175,11 +164,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const editSelection = useCallback(() => {
     if (!selectedRow) return;
     void edit(selectedRow).then((result: ServiceViewResult) => {
-      if (
-        result.action === "edit" &&
-        "needsUpload" in result &&
-        result.needsUpload
-      ) {
+      if (result.action === "edit" && "needsUpload" in result && result.needsUpload) {
         actions.setUploadPending({
           filePath: result.filePath,
           metadata: result.metadata,
@@ -217,10 +202,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           handleActionEffect(effect, row);
         })
         .catch((err) => {
-          actions.pushFeedback(
-            `Action failed: ${(err as Error).message}`,
-            3000,
-          );
+          actions.pushFeedback(`Action failed: ${(err as Error).message}`, 3000);
         });
     },
     [actions, adapter.capabilities?.actions, handleActionEffect],
@@ -246,7 +228,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
     resolve: async (row: TableRow) => {
       const nameCell = row.cells.name;
       if (!nameCell) return null;
-      return typeof nameCell === 'string' ? nameCell : nameCell.displayName;
+      return typeof nameCell === "string" ? nameCell : nameCell.displayName;
     },
   };
 
@@ -259,10 +241,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   const yankHint = useMemo(
     () =>
-      [
-        ...yankOptions.map((o) => `${triggerToString(o.trigger)} · ${o.label}`),
-        "Esc cancel",
-      ].join(" • "),
+      [...yankOptions.map((o) => `${triggerToString(o.trigger)} · ${o.label}`), "Esc cancel"].join(
+        " • ",
+      ),
     [yankOptions],
   );
   const yankHeaderMarkers = useMemo(
@@ -274,7 +255,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const uiHintsContext = useMemo(() => {
     // Check if any visible row contains secret cells
     const hasSecretData = filteredRows.some((row) =>
-      Object.values(row.cells).some((cell) => typeof cell === 'object' && cell?.type === 'secret'),
+      Object.values(row.cells).some((cell) => typeof cell === "object" && cell?.type === "secret"),
     );
     // Only show reveal toggle if there are secrets AND they're currently hidden
     return { hasHiddenSecrets: hasSecretData && !revealSecrets };
@@ -356,10 +337,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           // Refresh to show updated data
           await refresh();
         } catch (err) {
-          actions.pushFeedback(
-            `✗ Upload failed: ${(err as Error).message}`,
-            3000,
-          );
+          actions.pushFeedback(`✗ Upload failed: ${(err as Error).message}`, 3000);
         } finally {
           actions.setUploadPending(null);
           setUploadPreview({ old: "", new: "" });
@@ -376,10 +354,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       void (async () => {
         try {
           const { readFile } = await import("fs/promises");
-          const newContent = await readFile(
-            state.uploadPending!.filePath,
-            "utf-8",
-          );
+          const newContent = await readFile(state.uploadPending!.filePath, "utf-8");
 
           // Try to get old value from adapter (current value from AWS)
           let oldContent = "";
@@ -389,9 +364,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           if (meta.fieldKey && meta.secretArn) {
             try {
               const { runAwsJsonAsync } = await import("./utils/aws.js");
-              const regionArgs = selectedRegion
-                ? ["--region", selectedRegion]
-                : [];
+              const regionArgs = selectedRegion ? ["--region", selectedRegion] : [];
               const secretData = await runAwsJsonAsync<{
                 SecretString?: string;
               }>([
@@ -424,9 +397,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           else if (meta.secretArn && !meta.fieldKey) {
             try {
               const { runAwsJsonAsync } = await import("./utils/aws.js");
-              const regionArgs = selectedRegion
-                ? ["--region", selectedRegion]
-                : [];
+              const regionArgs = selectedRegion ? ["--region", selectedRegion] : [];
               const secretData = await runAwsJsonAsync<{
                 SecretString?: string;
               }>([
@@ -583,8 +554,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       },
       pending: {
         cancelPrompt: () => actions.setPendingAction(null),
-        submit: (confirmed) =>
-          submitPendingAction(state.pendingAction, confirmed),
+        submit: (confirmed) => submitPendingAction(state.pendingAction, confirmed),
       },
       upload: {
         decide: handleUploadDecision,
@@ -598,9 +568,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
     pushYankFeedback: actions.pushFeedback,
     writeClipboard: clipboardy.write,
     hasCommandAutocomplete: (text) =>
-      AVAILABLE_COMMANDS.some((cmd) =>
-        cmd.toLowerCase().startsWith(text.toLowerCase()),
-      ),
+      AVAILABLE_COMMANDS.some((cmd) => cmd.toLowerCase().startsWith(text.toLowerCase())),
   });
 
   useMainInput(inputDispatch);
@@ -652,26 +620,22 @@ export function App({ initialService, endpointUrl }: AppProps) {
             <Text color="green">{state.yankFeedbackMessage}</Text>
           </Box>
         )}
-        {state.pendingAction &&
-          state.pendingAction.effect.type === "prompt" && (
-            <Box paddingX={1}>
-              <Text color="cyan">{state.pendingAction.effect.label} </Text>
-              <AdvancedTextInput
-                value={state.pendingAction.inputValue}
-                onChange={(value) => actions.setPendingInputValue(value)}
-                onSubmit={() => submitPendingAction(state.pendingAction, true)}
-                focus
-              />
-            </Box>
-          )}
-        {state.pendingAction &&
-          state.pendingAction.effect.type === "confirm" && (
-            <Box paddingX={1}>
-              <Text color="yellow">
-                {state.pendingAction.effect.message} (y/n)
-              </Text>
-            </Box>
-          )}
+        {state.pendingAction && state.pendingAction.effect.type === "prompt" && (
+          <Box paddingX={1}>
+            <Text color="cyan">{state.pendingAction.effect.label} </Text>
+            <AdvancedTextInput
+              value={state.pendingAction.inputValue}
+              onChange={(value) => actions.setPendingInputValue(value)}
+              onSubmit={() => submitPendingAction(state.pendingAction, true)}
+              focus
+            />
+          </Box>
+        )}
+        {state.pendingAction && state.pendingAction.effect.type === "confirm" && (
+          <Box paddingX={1}>
+            <Text color="yellow">{state.pendingAction.effect.message} (y/n)</Text>
+          </Box>
+        )}
         <ModeBar
           mode={state.mode}
           filterText={activePickerFilter}

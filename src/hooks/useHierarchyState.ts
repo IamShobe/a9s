@@ -13,9 +13,7 @@ export function useHierarchyState() {
     (value: string) => {
       setState((prev) => {
         const nextFilters =
-          prev.filters.length === 0
-            ? [value]
-            : [...prev.filters.slice(0, -1), value];
+          prev.filters.length === 0 ? [value] : [...prev.filters.slice(0, -1), value];
         return { ...prev, filters: nextFilters };
       });
     },
@@ -33,10 +31,8 @@ export function useHierarchyState() {
   );
 
   const popLevel = useCallback(() => {
-    const nextFilters =
-      state.filters.length > 1 ? state.filters.slice(0, -1) : state.filters;
-    const nextIndices =
-      state.indices.length > 1 ? state.indices.slice(0, -1) : state.indices;
+    const nextFilters = state.filters.length > 1 ? state.filters.slice(0, -1) : state.filters;
+    const nextIndices = state.indices.length > 1 ? state.indices.slice(0, -1) : state.indices;
     const restoredIndex =
       state.indices.length > 1
         ? (state.indices[state.indices.length - 1] ?? 0)

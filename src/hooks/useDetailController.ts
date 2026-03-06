@@ -29,7 +29,10 @@ export function applyDetailError(
   return {
     ...prev,
     fields: [
-      { label: "Name", value: selectedRow.cells.name ? getCellValue(selectedRow.cells.name) : selectedRow.id },
+      {
+        label: "Name",
+        value: selectedRow.cells.name ? getCellValue(selectedRow.cells.name) : selectedRow.id,
+      },
       { label: "Error", value: error.message },
     ],
     loading: false,
@@ -51,7 +54,12 @@ export function useDetailController({ adapter, setDescribeState }: UseDetailCont
           const fields = adapter.capabilities?.detail
             ? await adapter.capabilities.detail.getDetails(selectedRow)
             : [
-                { label: "Name", value: selectedRow.cells.name ? getCellValue(selectedRow.cells.name) : selectedRow.id },
+                {
+                  label: "Name",
+                  value: selectedRow.cells.name
+                    ? getCellValue(selectedRow.cells.name)
+                    : selectedRow.id,
+                },
                 { label: "Type", value: String(selectedRow.meta?.type ?? "Unknown") },
                 { label: "Details", value: "Not available for this service" },
               ];

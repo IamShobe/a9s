@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback } from "react";
 
 interface NavState {
   selectedIndex: number;
@@ -19,7 +19,8 @@ export function useNavigation(rowCount: number, maxVisible: number) {
   const moveDown = useCallback(() => {
     setState((prev) => {
       const next = Math.min(Math.max(0, rowCount - 1), prev.selectedIndex + 1);
-      const off = next >= prev.scrollOffset + maxVisible ? next - maxVisible + 1 : prev.scrollOffset;
+      const off =
+        next >= prev.scrollOffset + maxVisible ? next - maxVisible + 1 : prev.scrollOffset;
       return { selectedIndex: next, scrollOffset: off };
     });
   }, [rowCount, maxVisible]);
@@ -28,13 +29,16 @@ export function useNavigation(rowCount: number, maxVisible: number) {
     setState({ selectedIndex: 0, scrollOffset: 0 });
   }, []);
 
-  const setIndex = useCallback((index: number) => {
-    setState(() => {
-      const next = Math.max(0, Math.min(Math.max(0, rowCount - 1), index));
-      const off = Math.max(0, next - Math.max(0, maxVisible - 1));
-      return { selectedIndex: next, scrollOffset: off };
-    });
-  }, [rowCount, maxVisible]);
+  const setIndex = useCallback(
+    (index: number) => {
+      setState(() => {
+        const next = Math.max(0, Math.min(Math.max(0, rowCount - 1), index));
+        const off = Math.max(0, next - Math.max(0, maxVisible - 1));
+        return { selectedIndex: next, scrollOffset: off };
+      });
+    },
+    [rowCount, maxVisible],
+  );
 
   const toTop = useCallback(() => {
     setState({ selectedIndex: 0, scrollOffset: 0 });
@@ -47,5 +51,14 @@ export function useNavigation(rowCount: number, maxVisible: number) {
   }, [rowCount, maxVisible]);
 
   const clampedIndex = Math.min(state.selectedIndex, Math.max(0, rowCount - 1));
-  return { selectedIndex: clampedIndex, scrollOffset: state.scrollOffset, moveUp, moveDown, reset, setIndex, toTop, toBottom };
+  return {
+    selectedIndex: clampedIndex,
+    scrollOffset: state.scrollOffset,
+    moveUp,
+    moveDown,
+    reset,
+    setIndex,
+    toTop,
+    toBottom,
+  };
 }

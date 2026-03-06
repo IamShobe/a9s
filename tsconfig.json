@@ -14,8 +14,5 @@
     "strictPropertyInitialization": true,
     "noImplicitOverride": true
   },
-  "include": [
-    "src",
-    "scripts"
-  ]
+  "include": ["src", "scripts"]
 }

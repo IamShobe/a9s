@@ -59,10 +59,15 @@ function isBackspaceSignal(input: string, key: Key): boolean {
   // Don't match Alt+Backspace sequences (they start with ESC)
   if (input.startsWith("\u001b")) return false;
   // Accept delete key without meta as backspace (some terminals report backspace as delete)
-  return key.backspace || input === "\u0008" || input === "\u007f" || (key.delete && !key.meta && input === "");
+  return (
+    key.backspace ||
+    input === "\u0008" ||
+    input === "\u007f" ||
+    (key.delete && !key.meta && input === "")
+  );
 }
 
-function isDeleteSignal(input: string, key: Key): boolean {
+function isDeleteSignal(input: string, _key: Key): boolean {
   return input === "\u001b[3~";
 }
 
@@ -77,11 +82,11 @@ export function isAltBackspaceSignal(input: string, key: Key): boolean {
   }
 
   // Fallback for Alt+Backspace sequences in various terminals
-  if (input === "\u001b\u007f") return true;   // ESC+DEL
-  if (input === "\u001b\u0008") return true;   // ESC+BS
-  if (input === "\u001b[3;3~") return true;    // Alt+Del variant
-  if (input === "\u001b[127") return true;     // ESC+127
-  if (input === "\u001bDEL") return true;      // ESC+literal DEL
+  if (input === "\u001b\u007f") return true; // ESC+DEL
+  if (input === "\u001b\u0008") return true; // ESC+BS
+  if (input === "\u001b[3;3~") return true; // Alt+Del variant
+  if (input === "\u001b[127") return true; // ESC+127
+  if (input === "\u001bDEL") return true; // ESC+literal DEL
 
   return false;
 }
@@ -168,6 +173,7 @@ export function applyAdvancedInputEdit(
   }
 
   // Ignore control escape-sequences or other non-printable input.
+  // eslint-disable-next-line no-control-regex
   if (input.length > 1 || /[\u0000-\u001f\u007f]/.test(input)) {
     return { value: currentValue, cursor, submit: false, handled: false };
   }

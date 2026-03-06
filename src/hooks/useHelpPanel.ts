@@ -40,16 +40,10 @@ export function useHelpPanel(helpTabs: HelpTab[], helpContainerHeight: number) {
 
   const close = useCallback(() => setHelpOpen(false), []);
 
-  const scrollUp = useCallback(
-    () => setHelpScrollOffset((prev) => Math.max(0, prev - 1)),
-    [],
-  );
+  const scrollUp = useCallback(() => setHelpScrollOffset((prev) => Math.max(0, prev - 1)), []);
 
   const scrollDown = useCallback(() => {
-    const maxOffset = Math.max(
-      0,
-      (helpTabs[helpTabIndex]?.items.length ?? 0) - helpVisibleRows,
-    );
+    const maxOffset = Math.max(0, (helpTabs[helpTabIndex]?.items.length ?? 0) - helpVisibleRows);
     setHelpScrollOffset((prev) => Math.min(maxOffset, prev + 1));
   }, [helpTabs, helpTabIndex, helpVisibleRows]);
 

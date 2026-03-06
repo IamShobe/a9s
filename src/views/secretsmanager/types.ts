@@ -22,7 +22,7 @@ export type SecretLevel =
   | { kind: "secret-fields"; secretArn: string; secretName: string };
 
 export interface SecretRowMeta extends Record<string, unknown> {
-  type: 'secret' | 'secret-field';
+  type: "secret" | "secret-field";
   name?: string;
   arn?: string;
   description?: string;

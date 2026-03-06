@@ -93,10 +93,7 @@ const baseProps = {
 describe("AppMainView integration", () => {
   it("prioritizes help panel when open", () => {
     const { lastFrame } = render(
-      <AppMainView
-        {...baseProps}
-        helpPanel={{ ...baseProps.helpPanel, helpOpen: true }}
-      />,
+      <AppMainView {...baseProps} helpPanel={{ ...baseProps.helpPanel, helpOpen: true }} />,
     );
 
     expect(lastFrame()).toContain("Keyboard Help");
@@ -107,7 +104,9 @@ describe("AppMainView integration", () => {
       ...createPickerManager(null).resource,
       open: true,
       contextLabel: "Select AWS Resource",
-      filteredRows: [{ id: "s3", cells: { resource: textCell("s3"), description: textCell("S3") } }],
+      filteredRows: [
+        { id: "s3", cells: { resource: textCell("s3"), description: textCell("S3") } },
+      ],
       columns: [
         { key: "resource", label: "Resource" },
         { key: "description", label: "Description" },
@@ -115,10 +114,7 @@ describe("AppMainView integration", () => {
     };
 
     const { lastFrame } = render(
-      <AppMainView
-        {...baseProps}
-        pickers={createPickerManager(activePicker)}
-      />,
+      <AppMainView {...baseProps} pickers={createPickerManager(activePicker)} />,
     );
 
     expect(lastFrame()).toContain("Select AWS Resource");
@@ -141,10 +137,7 @@ describe("AppMainView integration", () => {
 
   it("renders yank header markers when provided", () => {
     const { lastFrame } = render(
-      <AppMainView
-        {...baseProps}
-        headerMarkers={{ name: ["n", "k"] }}
-      />,
+      <AppMainView {...baseProps} headerMarkers={{ name: ["n", "k"] }} />,
     );
 
     expect(lastFrame()).toContain("[n,k]");

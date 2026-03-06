@@ -24,7 +24,11 @@ export function formatSecretForDisplay(value: string, reveal: boolean = false): 
  *   - Shows full value if fits in maxLength chars
  *   - Shows multi-line truncation if too large (2 header lines + ... + 1 footer line)
  */
-export function truncateSecretForTable(value: string, reveal: boolean = false, maxLength: number = 50): string {
+export function truncateSecretForTable(
+  value: string,
+  reveal: boolean = false,
+  maxLength: number = 50,
+): string {
   if (!value) return "";
 
   const formatted = formatSecretForDisplay(value, reveal);

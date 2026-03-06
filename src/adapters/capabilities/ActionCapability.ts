@@ -39,9 +39,7 @@ export type ActionEffectSingle =
     }
   | { type: "error"; message: string };
 
-export type ActionEffect =
-  | ActionEffectSingle
-  | { type: "multi"; effects: ActionEffectSingle[] };
+export type ActionEffect = ActionEffectSingle | { type: "multi"; effects: ActionEffectSingle[] };
 
 export interface ActionCapability {
   getKeybindings(): AdapterKeyBinding[];

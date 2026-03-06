@@ -1,14 +1,19 @@
-import type { ColumnDef, TableRow, SelectResult } from '../types.js';
-import type { EditCapability } from './capabilities/EditCapability.js';
-import type { DetailCapability } from './capabilities/DetailCapability.js';
-import type { YankCapability } from './capabilities/YankCapability.js';
-import type { ActionCapability } from './capabilities/ActionCapability.js';
+import type { ColumnDef, TableRow, SelectResult } from "../types.js";
+import type { EditCapability } from "./capabilities/EditCapability.js";
+import type { DetailCapability } from "./capabilities/DetailCapability.js";
+import type { YankCapability } from "./capabilities/YankCapability.js";
+import type { ActionCapability } from "./capabilities/ActionCapability.js";
 
 // Re-export capability types for convenience
-export type { EditCapability } from './capabilities/EditCapability.js';
-export type { DetailCapability, DetailField } from './capabilities/DetailCapability.js';
-export type { YankCapability, YankOption } from './capabilities/YankCapability.js';
-export type { ActionCapability, AdapterKeyBinding, ActionContext, ActionEffect } from './capabilities/ActionCapability.js';
+export type { EditCapability } from "./capabilities/EditCapability.js";
+export type { DetailCapability, DetailField } from "./capabilities/DetailCapability.js";
+export type { YankCapability, YankOption } from "./capabilities/YankCapability.js";
+export type {
+  ActionCapability,
+  AdapterKeyBinding,
+  ActionContext,
+  ActionEffect,
+} from "./capabilities/ActionCapability.js";
 
 export interface ServiceAdapter {
   id: string;

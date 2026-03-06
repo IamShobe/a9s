@@ -7,10 +7,7 @@ import type { TableRow, SelectResult } from "../../../types.js";
 import { downloadObject } from "../fetcher.js";
 import type { S3Level } from "../adapter.js";
 
-export function createS3EditCapability(
-  client: S3Client,
-  getLevel: () => S3Level,
-): EditCapability {
+export function createS3EditCapability(client: S3Client, getLevel: () => S3Level): EditCapability {
   const onEdit = async (row: TableRow): Promise<SelectResult> => {
     const level = getLevel();
     const type = row.meta?.type as string;
@@ -18,11 +15,7 @@ export function createS3EditCapability(
       return { action: "none" };
     }
 
-    const filePath = await downloadObject(
-      client,
-      level.bucket,
-      row.meta?.key as string,
-    );
+    const filePath = await downloadObject(client, level.bucket, row.meta?.key as string);
     return {
       action: "edit",
       filePath,
@@ -33,10 +26,7 @@ export function createS3EditCapability(
     };
   };
 
-  const uploadFile = async (
-    filePath: string,
-    metadata: Record<string, unknown>,
-  ): Promise<void> => {
+  const uploadFile = async (filePath: string, metadata: Record<string, unknown>): Promise<void> => {
     const bucket = metadata.bucket as string;
     const key = metadata.key as string;
     const fileContent = await readFile(filePath);

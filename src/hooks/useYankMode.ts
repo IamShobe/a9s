@@ -15,13 +15,10 @@ export function useYankMode() {
     };
   }, [yankFeedback]);
 
-  const pushYankFeedback = useCallback(
-    (message: string, durationMs = 1500) => {
-      const timer = setTimeout(() => setYankFeedback(null), durationMs);
-      setYankFeedback({ message, timer });
-    },
-    [],
-  );
+  const pushYankFeedback = useCallback((message: string, durationMs = 1500) => {
+    const timer = setTimeout(() => setYankFeedback(null), durationMs);
+    setYankFeedback({ message, timer });
+  }, []);
 
   const clearYankFeedback = useCallback(() => setYankFeedback(null), []);
 

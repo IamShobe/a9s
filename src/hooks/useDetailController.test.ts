@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  applyDetailError,
-  applyDetailSuccess,
-} from "./useDetailController.js";
+import { applyDetailError, applyDetailSuccess } from "./useDetailController.js";
 import { textCell } from "../types.js";
 
 describe("detail state stale-request guards", () => {

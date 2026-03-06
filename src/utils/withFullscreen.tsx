@@ -1,8 +1,8 @@
-import React, { forwardRef, useEffect, useState } from 'react';
-import { Box, render } from 'ink';
-import type { DOMElement } from 'ink';
-import type { BoxProps } from 'ink';
-import type { Instance } from 'ink';
+import React, { forwardRef, useEffect, useState } from "react";
+import { Box, render } from "ink";
+import type { DOMElement } from "ink";
+import type { BoxProps } from "ink";
+import type { Instance } from "ink";
 
 interface ScreenSize {
   columns: number;
@@ -22,9 +22,9 @@ export function useScreenSize(): ScreenSize {
         columns: process.stdout.columns ?? 80,
         rows: process.stdout.rows ?? 24,
       });
-    process.stdout.on('resize', handler);
+    process.stdout.on("resize", handler);
     return () => {
-      process.stdout.off('resize', handler);
+      process.stdout.off("resize", handler);
     };
   }, []);
 
@@ -44,9 +44,9 @@ export const FullscreenBox = forwardRef<DOMElement, FullscreenBoxProps>(
         {children}
       </Box>
     );
-  }
+  },
 );
-FullscreenBox.displayName = 'FullscreenBox';
+FullscreenBox.displayName = "FullscreenBox";
 
 interface WithFullscreenResult {
   instance: Instance;
@@ -54,17 +54,15 @@ interface WithFullscreenResult {
 }
 
 // Wrap render() with alternate screen buffer enter/exit
-export function withFullscreen(
-  element: React.ReactElement
-): WithFullscreenResult {
-  process.stdout.write('\x1b[?1049h'); // enter alternate screen
-  process.stdout.write('\x1b[H'); // move cursor to top-left
+export function withFullscreen(element: React.ReactElement): WithFullscreenResult {
+  process.stdout.write("\x1b[?1049h"); // enter alternate screen
+  process.stdout.write("\x1b[H"); // move cursor to top-left
 
   const instance = render(element);
 
   const cleanup = () => {
     instance.unmount();
-    process.stdout.write('\x1b[?1049l'); // exit alternate screen
+    process.stdout.write("\x1b[?1049l"); // exit alternate screen
   };
 
   return { instance, cleanup };

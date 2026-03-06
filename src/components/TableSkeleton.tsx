@@ -52,12 +52,7 @@ export function TableSkeleton({
       <Box>
         {columns.map((col, i) => (
           <React.Fragment key={col.key}>
-            {i > 0 ? (
-              <Text color="gray">
-                {" "}
-                │{" "}
-              </Text>
-            ) : null}
+            {i > 0 ? <Text color="gray"> │ </Text> : null}
             <Text bold color="blue">
               {truncate(col.label, colWidths[i] ?? 1)}
             </Text>
@@ -65,20 +60,13 @@ export function TableSkeleton({
         ))}
       </Box>
 
-      <Text color="gray">
-        {columns.map((_, i) => fill(colWidths[i] ?? 1, "─")).join("─┼─")}
-      </Text>
+      <Text color="gray">{columns.map((_, i) => fill(colWidths[i] ?? 1, "─")).join("─┼─")}</Text>
 
       {Array.from({ length: rows }).map((_, rowIdx) => (
         <Box key={`skeleton-row-${rowIdx}`}>
           {columns.map((col, i) => (
             <React.Fragment key={`${col.key}-${rowIdx}`}>
-              {i > 0 ? (
-                <Text color="gray">
-                  {" "}
-                  │{" "}
-                </Text>
-              ) : null}
+              {i > 0 ? <Text color="gray"> │ </Text> : null}
               <Text color="gray">{fill(Math.max(1, colWidths[i] ?? 1), shade)}</Text>
             </React.Fragment>
           ))}

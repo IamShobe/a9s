@@ -1,9 +1,6 @@
 import { useMemo } from "react";
 import { COMMAND_MODE_HINT } from "../constants/commands.js";
-import {
-  buildScopeHint,
-  type KeyBindingContext,
-} from "../constants/keybindings.js";
+import { buildScopeHint, type KeyBindingContext } from "../constants/keybindings.js";
 import type { AdapterKeyBinding } from "../adapters/capabilities/ActionCapability.js";
 import type { AppMode } from "../types.js";
 import type { PickerManager } from "./usePickerManager.js";
@@ -56,15 +53,7 @@ export function useUiHints({
     if (mode === "search") return "search";
     if (mode === "command") return "command";
     return "navigate";
-  }, [
-    describeState,
-    helpOpen,
-    mode,
-    pendingAction,
-    pickers.activePicker,
-    uploadPending,
-    yankMode,
-  ]);
+  }, [describeState, helpOpen, mode, pendingAction, pickers.activePicker, uploadPending, yankMode]);
 
   const bottomHint = useMemo(() => {
     switch (uiScope) {
@@ -97,14 +86,7 @@ export function useUiHints({
       default:
         return "";
     }
-  }, [
-    adapterBindings,
-    context,
-    pendingAction,
-    pickers.activePicker,
-    uiScope,
-    yankHint,
-  ]);
+  }, [adapterBindings, context, pendingAction, pickers.activePicker, uiScope, yankHint]);
 
   return {
     uiScope,

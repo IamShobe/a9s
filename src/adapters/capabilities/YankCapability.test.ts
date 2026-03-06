@@ -27,6 +27,12 @@ describe("createYankCapability", () => {
     });
 
     expect(options[0]?.headerKey).toBe("name");
-    await expect(options[0]?.resolve({ id: "row", cells: { name: textCell("test") }, meta: { type: "bucket" } })).resolves.toBe("hello");
+    await expect(
+      options[0]?.resolve({
+        id: "row",
+        cells: { name: textCell("test") },
+        meta: { type: "bucket" },
+      }),
+    ).resolves.toBe("hello");
   });
 });

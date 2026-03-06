@@ -75,9 +75,9 @@ export function AppMainView({
 
   // Format secret values for display ONLY - original rows (via filteredRows) stay unchanged for editing
   const displayRows = useMemo(() => {
-    return filteredRows.map(row => {
+    return filteredRows.map((row) => {
       const hasSecrets = Object.values(row.cells).some((cell) => {
-        return typeof cell === 'object' && cell?.type === 'secret';
+        return typeof cell === "object" && cell?.type === "secret";
       });
 
       if (!hasSecrets) {
@@ -89,7 +89,7 @@ export function AppMainView({
         ...row,
         cells: Object.fromEntries(
           Object.entries(row.cells).map(([key, cell]) => {
-            if (typeof cell === 'object' && cell?.type === 'secret') {
+            if (typeof cell === "object" && cell?.type === "secret") {
               return [
                 key,
                 {
@@ -174,18 +174,35 @@ export function AppMainView({
     return (
       <Box width="100%" borderStyle="round" borderColor="yellow" flexDirection="column">
         <Box paddingX={1} paddingY={1} flexDirection="column">
-          <Text bold color="yellow">⚠ Overwrite Secret on AWS?</Text>
+          <Text bold color="yellow">
+            ⚠ Overwrite Secret on AWS?
+          </Text>
           <Text color="gray">This will update the secret permanently.</Text>
         </Box>
         <Box paddingX={1} paddingY={1} borderTop borderColor="gray">
           {uploadPreview ? (
-            <DiffViewer oldValue={uploadPreview.old} newValue={uploadPreview.new} scrollOffset={panelScrollOffset} visibleLines={diffVisibleLines} />
+            <DiffViewer
+              oldValue={uploadPreview.old}
+              newValue={uploadPreview.new}
+              scrollOffset={panelScrollOffset}
+              visibleLines={diffVisibleLines}
+            />
           ) : (
             <Text color="gray">Loading preview...</Text>
           )}
         </Box>
         <Box paddingX={1} paddingY={1} borderTop borderColor="gray">
-          <Text>Press <Text bold color="green">y</Text> to confirm or <Text bold color="red">n</Text> to cancel</Text>
+          <Text>
+            Press{" "}
+            <Text bold color="green">
+              y
+            </Text>{" "}
+            to confirm or{" "}
+            <Text bold color="red">
+              n
+            </Text>{" "}
+            to cancel
+          </Text>
         </Box>
       </Box>
     );

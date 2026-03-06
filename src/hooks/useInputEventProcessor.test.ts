@@ -114,7 +114,14 @@ describe("resolveAdapterBindingEvent", () => {
     const first = resolveAdapterBindingEvent(
       "g",
       key(),
-      [{ trigger: { type: "chord", keys: ["g", "p"] }, actionId: "jump-to-path", label: "jump", adapterId: "s3" }],
+      [
+        {
+          trigger: { type: "chord", keys: ["g", "p"] },
+          actionId: "jump-to-path",
+          label: "jump",
+          adapterId: "s3",
+        },
+      ],
       [],
       row,
     );
@@ -124,7 +131,14 @@ describe("resolveAdapterBindingEvent", () => {
     const second = resolveAdapterBindingEvent(
       "p",
       key(),
-      [{ trigger: { type: "chord", keys: ["g", "p"] }, actionId: "jump-to-path", label: "jump", adapterId: "s3" }],
+      [
+        {
+          trigger: { type: "chord", keys: ["g", "p"] },
+          actionId: "jump-to-path",
+          label: "jump",
+          adapterId: "s3",
+        },
+      ],
       first.nextPending,
       row,
     );

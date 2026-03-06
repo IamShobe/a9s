@@ -51,10 +51,7 @@ export function HelpPanel({
   }
 
   const listRowsBudget = Math.max(1, maxRows);
-  const visibleItems = (currentTab?.items ?? []).slice(
-    scrollOffset,
-    scrollOffset + listRowsBudget,
-  );
+  const visibleItems = (currentTab?.items ?? []).slice(scrollOffset, scrollOffset + listRowsBudget);
 
   return (
     <Box flexDirection="column" paddingX={1} flexGrow={1}>

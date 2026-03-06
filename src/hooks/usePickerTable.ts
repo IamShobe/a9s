@@ -14,7 +14,7 @@ export function usePickerTable({ rows, filterText, maxHeight }: UsePickerTableAr
     const lower = filterText.toLowerCase();
     return rows.filter((row) =>
       Object.values(row.cells).some((cell) => {
-        const value = typeof cell === 'string' ? cell : cell.displayName;
+        const value = typeof cell === "string" ? cell : cell.displayName;
         return value.toLowerCase().includes(lower);
       }),
     );
@@ -29,4 +29,3 @@ export function usePickerTable({ rows, filterText, maxHeight }: UsePickerTableAr
     ...nav,
   };
 }
-

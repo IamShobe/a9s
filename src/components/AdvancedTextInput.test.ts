@@ -101,7 +101,12 @@ describe("AdvancedTextInput helpers", () => {
     expect(middleBackspace.cursor).toBe(2);
 
     // Alt+Delete should still delete word, not single char
-    const altDelete = applyAdvancedInputEdit("foo bar", 7, "", makeKey({ delete: true, meta: true }));
+    const altDelete = applyAdvancedInputEdit(
+      "foo bar",
+      7,
+      "",
+      makeKey({ delete: true, meta: true }),
+    );
     expect(altDelete.value).toBe("foo ");
     expect(altDelete.cursor).toBe(4);
   });
@@ -127,13 +132,23 @@ describe("AdvancedTextInput helpers", () => {
   });
 
   it("supports word jump edit flow via meta and fallback escape sequence", () => {
-    const leftMeta = applyAdvancedInputEdit("foo bar baz", 11, "", makeKey({ meta: true, leftArrow: true }));
+    const leftMeta = applyAdvancedInputEdit(
+      "foo bar baz",
+      11,
+      "",
+      makeKey({ meta: true, leftArrow: true }),
+    );
     expect(leftMeta.cursor).toBe(8);
 
     const leftSeq = applyAdvancedInputEdit("foo bar baz", 8, "\u001bb", makeKey());
     expect(leftSeq.cursor).toBe(4);
 
-    const rightMeta = applyAdvancedInputEdit("foo bar baz", 4, "", makeKey({ meta: true, rightArrow: true }));
+    const rightMeta = applyAdvancedInputEdit(
+      "foo bar baz",
+      4,
+      "",
+      makeKey({ meta: true, rightArrow: true }),
+    );
     expect(rightMeta.cursor).toBe(7);
 
     const rightSeq = applyAdvancedInputEdit("foo bar baz", 7, "\u001bf", makeKey());
@@ -144,9 +159,9 @@ describe("AdvancedTextInput helpers", () => {
     // Via key object
     expect(isAltBackspaceSignal("", makeKey({ meta: true, backspace: true }))).toBe(true);
     // Via escape sequences (various terminals)
-    expect(isAltBackspaceSignal("\u001b\u007f", makeKey())).toBe(true);  // ESC + DEL
-    expect(isAltBackspaceSignal("\u001b\u0008", makeKey())).toBe(true);  // ESC + Backspace
-    expect(isAltBackspaceSignal("\u001b[3;3~", makeKey())).toBe(true);   // Alt+Delete variant
+    expect(isAltBackspaceSignal("\u001b\u007f", makeKey())).toBe(true); // ESC + DEL
+    expect(isAltBackspaceSignal("\u001b\u0008", makeKey())).toBe(true); // ESC + Backspace
+    expect(isAltBackspaceSignal("\u001b[3;3~", makeKey())).toBe(true); // Alt+Delete variant
     // Non-matches
     expect(isAltBackspaceSignal("", makeKey({ backspace: true }))).toBe(false);
     expect(isAltBackspaceSignal("x", makeKey())).toBe(false);
@@ -154,20 +169,35 @@ describe("AdvancedTextInput helpers", () => {
 
   it("deletes whole word before cursor with alt+backspace", () => {
     // Delete "baz" when cursor is at position 11 (end of "foo bar baz")
-    const deleteEnd = applyAdvancedInputEdit("foo bar baz", 11, "", makeKey({ meta: true, backspace: true }));
+    const deleteEnd = applyAdvancedInputEdit(
+      "foo bar baz",
+      11,
+      "",
+      makeKey({ meta: true, backspace: true }),
+    );
     expect(deleteEnd.value).toBe("foo bar ");
     expect(deleteEnd.cursor).toBe(8);
 
     // Delete "bar" when cursor is at position 7 (the space after "bar")
     // moveCursorWordLeft("foo bar baz", 7) returns 4, so we delete from 4 to 7
     // slice(0, 4) = "foo " + slice(7) = " baz" = "foo  baz"
-    const deleteMiddle = applyAdvancedInputEdit("foo bar baz", 7, "", makeKey({ meta: true, backspace: true }));
+    const deleteMiddle = applyAdvancedInputEdit(
+      "foo bar baz",
+      7,
+      "",
+      makeKey({ meta: true, backspace: true }),
+    );
     expect(deleteMiddle.value).toBe("foo  baz");
     expect(deleteMiddle.cursor).toBe(4);
 
     // Delete "foo" when cursor is at position 3 (the space after "foo")
     // moveCursorWordLeft("foo bar baz", 3) returns 0
-    const deleteStart = applyAdvancedInputEdit("foo bar baz", 3, "", makeKey({ meta: true, backspace: true }));
+    const deleteStart = applyAdvancedInputEdit(
+      "foo bar baz",
+      3,
+      "",
+      makeKey({ meta: true, backspace: true }),
+    );
     expect(deleteStart.value).toBe(" bar baz");
     expect(deleteStart.cursor).toBe(0);
   });
@@ -176,27 +206,47 @@ describe("AdvancedTextInput helpers", () => {
     // Delete "hello" when cursor is at position 5 (after "hello")
     // moveCursorWordLeft("hello   world", 5) returns 0
     // Delete from 0 to 5 removes "hello"
-    const trailingSpaces = applyAdvancedInputEdit("hello   world", 5, "", makeKey({ meta: true, backspace: true }));
+    const trailingSpaces = applyAdvancedInputEdit(
+      "hello   world",
+      5,
+      "",
+      makeKey({ meta: true, backspace: true }),
+    );
     expect(trailingSpaces.value).toBe("   world");
     expect(trailingSpaces.cursor).toBe(0);
 
     // "hello   world" at cursor 8 ('w' position)
     // moveCursorWordLeft returns 0 (goes back through 3 spaces and entire "hello")
     // So we delete from 0 to 8, leaving "world"
-    const deleteSpaces = applyAdvancedInputEdit("hello   world", 8, "", makeKey({ meta: true, backspace: true }));
+    const deleteSpaces = applyAdvancedInputEdit(
+      "hello   world",
+      8,
+      "",
+      makeKey({ meta: true, backspace: true }),
+    );
     expect(deleteSpaces.value).toBe("world");
     expect(deleteSpaces.cursor).toBe(0);
 
     // Delete "world" when cursor is at position 13 (end of string)
     // moveCursorWordLeft("hello   world", 13) returns 8 (skips back through "world" and 3 spaces to after "hello")
-    const deleteWordAfterSpaces = applyAdvancedInputEdit("hello   world", 13, "", makeKey({ meta: true, backspace: true }));
+    const deleteWordAfterSpaces = applyAdvancedInputEdit(
+      "hello   world",
+      13,
+      "",
+      makeKey({ meta: true, backspace: true }),
+    );
     expect(deleteWordAfterSpaces.value).toBe("hello   ");
     expect(deleteWordAfterSpaces.cursor).toBe(8);
   });
 
   it("handles alt+backspace at start of input", () => {
     // At position 0, nothing should be deleted
-    const atStart = applyAdvancedInputEdit("hello world", 0, "", makeKey({ meta: true, backspace: true }));
+    const atStart = applyAdvancedInputEdit(
+      "hello world",
+      0,
+      "",
+      makeKey({ meta: true, backspace: true }),
+    );
     expect(atStart.value).toBe("hello world");
     expect(atStart.cursor).toBe(0);
   });
@@ -217,14 +267,24 @@ describe("AdvancedTextInput helpers", () => {
     // "foo test_var123 bar", cursor at 14 (the '3' in '123')
     // moveCursorWordLeft at 14 returns 4 (start of "test_var123")
     // Delete from 4 to 14: slice(0,4)="foo " + slice(14)="3 bar" = "foo 3 bar"
-    const wordChars = applyAdvancedInputEdit("foo test_var123 bar", 14, "", makeKey({ meta: true, backspace: true }));
+    const wordChars = applyAdvancedInputEdit(
+      "foo test_var123 bar",
+      14,
+      "",
+      makeKey({ meta: true, backspace: true }),
+    );
     expect(wordChars.value).toBe("foo 3 bar");
     expect(wordChars.cursor).toBe(4);
 
     // "hello_world", cursor at 8 (the 'r')
     // moveCursorWordLeft at 8 returns 0 (entire "hello_wor" is one word)
     // Delete from 0 to 8, leaving "rld"
-    const midWord = applyAdvancedInputEdit("hello_world", 8, "", makeKey({ meta: true, backspace: true }));
+    const midWord = applyAdvancedInputEdit(
+      "hello_world",
+      8,
+      "",
+      makeKey({ meta: true, backspace: true }),
+    );
     expect(midWord.value).toBe("rld");
     expect(midWord.cursor).toBe(0);
   });

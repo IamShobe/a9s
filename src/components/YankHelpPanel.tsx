@@ -57,11 +57,7 @@ export function YankHelpPanel({ options, row }: YankHelpPanelProps) {
         Press key to copy, Esc or ? to close
       </Alert>
       <Box height={1} />
-      {!row && (
-        <StatusMessage variant="warning">
-          No row selected
-        </StatusMessage>
-      )}
+      {!row && <StatusMessage variant="warning">No row selected</StatusMessage>}
       <UnorderedList>
         {options.map((option) => (
           <UnorderedList.Item key={`${option.label}-${triggerToString(option.trigger)}`}>

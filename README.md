@@ -7,12 +7,14 @@
 ## Installation
 
 ### Global install (recommended)
+
 ```shell
 npm install -g @a9s/cli
 a9s
 ```
 
 ### Local install + npx
+
 ```shell
 npm install @a9s/cli
 npx @a9s/cli
@@ -21,11 +23,13 @@ npx @a9s/cli
 ## Usage
 
 Launch the TUI:
+
 ```shell
 a9s
 ```
 
 ### Navigation
+
 - **Arrow keys / hjkl**: Navigate between rows
 - **Tab**: Switch between columns (sort/filter)
 - **Enter**: Drill into details or navigate to the next level
@@ -35,9 +39,11 @@ a9s
 - **?**: Show help panel with all keybindings for current context
 
 ### Service Switching
+
 Press `:services` to see the list of available AWS services and switch between them.
 
 ### Common Operations
+
 - **d**: Open detail panel for selected row (shows metadata like ARN, tags, etc.)
 - **y + key**: Yank/copy shortcuts:
   - `y+n` → copy name
@@ -49,13 +55,13 @@ Press `:services` to see the list of available AWS services and switch between t
 
 ## Services Supported
 
-| Service | Status | Features |
-|---------|--------|----------|
-| S3 | ✅ | Browse buckets, objects, download, edit, delete |
-| IAM | ✅ | List users, roles, policies |
-| Route 53 | ✅ | List hosted zones, records |
-| Secrets Manager | ✅ | View, edit, and upload secrets |
-| DynamoDB | ✅ | List tables, view items |
+| Service         | Status | Features                                        |
+| --------------- | ------ | ----------------------------------------------- |
+| S3              | ✅     | Browse buckets, objects, download, edit, delete |
+| IAM             | ✅     | List users, roles, policies                     |
+| Route 53        | ✅     | List hosted zones, records                      |
+| Secrets Manager | ✅     | View, edit, and upload secrets                  |
+| DynamoDB        | ✅     | List tables, view items                         |
 
 ## Features
 
@@ -72,11 +78,13 @@ Press `:services` to see the list of available AWS services and switch between t
 ## Development
 
 ### Prerequisites
+
 - Node.js 18+
 - pnpm (for package management)
 - Docker (for LocalStack)
 
 ### Setup
+
 ```bash
 pnpm install
 ```
@@ -84,11 +92,13 @@ pnpm install
 ### Run Against LocalStack
 
 Start LocalStack + seed data:
+
 ```bash
 pnpm localstack:setup
 ```
 
 Run the TUI (connects to LocalStack on port 4566):
+
 ```bash
 pnpm dev:local
 ```
@@ -96,6 +106,7 @@ pnpm dev:local
 ### Run Against AWS
 
 Connect to your AWS account:
+
 ```bash
 pnpm dev
 ```
@@ -103,6 +114,7 @@ pnpm dev
 This will use your `~/.aws/credentials` and `AWS_REGION` environment variable.
 
 ### Testing
+
 ```bash
 pnpm test       # Run tests
 pnpm typecheck  # Type checking
@@ -110,6 +122,7 @@ pnpm build      # Build TypeScript to dist/
 ```
 
 ### Project Structure
+
 ```
 src/
   index.tsx          - CLI entry point (commander)
@@ -130,6 +143,7 @@ docker/
 ## Goals
 
 ### Services (Planned)
+
 - [x] S3
 - [x] IAM
 - [x] Route 53
@@ -140,6 +154,7 @@ docker/
 - [ ] CloudFront
 
 ### Features (Planned)
+
 - [x] Responsive tables
 - [x] Service switching
 - [x] VIM shortcuts

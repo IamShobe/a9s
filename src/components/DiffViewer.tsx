@@ -55,9 +55,13 @@ export function DiffViewer({ oldValue, newValue, scrollOffset, visibleLines }: D
         {hasMoreAbove && (
           <Box gap={2}>
             <Box width={colWidth}>
-              <Text color="gray" dimColor>↑ {clampedOffset} lines above</Text>
+              <Text color="gray" dimColor>
+                ↑ {clampedOffset} lines above
+              </Text>
             </Box>
-            <Text color="gray" dimColor>↑ {clampedOffset} lines above</Text>
+            <Text color="gray" dimColor>
+              ↑ {clampedOffset} lines above
+            </Text>
           </Box>
         )}
 
@@ -73,9 +77,13 @@ export function DiffViewer({ oldValue, newValue, scrollOffset, visibleLines }: D
         {hasMoreBelow && (
           <Box gap={2}>
             <Box width={colWidth}>
-              <Text color="gray" dimColor>↓ {maxLines - clampedOffset - visibleLines} more lines</Text>
+              <Text color="gray" dimColor>
+                ↓ {maxLines - clampedOffset - visibleLines} more lines
+              </Text>
             </Box>
-            <Text color="gray" dimColor>↓ {maxLines - clampedOffset - visibleLines} more lines</Text>
+            <Text color="gray" dimColor>
+              ↓ {maxLines - clampedOffset - visibleLines} more lines
+            </Text>
           </Box>
         )}
       </Box>

@@ -8,7 +8,10 @@ import {
   ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 
-import type { DetailCapability, DetailField } from "../../../adapters/capabilities/DetailCapability.js";
+import type {
+  DetailCapability,
+  DetailField,
+} from "../../../adapters/capabilities/DetailCapability.js";
 import type { TableRow } from "../../../types.js";
 import { formatSize } from "../utils.js";
 import { headObject } from "../fetcher.js";
@@ -65,10 +68,8 @@ export function createS3DetailCapability(
       }
 
       if (encryptionResult.status === "fulfilled") {
-        const rule =
-          encryptionResult.value.ServerSideEncryptionConfiguration?.Rules?.[0];
-        const algorithm =
-          rule?.ApplyServerSideEncryptionByDefault?.SSEAlgorithm;
+        const rule = encryptionResult.value.ServerSideEncryptionConfiguration?.Rules?.[0];
+        const algorithm = rule?.ApplyServerSideEncryptionByDefault?.SSEAlgorithm;
         fields.push({
           label: "Default Encryption",
           value: algorithm ?? "Enabled (custom)",
@@ -137,8 +138,7 @@ export function createS3DetailCapability(
     ];
 
     if (meta.versionId) fields.push({ label: "Version ID", value: meta.versionId });
-    if (meta.serverSideEncryption)
-      fields.push({ label: "SSE", value: meta.serverSideEncryption });
+    if (meta.serverSideEncryption) fields.push({ label: "SSE", value: meta.serverSideEncryption });
 
     for (const [k, v] of Object.entries(meta)) {
       if (k.startsWith("meta:") && v) {

@@ -9,14 +9,15 @@ interface AwsContext {
   region: string;
 }
 
-const DEFAULT_REGION =
-  process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "us-east-1";
+const DEFAULT_REGION = process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "us-east-1";
 
-export function useAwsContext(endpointUrl?: string, selectedRegion?: string, selectedProfile?: string): AwsContext {
+export function useAwsContext(
+  endpointUrl?: string,
+  selectedRegion?: string,
+  selectedProfile?: string,
+): AwsContext {
   const explicitProfile =
-    selectedProfile && selectedProfile !== "$default"
-      ? selectedProfile
-      : undefined;
+    selectedProfile && selectedProfile !== "$default" ? selectedProfile : undefined;
   const envProfile = selectedProfile ?? process.env.AWS_PROFILE ?? "default";
   const resolvedRegion = selectedRegion ?? DEFAULT_REGION;
   const [context, setContext] = useState<AwsContext>({
@@ -46,14 +47,8 @@ export function useAwsContext(endpointUrl?: string, selectedRegion?: string, sel
 
       const profile = explicitProfile ?? process.env.AWS_PROFILE ?? "default";
       const [stsOut, aliasOut] = await Promise.all([
-        runAwsCli(
-          ["sts", "get-caller-identity", "--output", "json"],
-          1500,
-        ),
-        runAwsCli(
-          ["iam", "list-account-aliases", "--output", "json"],
-          1500,
-        ),
+        runAwsCli(["sts", "get-caller-identity", "--output", "json"], 1500),
+        runAwsCli(["iam", "list-account-aliases", "--output", "json"], 1500),
       ]);
 
       let accountId = "";
@@ -84,10 +79,8 @@ export function useAwsContext(endpointUrl?: string, selectedRegion?: string, sel
         }
       }
 
-      const identity =
-        alias || profile || (accountId ? "AWS Account" : "Unknown Account");
-      const currentIdentity =
-        arn || userId || profile || "unknown";
+      const identity = alias || profile || (accountId ? "AWS Account" : "Unknown Account");
+      const currentIdentity = arn || userId || profile || "unknown";
       if (!alive) return;
       setContext({
         accountName: identity,

@@ -1,4 +1,4 @@
-import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import React, { useEffect, useImperativeHandle, useMemo, useState } from "react";
 import { Box, Text } from "ink";
 import { AdvancedTextInput } from "./AdvancedTextInput.js";
 
@@ -16,29 +16,16 @@ interface AutocompleteInputProps {
   cursorToEndToken?: number;
 }
 
-export const AutocompleteInput = React.forwardRef<
-  AutocompleteInputHandle,
-  AutocompleteInputProps
->(
+export const AutocompleteInput = React.forwardRef<AutocompleteInputHandle, AutocompleteInputProps>(
   (
-    {
-      value,
-      onChange,
-      onSubmit,
-      placeholder,
-      suggestions = [],
-      focus = true,
-      cursorToEndToken,
-    },
+    { value, onChange, onSubmit, placeholder, suggestions = [], focus = true, cursorToEndToken },
     ref,
   ) => {
     const [inputKey, setInputKey] = useState(0);
 
     const matchingSuggestions = useMemo(() => {
       if (!value || suggestions.length === 0) return [];
-      return suggestions.filter((s) =>
-        s.toLowerCase().startsWith(value.toLowerCase()),
-      );
+      return suggestions.filter((s) => s.toLowerCase().startsWith(value.toLowerCase()));
     }, [value, suggestions]);
 
     const firstMatch = matchingSuggestions[0];

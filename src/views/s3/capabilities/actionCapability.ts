@@ -18,9 +18,9 @@ function toErrorMessage(error: unknown): string {
 function hasCode(error: unknown, code: string): boolean {
   return Boolean(
     typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code?: unknown }).code === code,
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === code,
   );
 }
 
@@ -50,10 +50,7 @@ export function createS3ActionCapability(
     },
   ];
 
-  const executeAction = async (
-    actionId: string,
-    context: ActionContext,
-  ): Promise<ActionEffect> => {
+  const executeAction = async (actionId: string, context: ActionContext): Promise<ActionEffect> => {
     const level = getLevel();
 
     if (actionId === "fetch") {

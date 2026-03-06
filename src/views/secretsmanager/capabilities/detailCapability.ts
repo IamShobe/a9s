@@ -1,4 +1,7 @@
-import type { DetailCapability, DetailField } from "../../../adapters/capabilities/DetailCapability.js";
+import type {
+  DetailCapability,
+  DetailField,
+} from "../../../adapters/capabilities/DetailCapability.js";
 import type { TableRow } from "../../../types.js";
 import { runAwsJsonAsync } from "../../../utils/aws.js";
 import type { AwsSecret, SecretRowMeta, SecretLevel } from "../types.js";
@@ -35,7 +38,10 @@ export function createSecretsManagerDetailCapability(
         { label: "Last Rotated", value: String(data.LastRotatedDate ?? "-") },
         { label: "Rotation Enabled", value: data.RotationEnabled ? "Yes" : "No" },
         { label: "KMS Key ID", value: String(data.KmsKeyId ?? "-") },
-        { label: "Tags", value: data.Tags && data.Tags.length > 0 ? `${data.Tags.length} tag(s)` : "-" },
+        {
+          label: "Tags",
+          value: data.Tags && data.Tags.length > 0 ? `${data.Tags.length} tag(s)` : "-",
+        },
       ];
 
       return fields;

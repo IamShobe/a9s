@@ -1,4 +1,7 @@
-import type { DetailCapability, DetailField } from "../../../adapters/capabilities/DetailCapability.js";
+import type {
+  DetailCapability,
+  DetailField,
+} from "../../../adapters/capabilities/DetailCapability.js";
 import type { TableRow } from "../../../types.js";
 import { getCellValue } from "../../../types.js";
 import { runAwsJsonAsync } from "../../../utils/aws.js";
@@ -9,9 +12,7 @@ function getIamMeta(row: TableRow): IamRowMeta | undefined {
   return row.meta as IamRowMeta | undefined;
 }
 
-export function createIamDetailCapability(
-  _getLevel: () => IamLevel,
-): DetailCapability {
+export function createIamDetailCapability(_getLevel: () => IamLevel): DetailCapability {
   const getDetails = async (row: TableRow): Promise<DetailField[]> => {
     const meta = getIamMeta(row);
 
@@ -32,9 +33,7 @@ export function createIamDetailCapability(
         { label: "Created", value: formatDate(role.CreateDate) },
         {
           label: "Max Session Duration",
-          value: role.MaxSessionDuration
-            ? `${role.MaxSessionDuration} sec`
-            : "-",
+          value: role.MaxSessionDuration ? `${role.MaxSessionDuration} sec` : "-",
         },
         { label: "Description", value: role.Description ?? "-" },
         {

@@ -38,7 +38,11 @@ function truncateNoPad(str: string, maxLen: number): string {
   return str.slice(0, maxLen - 1) + "…";
 }
 
-function highlightMatch(text: string, filter: string, isSelected: boolean = false): React.ReactNode[] {
+function highlightMatch(
+  text: string,
+  filter: string,
+  isSelected: boolean = false,
+): React.ReactNode[] {
   if (!filter || !text) return [text];
 
   const parts: React.ReactNode[] = [];
@@ -77,13 +81,7 @@ interface RowProps {
   filterText: string;
 }
 
-const Row = React.memo(function Row({
-  row,
-  isSelected,
-  columns,
-  colWidths,
-  filterText,
-}: RowProps) {
+const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filterText }: RowProps) {
   const parts: React.ReactNode[] = [];
   columns.forEach((col, i) => {
     if (i > 0)
@@ -95,12 +93,10 @@ const Row = React.memo(function Row({
       );
 
     const cellData = row.cells[col.key] ?? "";
-    const cellValue = typeof cellData === 'string' ? cellData : cellData.displayName;
+    const cellValue = typeof cellData === "string" ? cellData : cellData.displayName;
     const truncated = truncate(cellValue, colWidths[i]!);
     const highlighted =
-      filterText && truncated
-        ? highlightMatch(truncated, filterText, isSelected)
-        : [truncated];
+      filterText && truncated ? highlightMatch(truncated, filterText, isSelected) : [truncated];
 
     if (isSelected) {
       parts.push(
@@ -113,11 +109,7 @@ const Row = React.memo(function Row({
     }
   });
 
-  return isSelected ? (
-    <Box backgroundColor={COLORS.selectedBg}>{parts}</Box>
-  ) : (
-    <Box>{parts}</Box>
-  );
+  return isSelected ? <Box backgroundColor={COLORS.selectedBg}>{parts}</Box> : <Box>{parts}</Box>;
 });
 
 export const Table = React.memo(function Table({

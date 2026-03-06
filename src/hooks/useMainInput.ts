@@ -15,7 +15,10 @@ export function useMainInput(dispatch: InputDispatcher) {
     };
   }, [dispatch]);
 
-  useInput((input, key) => {
-    dispatch({ scope: "raw", type: "key", input, key });
-  }, { isActive: true });
+  useInput(
+    (input, key) => {
+      dispatch({ scope: "raw", type: "key", input, key });
+    },
+    { isActive: true },
+  );
 }

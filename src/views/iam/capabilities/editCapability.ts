@@ -8,9 +8,7 @@ function getIamMeta(row: TableRow): IamRowMeta | undefined {
   return row.meta as IamRowMeta | undefined;
 }
 
-export function createIamEditCapability(
-  _getLevel: () => IamLevel,
-): EditCapability {
+export function createIamEditCapability(_getLevel: () => IamLevel): EditCapability {
   const onEdit = async (row: TableRow): Promise<SelectResult> => {
     const meta = getIamMeta(row);
 
@@ -23,10 +21,7 @@ export function createIamEditCapability(
         roleName,
       ]);
       const trust = roleData.Role.AssumeRolePolicyDocument ?? {};
-      const filePath = await writeTempJsonFile(
-        `${roleName}-trust-policy`,
-        trust,
-      );
+      const filePath = await writeTempJsonFile(`${roleName}-trust-policy`, trust);
       return { action: "edit", filePath, metadata: {} };
     }
 
@@ -59,14 +54,7 @@ export function createIamEditCapability(
       if (!versionId) return { action: "none" };
       const policyVersion = await runAwsJsonAsync<{
         PolicyVersion?: { Document?: unknown };
-      }>([
-        "iam",
-        "get-policy-version",
-        "--policy-arn",
-        policyArn,
-        "--version-id",
-        versionId,
-      ]);
+      }>(["iam", "get-policy-version", "--policy-arn", policyArn, "--version-id", versionId]);
       const filePath = await writeTempJsonFile(
         `${policyName || "policy"}-${versionId}`,
         policyVersion.PolicyVersion?.Document ?? {},

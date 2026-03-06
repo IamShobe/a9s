@@ -6,7 +6,7 @@ import type {
 } from "../../../adapters/capabilities/ActionCapability.js";
 import { runAwsJsonAsync } from "../../../utils/aws.js";
 import { writeFile, stat, mkdir } from "fs/promises";
-import { resolve, basename, join } from "path";
+import { resolve, join } from "path";
 import type { AwsSecretValue, SecretRowMeta, SecretLevel } from "../types.js";
 
 function toErrorMessage(error: unknown): string {
@@ -17,9 +17,9 @@ function toErrorMessage(error: unknown): string {
 function hasCode(error: unknown, code: string): boolean {
   return Boolean(
     typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code?: unknown }).code === code,
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === code,
   );
 }
 
@@ -51,8 +51,9 @@ export function createSecretsManagerActionCapability(
         return { type: "error", message: "No item selected" };
       }
 
-      const isValidLevel = (level?.kind === "secrets" && meta.type === "secret") ||
-                          (level?.kind === "secret-fields" && meta.type === "secret-field");
+      const isValidLevel =
+        (level?.kind === "secrets" && meta.type === "secret") ||
+        (level?.kind === "secret-fields" && meta.type === "secret-field");
       if (!isValidLevel) {
         return { type: "error", message: "Fetch is not available for this item" };
       }
@@ -93,7 +94,9 @@ export function createSecretsManagerActionCapability(
 
           content =
             secretData.SecretString ||
-            (secretData.SecretBinary ? Buffer.from(secretData.SecretBinary, "base64").toString() : "");
+            (secretData.SecretBinary
+              ? Buffer.from(secretData.SecretBinary, "base64").toString()
+              : "");
           defaultFileName = `${meta.name}.txt`;
         } else if (level?.kind === "secret-fields" && meta.type === "secret-field") {
           // Use field value directly
@@ -143,10 +146,7 @@ export function createSecretsManagerActionCapability(
             data: { path: destinationPath },
           };
         }
-        if (
-          err instanceof Error &&
-          err.message.includes("EEXIST_FILE")
-        ) {
+        if (err instanceof Error && err.message.includes("EEXIST_FILE")) {
           const filePath = err.message.replace("EEXIST_FILE:", "");
           return {
             type: "confirm",
@@ -190,7 +190,9 @@ export function createSecretsManagerActionCapability(
 
           content =
             secretData.SecretString ||
-            (secretData.SecretBinary ? Buffer.from(secretData.SecretBinary, "base64").toString() : "");
+            (secretData.SecretBinary
+              ? Buffer.from(secretData.SecretBinary, "base64").toString()
+              : "");
         } else if (level?.kind === "secret-fields" && meta.type === "secret-field") {
           // Use field value directly
           content = meta.value || "";

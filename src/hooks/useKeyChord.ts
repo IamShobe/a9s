@@ -9,22 +9,33 @@ import type { KeyAction } from "../constants/keys.js";
 
 function matchSpecial(inkKey: Key, name: SpecialKeyName): boolean {
   switch (name) {
-    case "return":     return inkKey.return;
-    case "escape":     return inkKey.escape;
-    case "tab":        return inkKey.tab;
-    case "upArrow":    return inkKey.upArrow;
-    case "downArrow":  return inkKey.downArrow;
-    case "leftArrow":  return inkKey.leftArrow;
-    case "rightArrow": return inkKey.rightArrow;
+    case "return":
+      return inkKey.return;
+    case "escape":
+      return inkKey.escape;
+    case "tab":
+      return inkKey.tab;
+    case "upArrow":
+      return inkKey.upArrow;
+    case "downArrow":
+      return inkKey.downArrow;
+    case "leftArrow":
+      return inkKey.leftArrow;
+    case "rightArrow":
+      return inkKey.rightArrow;
   }
 }
 
 export function matchesTrigger(input: string, inkKey: Key, trigger: KeyTrigger): boolean {
   switch (trigger.type) {
-    case "key":     return input === trigger.char;
-    case "special": return matchSpecial(inkKey, trigger.name);
-    case "chord":   return false; // chords are resolved separately
-    case "any":     return trigger.of.some((t) => matchesTrigger(input, inkKey, t));
+    case "key":
+      return input === trigger.char;
+    case "special":
+      return matchSpecial(inkKey, trigger.name);
+    case "chord":
+      return false; // chords are resolved separately
+    case "any":
+      return trigger.of.some((t) => matchesTrigger(input, inkKey, t));
   }
 }
 

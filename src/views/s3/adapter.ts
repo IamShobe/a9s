@@ -1,10 +1,5 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
-import type {
-  ColumnDef,
-  TableRow,
-  SelectResult,
-  NavFrame,
-} from "../../types.js";
+import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
 import { createS3Client } from "./client.js";
 import { fetchBuckets, fetchObjects, downloadObject } from "./fetcher.js";
@@ -17,9 +12,7 @@ import { createS3DetailCapability } from "./capabilities/detailCapability.js";
 import { createS3YankCapability } from "./capabilities/yankCapability.js";
 import { createS3ActionCapability } from "./capabilities/actionCapability.js";
 
-export type S3Level =
-  | { kind: "buckets" }
-  | { kind: "objects"; bucket: string; prefix: string };
+export type S3Level = { kind: "buckets" } | { kind: "objects"; bucket: string; prefix: string };
 
 interface S3NavFrame extends NavFrame {
   level: S3Level;
@@ -28,10 +21,7 @@ interface S3NavFrame extends NavFrame {
 export const s3LevelAtom = atom<S3Level>({ kind: "buckets" });
 export const s3BackStackAtom = atom<S3NavFrame[]>([]);
 
-export function createS3ServiceAdapter(
-  endpointUrl?: string,
-  region?: string,
-): ServiceAdapter {
+export function createS3ServiceAdapter(endpointUrl?: string, region?: string): ServiceAdapter {
   const store = getDefaultStore();
   const client: S3Client = createS3Client(endpointUrl, region);
 
@@ -68,9 +58,7 @@ export function createS3ServiceAdapter(
           name: textCell(b.name),
           type: textCell("Bucket"),
           creationDate: textCell(
-            b.creationDate
-              ? b.creationDate.toISOString().replace("T", " ").slice(0, 19)
-              : "-",
+            b.creationDate ? b.creationDate.toISOString().replace("T", " ").slice(0, 19) : "-",
           ),
         },
         meta: { type: "bucket" },
@@ -88,9 +76,7 @@ export function createS3ServiceAdapter(
           type: textCell(obj.isFolder ? "Folder" : "File"),
           size: textCell(obj.isFolder ? "" : formatSize(obj.size)),
           lastModified: textCell(
-            obj.lastModified
-              ? obj.lastModified.toISOString().replace("T", " ").slice(0, 19)
-              : "",
+            obj.lastModified ? obj.lastModified.toISOString().replace("T", " ").slice(0, 19) : "",
           ),
         },
         meta: { type: obj.isFolder ? "folder" : "object", key: obj.key },
@@ -121,11 +107,7 @@ export function createS3ServiceAdapter(
     }
 
     if (type === "object") {
-      const filePath = await downloadObject(
-        client,
-        level.bucket,
-        row.meta?.key as string,
-      );
+      const filePath = await downloadObject(client, level.bucket, row.meta?.key as string);
       return {
         action: "edit",
         filePath,

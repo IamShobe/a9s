@@ -50,13 +50,11 @@ export interface PickerManager {
   openPicker: (id: PickerEntry["id"]) => void;
   closeActivePicker: () => void;
   resetPicker: (id: PickerEntry["id"]) => void;
-  confirmActivePickerSelection: (
-    handlers: {
-      onSelectResource: (resourceId: ServiceId) => void;
-      onSelectRegion: (region: string) => void;
-      onSelectProfile: (profile: string) => void;
-    },
-  ) => void;
+  confirmActivePickerSelection: (handlers: {
+    onSelectResource: (resourceId: ServiceId) => void;
+    onSelectRegion: (region: string) => void;
+    onSelectProfile: (profile: string) => void;
+  }) => void;
 }
 
 export function usePickerManager({
@@ -64,8 +62,8 @@ export function usePickerManager({
   availableRegions,
   availableProfiles,
 }: UsePickerManagerArgs): PickerManager {
-  const region   = usePickerState();
-  const profile  = usePickerState();
+  const region = usePickerState();
+  const profile = usePickerState();
   const resource = usePickerState();
 
   const regionRows = useMemo<TableRow[]>(
@@ -92,15 +90,30 @@ export function usePickerManager({
     () =>
       (Object.keys(SERVICE_REGISTRY) as ServiceId[]).map((serviceId) => ({
         id: serviceId,
-        cells: { resource: textCell(serviceId), description: textCell(`${serviceId.toUpperCase()} service`) },
+        cells: {
+          resource: textCell(serviceId),
+          description: textCell(`${serviceId.toUpperCase()} service`),
+        },
         meta: {},
       })),
     [],
   );
 
-  const regionTable   = usePickerTable({ rows: regionRows,   filterText: region.filter,   maxHeight: tableHeight });
-  const profileTable  = usePickerTable({ rows: profileRows,  filterText: profile.filter,  maxHeight: tableHeight });
-  const resourceTable = usePickerTable({ rows: resourceRows, filterText: resource.filter, maxHeight: tableHeight });
+  const regionTable = usePickerTable({
+    rows: regionRows,
+    filterText: region.filter,
+    maxHeight: tableHeight,
+  });
+  const profileTable = usePickerTable({
+    rows: profileRows,
+    filterText: profile.filter,
+    maxHeight: tableHeight,
+  });
+  const resourceTable = usePickerTable({
+    rows: resourceRows,
+    filterText: resource.filter,
+    maxHeight: tableHeight,
+  });
 
   const regionColumns: ColumnDef[] = [
     { key: "region", label: "Region" },
@@ -147,7 +160,7 @@ export function usePickerManager({
       ? profileEntry
       : resourceEntry.open
         ? resourceEntry
-      : null;
+        : null;
 
   const getEntry = (id: PickerEntry["id"]): PickerEntry => {
     switch (id) {

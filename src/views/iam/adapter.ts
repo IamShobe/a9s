@@ -73,10 +73,7 @@ export function createIamServiceAdapter(): ServiceAdapter {
           },
         ];
       case "roles": {
-        const data = await runAwsJsonAsync<{ Roles?: AwsRole[] }>([
-          "iam",
-          "list-roles",
-        ]);
+        const data = await runAwsJsonAsync<{ Roles?: AwsRole[] }>(["iam", "list-roles"]);
         return (data.Roles ?? []).map((role) => ({
           id: role.RoleName,
           cells: {
@@ -100,7 +97,10 @@ export function createIamServiceAdapter(): ServiceAdapter {
           },
           {
             id: `${level.roleName}::attached`,
-            cells: { name: textCell("Attached Policies"), type: textCell("Role Attached Policies") },
+            cells: {
+              name: textCell("Attached Policies"),
+              type: textCell("Role Attached Policies"),
+            },
             meta: {
               type: "menu",
               kind: "role-attached-policies",
@@ -197,13 +197,21 @@ export function createIamServiceAdapter(): ServiceAdapter {
       return { action: "navigate" };
     }
 
-    if (level.kind === "role-menu" && meta?.type === "menu" && meta.kind === "role-inline-policies") {
+    if (
+      level.kind === "role-menu" &&
+      meta?.type === "menu" &&
+      meta.kind === "role-inline-policies"
+    ) {
       setBackStack(nextBackStack);
       setLevel({ kind: "role-inline-policies", roleName: level.roleName });
       return { action: "navigate" };
     }
 
-    if (level.kind === "role-menu" && meta?.type === "menu" && meta.kind === "role-attached-policies") {
+    if (
+      level.kind === "role-menu" &&
+      meta?.type === "menu" &&
+      meta.kind === "role-attached-policies"
+    ) {
       setBackStack(nextBackStack);
       setLevel({ kind: "role-attached-policies", roleName: level.roleName });
       return { action: "navigate" };

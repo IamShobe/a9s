@@ -79,23 +79,22 @@ async function fetchRegions(profile?: string, region?: string): Promise<string[]
   return [...STATIC_FALLBACK_REGIONS];
 }
 
-export function useAwsRegions(selectedRegion?: string, selectedProfile?: string): AwsRegionOption[] {
+export function useAwsRegions(
+  selectedRegion?: string,
+  selectedProfile?: string,
+): AwsRegionOption[] {
   const isLocal = Boolean(process.env.AWS_ENDPOINT_URL);
   const toOptions = (regions: string[]): AwsRegionOption[] =>
     regions.map((name) => ({
       name,
-      description: isLocal
-        ? "Local endpoint / emulated"
-        : "AWS commercial region",
+      description: isLocal ? "Local endpoint / emulated" : "AWS commercial region",
     }));
   const [regionOptions, setRegionOptions] = useState<AwsRegionOption[]>(
     toOptions(cachedRegions ?? [...STATIC_FALLBACK_REGIONS]),
   );
 
   const explicitProfile =
-    selectedProfile && selectedProfile !== "$default"
-      ? selectedProfile
-      : undefined;
+    selectedProfile && selectedProfile !== "$default" ? selectedProfile : undefined;
 
   useEffect(() => {
     let alive = true;

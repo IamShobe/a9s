@@ -2,9 +2,6 @@ import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell, secretCell } from "../../types.js";
 import { runAwsJsonAsync } from "../../utils/aws.js";
-import { writeFile } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
 import { atom } from "jotai";
 import { getDefaultStore } from "jotai";
 import type { AwsSecret, AwsSecretValue, SecretRowMeta, SecretLevel } from "./types.js";
@@ -25,9 +22,7 @@ function tryParseFields(secretString: string): Record<string, string> | null {
   try {
     const parsed = JSON.parse(secretString);
     if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-      return Object.fromEntries(
-        Object.entries(parsed).map(([k, v]) => [k, String(v)])
-      );
+      return Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k, String(v)]));
     }
   } catch {
     // Not JSON

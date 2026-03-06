@@ -40,7 +40,7 @@ export function useAppData({
     debugLog(adapter.id, `useAppData: received rows from useServiceView`, {
       rowCount: rows.length,
       isLoading,
-      'state.adapterId': rows.length > 0 ? 'has-data' : 'empty',
+      "state.adapterId": rows.length > 0 ? "has-data" : "empty",
     });
   }, [rows.length, isLoading, adapter.id]);
 
@@ -49,7 +49,7 @@ export function useAppData({
     const lowerFilter = filterText.toLowerCase();
     return rows.filter((row) =>
       Object.values(row.cells).some((cell) => {
-        const value = typeof cell === 'string' ? cell : cell.displayName;
+        const value = typeof cell === "string" ? cell : cell.displayName;
         return value.toLowerCase().includes(lowerFilter);
       }),
     );

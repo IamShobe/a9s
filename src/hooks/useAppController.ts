@@ -88,9 +88,7 @@ export function appControllerReducer(
       return {
         ...state,
         describeState:
-          typeof action.value === "function"
-            ? action.value(state.describeState)
-            : action.value,
+          typeof action.value === "function" ? action.value(state.describeState) : action.value,
       };
     case "setPendingAction":
       return { ...state, pendingAction: action.value };

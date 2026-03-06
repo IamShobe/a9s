@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  appControllerReducer,
-  initialAppControllerState,
-} from "./useAppController.js";
+import { appControllerReducer, initialAppControllerState } from "./useAppController.js";
 import { textCell } from "../types.js";
 
 describe("appControllerReducer", () => {
