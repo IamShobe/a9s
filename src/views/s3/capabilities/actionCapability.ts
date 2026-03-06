@@ -191,8 +191,11 @@ export function createS3ActionCapability(
       setBackStack([...backStack, { level: current, selectedIndex: 0 }]);
       setLevel({ kind: "objects", bucket: nextBucket, prefix: nextPrefix });
       return {
-        type: "feedback",
-        message: `Jumped to s3://${nextBucket}/${nextPrefix}`,
+        type: "multi",
+        effects: [
+          { type: "refresh" },
+          { type: "feedback", message: `Jumped to s3://${nextBucket}/${nextPrefix}` },
+        ],
       };
     }
 

@@ -15,7 +15,7 @@ export interface ActionContext {
   data?: Record<string, unknown>;
 }
 
-export type ActionEffect =
+export type ActionEffectSingle =
   | { type: "none" }
   | { type: "refresh" }
   | { type: "feedback"; message: string }
@@ -34,6 +34,10 @@ export type ActionEffect =
       data?: Record<string, unknown>;
     }
   | { type: "error"; message: string };
+
+export type ActionEffect =
+  | ActionEffectSingle
+  | { type: "multi"; effects: ActionEffectSingle[] };
 
 export interface ActionCapability {
   getKeybindings(): AdapterKeyBinding[];

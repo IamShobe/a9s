@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Text, useApp } from "ink";
 import { useAtom } from "jotai";
 import TextInput from "ink-text-input";
+import clipboardy from "clipboardy";
 
 import { HUD } from "./components/HUD.js";
 import { ModeBar } from "./components/ModeBar.js";
@@ -11,6 +12,7 @@ import { useAwsContext } from "./hooks/useAwsContext.js";
 import { useAwsRegions } from "./hooks/useAwsRegions.js";
 import { useAwsProfiles } from "./hooks/useAwsProfiles.js";
 import { useMainInput } from "./hooks/useMainInput.js";
+import { useInputEventProcessor } from "./hooks/useInputEventProcessor.js";
 import { useHierarchyState } from "./hooks/useHierarchyState.js";
 import { useAppController } from "./hooks/useAppController.js";
 import { useCommandRouter } from "./hooks/useCommandRouter.js";
@@ -23,6 +25,7 @@ import type { ServiceId } from "./services.js";
 import type { ServiceViewResult, TableRow } from "./types.js";
 import { AVAILABLE_COMMANDS } from "./constants/commands.js";
 import { buildHelpTabs, triggerToString } from "./constants/keybindings.js";
+import type { InputRuntimeState } from "./hooks/inputEvents.js";
 import {
   currentlySelectedServiceAtom,
   selectedRegionAtom,
@@ -298,91 +301,117 @@ export function App({ initialService, endpointUrl }: AppProps) {
     actions.bumpCommandCursorToEnd();
   }, [actions, state.commandText]);
 
-  useMainInput(
-    {
+  const inputRuntime = useMemo<InputRuntimeState>(
+    () => ({
       mode: state.mode,
       filterText: state.filterText,
       commandText: state.commandText,
       searchEntryFilter: state.searchEntryFilter,
       yankMode: state.yankMode,
-      yankOptions,
       selectedRow,
-      describeState: state.describeState,
-      uploadPending: state.uploadPending,
-      pendingAction: state.pendingAction,
-      adapter,
-      pickers,
-      helpPanel,
-    },
-    {
-      exit,
-      openHelp: helpPanel.open,
-      closeHelp: helpPanel.close,
-      helpPrevTab: helpPanel.goToPrevTab,
-      helpNextTab: helpPanel.goToNextTab,
-      helpScrollUp: helpPanel.scrollUp,
-      helpScrollDown: helpPanel.scrollDown,
-      helpGoToTab: (input) => {
-        helpPanel.goToTab(input);
-      },
-      pickerClose: pickers.closeActivePicker,
-      pickerCancelSearch: () => pickers.activePicker?.cancelSearch(),
-      pickerStartSearch: () => pickers.activePicker?.startSearch(),
-      pickerMoveDown: () => pickers.activePicker?.moveDown(),
-      pickerMoveUp: () => pickers.activePicker?.moveUp(),
-      pickerTop: () => pickers.activePicker?.toTop(),
-      pickerBottom: () => pickers.activePicker?.toBottom(),
-      pickerConfirm: () =>
-        pickers.confirmActivePickerSelection({
-          onSelectResource: switchAdapter,
-          onSelectRegion: setSelectedRegion,
-          onSelectProfile: setSelectedProfile,
-        }),
-      cancelSearchOrCommand: () => {
-        if (state.mode === "search") {
-          if (state.searchEntryFilter !== null && state.filterText !== "") {
-            handleFilterChange(state.searchEntryFilter);
-          }
-          actions.setSearchEntryFilter(null);
-        }
-        actions.setMode("navigate");
-      },
-      clearFilterOrNavigateBack: () => {
-        if (state.filterText !== "") {
-          handleFilterChange("");
-        } else {
-          navigateBack();
-        }
-      },
-      commandAutocomplete,
-      startSearchMode: () => {
-        actions.setSearchEntryFilter(state.filterText);
-        actions.setMode("search");
-      },
-      startCommandMode: () => {
-        actions.setCommandText("");
-        actions.setMode("command");
-      },
-      navigateDown: navigation.moveDown,
-      navigateUp: navigation.moveUp,
-      navigateTop: navigation.toTop,
-      navigateBottom: navigation.toBottom,
-      navigateIntoSelection,
-      editSelection,
-      showDetails: () => showDetails(selectedRow),
-      refresh: () => {
-        void refresh();
-      },
-      enterYankMode: () => actions.setYankMode(true),
-      cancelYankMode: () => actions.setYankMode(false),
-      pushYankFeedback: actions.pushFeedback,
-      runAdapterAction,
-      closeDetails,
-      cancelPendingPrompt: () => actions.setPendingAction(null),
-      submitPendingAction: (confirmed) => submitPendingAction(state.pendingAction, confirmed),
-      handleUploadDecision,
-    },
+      helpOpen: helpPanel.helpOpen,
+      pickerMode: pickers.activePicker?.pickerMode ?? null,
+      describeOpen: Boolean(state.describeState),
+      uploadPending: Boolean(state.uploadPending),
+      pendingActionType: state.pendingAction?.effect.type ?? null,
+    }),
+    [helpPanel.helpOpen, pickers.activePicker?.pickerMode, selectedRow, state],
   );
+
+  const inputDispatch = useInputEventProcessor({
+    runtime: inputRuntime,
+    actions: {
+      app: { exit },
+      help: {
+        open: helpPanel.open,
+        close: helpPanel.close,
+        prevTab: helpPanel.goToPrevTab,
+        nextTab: helpPanel.goToNextTab,
+        scrollUp: helpPanel.scrollUp,
+        scrollDown: helpPanel.scrollDown,
+        goToTab: helpPanel.goToTab,
+      },
+      picker: {
+        close: pickers.closeActivePicker,
+        cancelSearch: () => pickers.activePicker?.cancelSearch(),
+        startSearch: () => pickers.activePicker?.startSearch(),
+        moveDown: () => pickers.activePicker?.moveDown(),
+        moveUp: () => pickers.activePicker?.moveUp(),
+        top: () => pickers.activePicker?.toTop(),
+        bottom: () => pickers.activePicker?.toBottom(),
+        confirm: () =>
+          pickers.confirmActivePickerSelection({
+            onSelectResource: switchAdapter,
+            onSelectRegion: setSelectedRegion,
+            onSelectProfile: setSelectedProfile,
+          }),
+      },
+      mode: {
+        cancelSearchOrCommand: () => {
+          if (state.mode === "search") {
+            if (state.searchEntryFilter !== null && state.filterText !== "") {
+              handleFilterChange(state.searchEntryFilter);
+            }
+            actions.setSearchEntryFilter(null);
+          }
+          actions.setMode("navigate");
+        },
+        clearFilterOrNavigateBack: () => {
+          if (state.filterText !== "") {
+            handleFilterChange("");
+          } else {
+            navigateBack();
+          }
+        },
+        startSearch: () => {
+          actions.setSearchEntryFilter(state.filterText);
+          actions.setMode("search");
+        },
+        startCommand: () => {
+          actions.setCommandText("");
+          actions.setMode("command");
+        },
+        commandAutocomplete,
+      },
+      navigation: {
+        refresh: () => {
+          void refresh();
+        },
+        showDetails: () => showDetails(selectedRow),
+        editSelection,
+        down: navigation.moveDown,
+        up: navigation.moveUp,
+        top: navigation.toTop,
+        bottom: navigation.toBottom,
+        enter: navigateIntoSelection,
+      },
+      yank: {
+        enter: () => actions.setYankMode(true),
+        cancel: () => actions.setYankMode(false),
+      },
+      details: {
+        close: closeDetails,
+      },
+      pending: {
+        cancelPrompt: () => actions.setPendingAction(null),
+        submit: (confirmed) => submitPendingAction(state.pendingAction, confirmed),
+      },
+      upload: {
+        decide: handleUploadDecision,
+      },
+      adapterAction: {
+        run: runAdapterAction,
+        bindings: adapterBindings,
+      },
+    },
+    yankOptions,
+    pushYankFeedback: actions.pushFeedback,
+    writeClipboard: clipboardy.write,
+    hasCommandAutocomplete: (text) =>
+      AVAILABLE_COMMANDS.some((cmd) => cmd.toLowerCase().startsWith(text.toLowerCase())),
+  });
+
+  useMainInput(inputDispatch);
 
   const activePickerFilter = pickers.activePicker?.filter ?? state.filterText;
 

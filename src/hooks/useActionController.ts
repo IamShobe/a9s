@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import type { ServiceAdapter } from "../adapters/ServiceAdapter.js";
-import type { ActionEffect } from "../adapters/capabilities/ActionCapability.js";
+import type {
+  ActionEffect,
+  ActionEffectSingle,
+} from "../adapters/capabilities/ActionCapability.js";
 import type { TableRow } from "../types.js";
 import type { PendingAction } from "./usePendingAction.js";
 
@@ -17,13 +20,14 @@ export function useActionController({
   setPendingAction,
   pushFeedback,
 }: UseActionControllerArgs) {
-  const handleActionEffect = useCallback(
-    (effect: ActionEffect, row: TableRow | null) => {
+  const handleSingleEffect = useCallback(
+    (effect: ActionEffectSingle, row: TableRow | null) => {
       switch (effect.type) {
         case "none":
           return;
         case "refresh":
           void refresh();
+          setPendingAction(null);
           return;
         case "feedback":
           pushFeedback(effect.message, 2500);
@@ -55,6 +59,19 @@ export function useActionController({
       }
     },
     [pushFeedback, refresh, setPendingAction],
+  );
+
+  const handleActionEffect = useCallback(
+    (effect: ActionEffect, row: TableRow | null) => {
+      if (effect.type === "multi") {
+        for (const next of effect.effects) {
+          handleSingleEffect(next, row);
+        }
+        return;
+      }
+      handleSingleEffect(effect, row);
+    },
+    [handleSingleEffect],
   );
 
   const submitPendingAction = useCallback(
