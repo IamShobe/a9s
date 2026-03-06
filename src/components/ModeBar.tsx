@@ -15,8 +15,6 @@ interface ModeBarProps {
   onCommandChange: (value: string) => void;
   onFilterSubmit: () => void;
   onCommandSubmit: () => void;
-  onCommandAutocomplete?: () => void;
-  onFilterAutocomplete?: () => void;
 }
 
 const MODE_ICONS: Record<AppMode, string> = {
@@ -50,8 +48,6 @@ export const ModeBar = React.forwardRef<
       onCommandChange,
       onFilterSubmit,
       onCommandSubmit,
-      _onCommandAutocomplete,
-      _onFilterAutocomplete,
     },
     ref,
   ) => {
