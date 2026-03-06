@@ -9,6 +9,7 @@ import { Table } from "./components/Table/index.js";
 import { HUD } from "./components/HUD.js";
 import { ModeBar } from "./components/ModeBar.js";
 import { DetailPanel } from "./components/DetailPanel.js";
+import { ErrorStatePanel } from "./components/ErrorStatePanel.js";
 import {
   HelpPanel,
   type HelpItem,
@@ -79,6 +80,7 @@ const COMMAND_SUGGESTIONS = [
   "s3",
   "route53",
   "dynamodb",
+  "iam",
   "regions",
   "profiles",
   "resources",
@@ -203,7 +205,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
     termRows - HUD_LINES - MODEBAR_LINES - HEADER_LINES - 4,
   );
 
-  const { rows, columns, select, goBack, refresh, path } =
+  const { rows, columns, isLoading, error, select, edit, goBack, refresh, path } =
     useServiceView(adapter);
 
   const filteredRows = useMemo(() => {
@@ -324,9 +326,18 @@ export function App({ initialService, endpointUrl }: AppProps) {
       if (type === "bucket" || type === "folder" || type === "object") {
         options.push({ key: "k", label: "copy key/path" });
       }
+      if (type === "bucket" || type === "folder" || type === "object") {
+        options.push({ key: "a", label: "copy arn" });
+      }
       if (type === "object") {
         options.push({ key: "e", label: "copy etag" });
         options.push({ key: "d", label: "copy last-modified" });
+      }
+    }
+    if (adapter.id === "iam") {
+      const arn = selectedRow.meta?.arn ?? selectedRow.meta?.policyArn;
+      if (typeof arn === "string" && arn.length > 0) {
+        options.push({ key: "a", label: "copy arn" });
       }
     }
 
@@ -366,7 +377,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       { key: "g p", description: "Go path jump prompt (S3 only)" },
       { key: "g g / G", description: "Top / bottom" },
       { key: "Enter", description: "Open bucket/folder (navigate only)" },
-      { key: "e", description: "Edit selected object" },
+      { key: "e", description: "Edit selected item" },
       { key: "Esc", description: "Clear filter, then go back level" },
       { key: "d", description: "Open details panel" },
       { key: "y", description: "Open yank mode" },
@@ -404,7 +415,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           { key: "Open", description: "Press : in navigate mode" },
           {
             key: "Type",
-            description: "Enter command (s3/route53/dynamodb/quit)",
+            description: "Enter command (s3/route53/dynamodb/iam/quit)",
           },
           { key: "Tab", description: "Autocomplete command" },
           { key: "Enter", description: "Run command" },
@@ -416,6 +427,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
         items: [
           { key: "Open", description: "Press y in navigate mode" },
           { key: "n", description: "Copy selected name" },
+          { key: "a", description: "Copy ARN (when available)" },
           { key: "k", description: "Copy selected S3/object key path" },
           { key: "e", description: "Copy ETag (objects only)" },
           { key: "d", description: "Copy Last Modified (objects only)" },
@@ -494,7 +506,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       case "search":
         return " Type filter  •  Tab autocomplete  •  Enter apply  •  Esc cancel";
       case "command":
-        return " Commands: s3 route53 dynamodb quit regions profiles resources  •  Enter run  •  Esc cancel";
+        return " Commands: s3 route53 dynamodb iam quit regions profiles resources  •  Enter run  •  Esc cancel";
       default:
         return " j/k ↑/↓ move  •  gp go-path  •  gg/G top/bottom  •  Enter navigate  •  e edit  •  f fetch  •  / search";
     }
@@ -679,10 +691,13 @@ export function App({ initialService, endpointUrl }: AppProps) {
           ? selectedIndexStack.slice(0, -1)
           : selectedIndexStack;
       setSelectedIndexStack(nextIndexStack);
+      const poppedIndex =
+        selectedIndexStack.length > 1
+          ? (selectedIndexStack[selectedIndexStack.length - 1] ?? 0)
+          : (selectedIndexStack[0] ?? 0);
       const previousFilter = nextStack[nextStack.length - 1] ?? "";
-      const previousIndex = nextIndexStack[nextIndexStack.length - 1] ?? 0;
       setFilterText(previousFilter);
-      setIndex(previousIndex);
+      setIndex(poppedIndex);
     });
   }, [
     adapter,
@@ -734,9 +749,8 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   const editSelection = useCallback(() => {
     if (!selectedRow) return;
-    if ((selectedRow.meta?.type as string) !== "object") return;
 
-    void select(selectedRow).then((result: any) => {
+    void edit(selectedRow).then((result: any) => {
       if (result?._needsUpload && result.metadata) {
         setUploadPending({
           filePath: result.filePath,
@@ -744,7 +758,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
         });
       }
     });
-  }, [select, selectedRow, setUploadPending]);
+  }, [edit, selectedRow, setUploadPending]);
 
   const showDetails = useCallback(() => {
     if (!selectedRow) return;
@@ -1200,6 +1214,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
         const type = selectedRow.meta?.type as string;
         const allowKey = yankOptions.some((option) => option.key === "k");
+        const allowArn = yankOptions.some((option) => option.key === "a");
         const allowEtag = yankOptions.some((option) => option.key === "e");
         const allowDate = yankOptions.some((option) => option.key === "d");
 
@@ -1222,6 +1237,32 @@ export function App({ initialService, endpointUrl }: AppProps) {
           if (value) {
             void clipboardy.write(value).then(() => {
               pushYankFeedback("Copied Key");
+            });
+          }
+        } else if (input === "a" && allowArn) {
+          setYankMode(false);
+          let value = "";
+
+          if (adapter.id === "iam") {
+            const arn =
+              (selectedRow.meta?.arn as string | undefined) ??
+              (selectedRow.meta?.policyArn as string | undefined);
+            value = arn ?? "";
+          } else if (adapter.id === "s3") {
+            if (type === "bucket") {
+              value = `arn:aws:s3:::${selectedRow.id}`;
+            } else if (type === "object" || type === "folder") {
+              const keyPath = (selectedRow.meta?.key as string) ?? "";
+              const bucket = path.split("/")[2] ?? "";
+              if (bucket && keyPath) {
+                value = `arn:aws:s3:::${bucket}/${keyPath}`;
+              }
+            }
+          }
+
+          if (value) {
+            void clipboardy.write(value).then(() => {
+              pushYankFeedback("Copied ARN");
             });
           }
         } else if (input === "e" && allowEtag && type === "object") {
@@ -1465,6 +1506,12 @@ export function App({ initialService, endpointUrl }: AppProps) {
               scrollOffset={resourceScrollOffset}
               contextLabel="Select AWS Resource"
             />
+          ) : error ? (
+            <ErrorStatePanel
+              title={`Failed to load ${adapter.label}`}
+              message={error}
+              hint="Press r to retry"
+            />
           ) : describeState ? (
             <Box width="100%" borderStyle="round" borderColor="gray">
               <DetailPanel
@@ -1472,6 +1519,14 @@ export function App({ initialService, endpointUrl }: AppProps) {
                 fields={describeState.fields ?? []}
                 isLoading={describeState.loading}
               />
+            </Box>
+          ) : isLoading && filteredRows.length === 0 ? (
+            <Box width="100%" borderStyle="round" borderColor="blue">
+              <Box flexDirection="column" paddingX={1}>
+                <Text bold color="blue">
+                  Loading {adapter.label}...
+                </Text>
+              </Box>
             </Box>
           ) : (
             <Table

@@ -60,9 +60,8 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
     void refresh();
   }, [refresh, navKey]);
 
-  const select = useCallback(
-    async (row: TableRow) => {
-      const result = await adapter.onSelect(row);
+  const processResult = useCallback(
+    async (result: any) => {
       if (result.action === 'navigate') await refresh();
       if (result.action === 'edit') {
         // Get file modification time before opening
@@ -88,6 +87,24 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
     [adapter, refresh]
   );
 
+  const select = useCallback(
+    async (row: TableRow) => {
+      const result = await adapter.onSelect(row);
+      return processResult(result);
+    },
+    [adapter, processResult]
+  );
+
+  const edit = useCallback(
+    async (row: TableRow) => {
+      const result = adapter.onEdit
+        ? await adapter.onEdit(row)
+        : await adapter.onSelect(row);
+      return processResult(result);
+    },
+    [adapter, processResult]
+  );
+
   const goBack = useCallback(async () => {
     if (!adapter.canGoBack()) return;
     adapter.goBack();
@@ -100,6 +117,7 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
     isLoading,
     error,
     select,
+    edit,
     goBack,
     refresh,
     path: adapter.getPath(),

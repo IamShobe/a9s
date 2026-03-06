@@ -36,19 +36,22 @@ const MODE_HINTS: Record<AppMode, string> = {
   navigate:
     " j/k ↑↓ move  •  Enter select  •  / search  •  : command  •  Esc/q back/quit",
   search: " Type to filter  •  Esc cancel  •  Enter confirm",
-  command: " Commands: s3 route53 dynamodb quit  •  Esc cancel",
+  command: " Commands: s3 route53 dynamodb iam quit  •  Esc cancel",
 };
 
 const AVAILABLE_COMMANDS = [
   "s3",
   "route53",
   "dynamodb",
+  "iam",
   "regions",
   "profiles",
+  "resources",
   "region",
   "profile",
   "use-region",
   "use-profile",
+  "$default",
   "quit",
 ];
 

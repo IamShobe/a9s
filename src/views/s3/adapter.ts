@@ -160,6 +160,28 @@ export class S3ServiceAdapter implements ServiceAdapter {
     return { action: "none" };
   }
 
+  async onEdit(row: TableRow): Promise<SelectResult> {
+    const level = this.getLevel();
+    const type = row.meta?.type as string;
+    if (level.kind !== "objects" || type !== "object") {
+      return { action: "none" };
+    }
+
+    const filePath = await downloadObject(
+      this.client,
+      level.bucket,
+      row.meta?.key as string,
+    );
+    return {
+      action: "edit",
+      filePath,
+      metadata: {
+        bucket: level.bucket,
+        key: row.meta?.key,
+      },
+    };
+  }
+
   canGoBack(): boolean {
     return this.getBackStack().length > 0;
   }

@@ -1,6 +1,7 @@
 import { S3ServiceAdapter } from "./views/s3/adapter.js";
 import { Route53ServiceAdapter } from "./views/route53/adapter.js";
 import { DynamoDBServiceAdapter } from "./views/dynamodb/adapter.js";
+import { IamServiceAdapter } from "./views/iam/adapter.js";
 export const SERVICE_REGISTRY = {
   s3: (
     endpointUrl?: string,
@@ -33,6 +34,8 @@ export const SERVICE_REGISTRY = {
     new Route53ServiceAdapter(),
   dynamodb: (endpointUrl?: string, region?: string) =>
     new DynamoDBServiceAdapter(),
+  iam: (endpointUrl?: string, region?: string) =>
+    new IamServiceAdapter(),
 } as const;
 
 export type ServiceId = keyof typeof SERVICE_REGISTRY;

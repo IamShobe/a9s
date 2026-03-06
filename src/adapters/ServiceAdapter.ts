@@ -13,6 +13,7 @@ export interface ServiceAdapter {
   getColumns(): ColumnDef[];
   getRows(): Promise<TableRow[]>;
   onSelect(row: TableRow): Promise<SelectResult>;
+  onEdit?(row: TableRow): Promise<SelectResult>;
   canGoBack(): boolean;
   goBack(): void;
   getPath(): string;
