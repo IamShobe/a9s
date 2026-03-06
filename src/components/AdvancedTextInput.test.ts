@@ -83,6 +83,29 @@ describe("AdvancedTextInput helpers", () => {
     expect(singleCharStart.cursor).toBe(0);
   });
 
+  it("handles backspace when reported as delete key (terminal issue in search mode)", () => {
+    // Some terminals report backspace as key.delete with empty input
+    // This is critical for search mode where users can't delete characters otherwise
+    const deleteAsBackspace = applyAdvancedInputEdit("search", 6, "", makeKey({ delete: true }));
+    expect(deleteAsBackspace.value).toBe("searc");
+    expect(deleteAsBackspace.cursor).toBe(5);
+
+    // Multiple backspaces in sequence
+    const secondBackspace = applyAdvancedInputEdit("searc", 5, "", makeKey({ delete: true }));
+    expect(secondBackspace.value).toBe("sear");
+    expect(secondBackspace.cursor).toBe(4);
+
+    // Backspace in middle of text (reported as delete)
+    const middleBackspace = applyAdvancedInputEdit("hello", 3, "", makeKey({ delete: true }));
+    expect(middleBackspace.value).toBe("helo");
+    expect(middleBackspace.cursor).toBe(2);
+
+    // Alt+Delete should still delete word, not single char
+    const altDelete = applyAdvancedInputEdit("foo bar", 7, "", makeKey({ delete: true, meta: true }));
+    expect(altDelete.value).toBe("foo ");
+    expect(altDelete.cursor).toBe(4);
+  });
+
   it("treats raw terminal backspace/delete sequences as editing signals", () => {
     const bsAscii = applyAdvancedInputEdit("hello", 5, "\u007f", makeKey());
     expect(bsAscii.value).toBe("hell");

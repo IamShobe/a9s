@@ -1,24 +1,39 @@
-FROM python:3.9-alpine AS base
-RUN apk --update add gcc musl-dev libffi-dev openssl-dev
-RUN apk add gcc musl-dev python3-dev libffi-dev openssl-dev cargo
-RUN pip install poetry
-# Application dependencies
-COPY pyproject.toml poetry.lock /app/
+# Stage 1: Build
+FROM node:24-alpine AS builder
 
-WORKDIR /app/
-RUN POETRY_VIRTUALENVS_IN_PROJECT=true poetry install --no-root --no-dev
-COPY README.md /app/
-COPY a9s /app/a9s/
-RUN POETRY_VIRTUALENVS_IN_PROJECT=true poetry install --no-dev
-CMD poetry run a9s
+WORKDIR /build
 
+COPY package.json pnpm-lock.yaml ./
 
-FROM python:3.9-alpine3.12
-WORKDIR /app/
-RUN apk add vim
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app/tembel:${PYTHONPATH}"
-COPY --from=base /app/ /app/
+RUN npm install -g pnpm && \
+    pnpm install --frozen-lockfile
 
-# Application files
-CMD a9s
+COPY src/ src/
+COPY tsconfig.json ./
+
+RUN pnpm build
+
+# Stage 2: Runtime
+FROM node:24-alpine
+
+WORKDIR /app
+
+# Install AWS CLI
+RUN apk add --no-cache \
+    aws-cli \
+    curl \
+    bash
+
+# Copy only what's needed for runtime
+COPY package.json pnpm-lock.yaml ./
+
+RUN npm install -g pnpm && \
+    pnpm install --frozen-lockfile --prod
+
+COPY --from=builder /build/dist ./dist
+
+# Set AWS credentials directory
+ENV HOME=/root
+VOLUME /root/.aws
+
+ENTRYPOINT ["node", "/app/dist/index.js"]

@@ -1,9 +1,35 @@
 {
-  "name": "a9s",
+  "name": "@a9s/cli",
   "version": "0.1.0",
+  "description": "k9s-style TUI navigator for AWS services",
+  "homepage": "https://github.com/IamShobe/a9s",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "a9s": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IamShobe/a9s.git"
+  },
+  "keywords": [
+    "aws",
+    "tui",
+    "cli",
+    "k9s",
+    "s3",
+    "iam",
+    "dynamodb",
+    "route53"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist/"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "localstack:up": "docker compose -f docker/docker-compose.yml up -d",
@@ -14,7 +40,8 @@
     "dev": "tsx --watch src/index.tsx",
     "build": "tsc",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1002.0",

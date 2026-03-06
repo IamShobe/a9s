@@ -29,14 +29,18 @@ exclude-labels:
   - 'skip-changelog'
 template: |
   ## How to install
-  [Pypi - a9s $RESOLVED_VERSION](https://pypi.org/project/a9s/$RESOLVED_VERSION)
+
+  [npm - @a9s/cli $RESOLVED_VERSION](https://www.npmjs.com/package/@a9s/cli/v/$RESOLVED_VERSION)
+
+  Install globally:
   ```bash
-  pip install "a9s==$RESOLVED_VERSION"
+  npm install -g @a9s/cli@$RESOLVED_VERSION
+  a9s
   ```
 
-  or:
+  Or use with npx:
   ```bash
-  docker run -v ~/.aws/:/root/.aws -it --rm ghcr.io/iamshobe/a9s:$RESOLVED_VERSION
+  npx @a9s/cli@$RESOLVED_VERSION
   ```
 
   ## Changes

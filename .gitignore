@@ -1,16 +1,12 @@
-venv/
-.venv/
 .idea/
-.eggs/
-*.pyc
-__pycache__/
-*.egg-info/
-pip-wheel-metadata/
-build/
-dist/
-node_modules/
 .DS_Store/
 .env
+*.log
+
+# Node
+node_modules/
+dist/
+build/
 
 
 
