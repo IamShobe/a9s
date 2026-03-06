@@ -6,41 +6,30 @@ import TextInput from "ink-text-input";
 import { HUD } from "./components/HUD.js";
 import { ModeBar } from "./components/ModeBar.js";
 import { FullscreenBox, useScreenSize } from "./utils/withFullscreen.js";
-import { useNavigation } from "./hooks/useNavigation.js";
-import { useYankMode } from "./hooks/useYankMode.js";
 import { useHelpPanel } from "./hooks/useHelpPanel.js";
-import { usePendingAction } from "./hooks/usePendingAction.js";
-import { useServiceView } from "./hooks/useServiceView.js";
 import { useAwsContext } from "./hooks/useAwsContext.js";
 import { useAwsRegions } from "./hooks/useAwsRegions.js";
 import { useAwsProfiles } from "./hooks/useAwsProfiles.js";
-import { usePickerManager } from "./hooks/usePickerManager.js";
 import { useMainInput } from "./hooks/useMainInput.js";
 import { useHierarchyState } from "./hooks/useHierarchyState.js";
+import { useAppController } from "./hooks/useAppController.js";
+import { useCommandRouter } from "./hooks/useCommandRouter.js";
+import { useDetailController } from "./hooks/useDetailController.js";
+import { useActionController } from "./hooks/useActionController.js";
+import { useUiHints } from "./hooks/useUiHints.js";
+import { useAppData } from "./hooks/useAppData.js";
 import { AppMainView } from "./features/AppMainView.js";
-import { SERVICE_REGISTRY } from "./services.js";
 import type { ServiceId } from "./services.js";
-import type { TableRow } from "./types.js";
-import type { ServiceAdapter } from "./adapters/ServiceAdapter.js";
-import type { ActionEffect } from "./adapters/capabilities/ActionCapability.js";
-import { COMMAND_MODE_HINT } from "./constants/commands.js";
-import { buildHelpTabs, buildScopeHint, triggerToString } from "./constants/keybindings.js";
+import type { ServiceViewResult, TableRow } from "./types.js";
+import { AVAILABLE_COMMANDS } from "./constants/commands.js";
+import { buildHelpTabs, triggerToString } from "./constants/keybindings.js";
 import {
   currentlySelectedServiceAtom,
-  modeAtom,
-  filterTextAtom,
-  commandTextAtom,
   selectedRegionAtom,
   selectedProfileAtom,
 } from "./state/atoms.js";
 
-let detailRequestSeq = 0;
 const INITIAL_AWS_PROFILE = process.env.AWS_PROFILE;
-
-function nextDetailRequestId(): number {
-  detailRequestSeq += 1;
-  return detailRequestSeq;
-}
 
 interface AppProps {
   initialService: ServiceId;
@@ -50,45 +39,18 @@ interface AppProps {
 export function App({ initialService, endpointUrl }: AppProps) {
   const { exit } = useApp();
   const { columns: termCols, rows: termRows } = useScreenSize();
+
   const [selectedRegion, setSelectedRegion] = useAtom(selectedRegionAtom);
   const [selectedProfile, setSelectedProfile] = useAtom(selectedProfileAtom);
-  const availableRegions = useAwsRegions(selectedRegion, selectedProfile);
-  const availableProfiles = useAwsProfiles();
+  const [currentService, setCurrentService] = useAtom(currentlySelectedServiceAtom);
+
   const { accountName, accountId, awsProfile, currentIdentity, region } =
     useAwsContext(endpointUrl, selectedRegion, selectedProfile);
+  const availableRegions = useAwsRegions(selectedRegion, selectedProfile);
+  const availableProfiles = useAwsProfiles();
 
-  const [currentService, setCurrentService] = useAtom(currentlySelectedServiceAtom);
-  const [mode, setMode] = useAtom(modeAtom);
-  const [filterText, setFilterText] = useAtom(filterTextAtom);
-  const [commandText, setCommandText] = useAtom(commandTextAtom);
-  const {
-    reset: resetHierarchy,
-    updateCurrentFilter,
-    pushLevel,
-    popLevel,
-  } = useHierarchyState();
-
-  // Local UI state
-  const [uploadPending, setUploadPending] = useState<{
-    filePath: string;
-    metadata: Record<string, unknown>;
-  } | null>(null);
-  const [describeState, setDescribeState] = useState<{
-    row: TableRow;
-    fields: Array<{ label: string; value: string }> | null;
-    loading: boolean;
-    requestId: number;
-  } | null>(null);
-  const [searchEntryFilter, setSearchEntryFilter] = useState<string | null>(null);
-  const [commandCursorToEndToken, setCommandCursorToEndToken] = useState(0);
-
-  // Feature hooks
-  const { yankMode, setYankMode, yankFeedback, setYankFeedback, pushYankFeedback } = useYankMode();
-  const { pendingAction, setPendingAction } = usePendingAction();
-
-  const adapter = useMemo<ServiceAdapter>(() => {
-    return SERVICE_REGISTRY[currentService](endpointUrl, selectedRegion);
-  }, [currentService, endpointUrl, selectedRegion]);
+  const { reset: resetHierarchy, updateCurrentFilter, pushLevel, popLevel } = useHierarchyState();
+  const { state, actions } = useAppController();
 
   useEffect(() => {
     if (selectedProfile === "$default") {
@@ -109,68 +71,120 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const HUD_LINES = 3;
   const MODEBAR_LINES = 1;
   const HEADER_LINES = 2;
-  const tableHeight = Math.max(
-    1,
-    termRows - HUD_LINES - MODEBAR_LINES - HEADER_LINES - 4,
-  );
+  const tableHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES - HEADER_LINES - 4);
 
-  const { rows, columns, isLoading, error, select, edit, goBack, refresh, path } =
-    useServiceView(adapter);
+  const {
+    adapter,
+    columns,
+    isLoading,
+    error,
+    select,
+    edit,
+    goBack,
+    refresh,
+    path,
+    filteredRows,
+    selectedRow,
+    navigation,
+    pickers,
+  } = useAppData({
+    currentService,
+    endpointUrl,
+    selectedRegion,
+    tableHeight,
+    filterText: state.filterText,
+    availableRegions,
+    availableProfiles,
+  });
 
-  const filteredRows = useMemo(() => {
-    if (!filterText) return rows;
-    const lowerFilter = filterText.toLowerCase();
-    return rows.filter((row) =>
-      Object.values(row.cells).some((value) =>
-        value.toLowerCase().includes(lowerFilter),
-      ),
-    );
-  }, [rows, filterText]);
-
-  const { selectedIndex, scrollOffset, moveUp, moveDown, reset, setIndex, toTop, toBottom } =
-    useNavigation(filteredRows.length, tableHeight);
-
-  // Unified picker manager (replaces 3× usePickerState + 3× usePickerTable)
-  const pickers = usePickerManager({ tableHeight, availableRegions, availableProfiles });
   const [didOpenInitialResources, setDidOpenInitialResources] = useState(false);
-
   useEffect(() => {
     if (didOpenInitialResources) return;
-    pickers.resource.openPicker();
-    pickers.resource.reset();
+    pickers.openPicker("resource");
     setDidOpenInitialResources(true);
-  }, [didOpenInitialResources, pickers.resource]);
+  }, [didOpenInitialResources, pickers]);
 
-  const selectedRow = filteredRows[selectedIndex] ?? null;
-
-  // -------------------------------------------------------------------------
-  // Base yank option (available in all adapters)
-  // -------------------------------------------------------------------------
-
-  const nameOption = {
-    trigger: { type: "key" as const, char: "n" },
-    label: "copy name",
-    feedback: "Copied Name",
-    isRelevant: () => true, // Always available
-    resolve: async (row: TableRow) => row.cells.name ?? null,
-  };
-
-  const yankOptions = useMemo(() => {
-    const adapterOptions = selectedRow
-      ? adapter.capabilities?.yank?.getYankOptions(selectedRow) ?? []
-      : [];
-    return [nameOption, ...adapterOptions];
-  }, [adapter, selectedRow]);
-
-  const yankHint = useMemo(
-    () => [
-      ...yankOptions.map((o) => `${triggerToString(o.trigger)} · ${o.label}`),
-      "Esc cancel",
-    ].join(" • "),
-    [yankOptions],
+  const switchAdapter = useCallback(
+    (serviceId: ServiceId) => {
+      setCurrentService(serviceId);
+      actions.setFilterText("");
+      actions.setDescribeState(null);
+      actions.setSearchEntryFilter(null);
+      actions.setMode("navigate");
+      actions.setYankMode(false);
+      actions.setUploadPending(null);
+      actions.setPendingAction(null);
+      resetHierarchy();
+      navigation.reset();
+    },
+    [actions, navigation, resetHierarchy, setCurrentService],
   );
 
-  // Help panel
+  const navigateBack = useCallback(() => {
+    if (!adapter.canGoBack()) return;
+    void goBack().then(() => {
+      actions.setDescribeState(null);
+      actions.setSearchEntryFilter(null);
+      const { restoredFilter, restoredIndex } = popLevel();
+      actions.setFilterText(restoredFilter);
+      navigation.setIndex(restoredIndex);
+    });
+  }, [actions, adapter, goBack, navigation, popLevel]);
+
+  const navigateIntoSelection = useCallback(() => {
+    if (!selectedRow) return;
+    if ((selectedRow.meta?.type as string) === "object") return;
+    void select(selectedRow).then((result: ServiceViewResult) => {
+      if (result?.action === "navigate") {
+        actions.setSearchEntryFilter(null);
+        pushLevel(navigation.selectedIndex, "");
+        actions.setFilterText("");
+        actions.setDescribeState(null);
+        navigation.reset();
+        return;
+      }
+      if (result.action === "edit" && "needsUpload" in result && result.needsUpload) {
+        actions.setUploadPending({ filePath: result.filePath, metadata: result.metadata });
+      }
+    });
+  }, [actions, navigation, pushLevel, select, selectedRow]);
+
+  const editSelection = useCallback(() => {
+    if (!selectedRow) return;
+    void edit(selectedRow).then((result: ServiceViewResult) => {
+      if (result.action === "edit" && "needsUpload" in result && result.needsUpload) {
+        actions.setUploadPending({ filePath: result.filePath, metadata: result.metadata });
+      }
+    });
+  }, [actions, edit, selectedRow]);
+
+  const { showDetails, closeDetails } = useDetailController({
+    adapter,
+    setDescribeState: actions.setDescribeState,
+  });
+
+  const { handleActionEffect, submitPendingAction } = useActionController({
+    adapter,
+    refresh,
+    setPendingAction: actions.setPendingAction,
+    pushFeedback: actions.pushFeedback,
+  });
+
+  const runAdapterAction = useCallback(
+    (actionId: string, row: TableRow | null) => {
+      if (!adapter.capabilities?.actions) return;
+      void adapter.capabilities.actions
+        .executeAction(actionId, { row })
+        .then((effect) => {
+          handleActionEffect(effect, row);
+        })
+        .catch((err) => {
+          actions.pushFeedback(`Action failed: ${(err as Error).message}`, 3000);
+        });
+    },
+    [actions, adapter.capabilities?.actions, handleActionEffect],
+  );
+
   const adapterBindings = useMemo(
     () => adapter.capabilities?.actions?.getKeybindings() ?? [],
     [adapter],
@@ -182,114 +196,47 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const helpContainerHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES);
   const helpPanel = useHelpPanel(helpTabs, helpContainerHeight);
 
-  const uiScopeActual = helpPanel.helpOpen
-    ? "help"
-    : pickers.activePicker
-      ? "picker"
-      : pendingAction
-        ? "adapter-action"
-        : uploadPending
-          ? "upload"
-          : describeState
-            ? "details"
-            : yankMode
-              ? "yank"
-              : mode;
+  const nameOption = {
+    trigger: { type: "key" as const, char: "n" },
+    label: "copy name",
+    feedback: "Copied Name",
+    isRelevant: () => true,
+    resolve: async (row: TableRow) => row.cells.name ?? null,
+  };
 
-  const bottomHint = useMemo(() => {
-    switch (uiScopeActual) {
-      case "help":
-        return buildScopeHint("help", adapterBindings);
-      case "picker":
-        return pickers.activePicker?.pickerMode === "search"
-          ? buildScopeHint("search", adapterBindings)
-          : buildScopeHint("picker", adapterBindings);
-      case "adapter-action":
-        if (pendingAction?.effect.type === "prompt") {
-          return " Enter value  •  Esc cancel";
-        }
-        if (pendingAction?.effect.type === "confirm") {
-          return " y confirm  •  n/Esc cancel";
-        }
-        return "";
-      case "upload":
-        return buildScopeHint("upload", adapterBindings);
-      case "details":
-        return buildScopeHint("details", adapterBindings);
-      case "yank":
-        return ` ${yankHint}`;
-      case "search":
-        return buildScopeHint("search", adapterBindings);
-      case "command":
-        return COMMAND_MODE_HINT;
-      default:
-        return buildScopeHint("navigate", adapterBindings, 4);
-    }
-  }, [adapterBindings, uiScopeActual, yankHint, pendingAction, pickers.activePicker]);
+  const yankOptions = useMemo(() => {
+    const adapterOptions = selectedRow
+      ? adapter.capabilities?.yank?.getYankOptions(selectedRow) ?? []
+      : [];
+    return [nameOption, ...adapterOptions];
+  }, [adapter, selectedRow]);
 
-  const switchAdapter = useCallback(
-    (serviceId: ServiceId) => {
-      setCurrentService(serviceId);
-      setFilterText("");
-      setDescribeState(null);
-      setSearchEntryFilter(null);
-      resetHierarchy();
-      reset();
-    },
-    [reset, resetHierarchy, setCurrentService, setFilterText],
+  const yankHint = useMemo(
+    () => [...yankOptions.map((o) => `${triggerToString(o.trigger)} · ${o.label}`), "Esc cancel"].join(" • "),
+    [yankOptions],
   );
 
-  const handleCommandSubmit = useCallback(() => {
-    const command = commandText.trim();
-    setCommandText("");
-    setMode("navigate");
-    if (command === "profiles") {
-      pickers.profile.openPicker();
-      pickers.profile.reset();
-      return;
-    }
-    if (command === "regions") {
-      pickers.region.openPicker();
-      pickers.region.reset();
-      return;
-    }
-    if (command === "resources") {
-      pickers.resource.openPicker();
-      pickers.resource.reset();
-      return;
-    }
-    const regionMatch = command.match(/^(region|use-region)\s+([a-z0-9-]+)$/i);
-    if (regionMatch) {
-      const nextRegion = regionMatch[2]?.toLowerCase();
-      if (nextRegion) setSelectedRegion(nextRegion);
-      return;
-    }
-    const profileMatch = command.match(/^(profile|use-profile)\s+(.+)$/i);
-    if (profileMatch) {
-      const nextProfile = profileMatch[2]?.trim();
-      if (nextProfile) setSelectedProfile(nextProfile);
-      return;
-    }
-    if (command === "quit" || command === "q") {
-      exit();
-      return;
-    }
-    if (command in SERVICE_REGISTRY) {
-      switchAdapter(command as ServiceId);
-    }
-  }, [
-    commandText, exit, pickers, setCommandText, setMode,
-    setSelectedProfile, setSelectedRegion, switchAdapter,
-  ]);
+  const { bottomHint } = useUiHints({
+    mode: state.mode,
+    helpOpen: helpPanel.helpOpen,
+    pickers,
+    pendingAction: state.pendingAction,
+    uploadPending: state.uploadPending,
+    describeState: state.describeState,
+    yankMode: state.yankMode,
+    adapterBindings,
+    yankHint,
+  });
 
-  const handleFilterSubmit = useCallback(() => {
-    if (pickers.activePicker) {
-      pickers.activePicker.confirmSearch();
-      return;
-    }
-    setSearchEntryFilter(null);
-    setMode("navigate");
-  }, [pickers, setMode]);
+  const commandRouter = useCommandRouter({
+    setSelectedRegion,
+    setSelectedProfile,
+    switchAdapter,
+    openProfilePicker: () => pickers.openPicker("profile"),
+    openRegionPicker: () => pickers.openPicker("region"),
+    openResourcePicker: () => pickers.openPicker("resource"),
+    exit,
+  });
 
   const handleFilterChange = useCallback(
     (value: string) => {
@@ -297,228 +244,147 @@ export function App({ initialService, endpointUrl }: AppProps) {
         pickers.activePicker.setFilter(value);
         return;
       }
-      setFilterText(value);
+      actions.setFilterText(value);
       updateCurrentFilter(value);
     },
-    [pickers, setFilterText, updateCurrentFilter],
+    [actions, pickers, updateCurrentFilter],
   );
 
-  const navigateBack = useCallback(() => {
-    if (!adapter.canGoBack()) return;
-    void goBack().then(() => {
-      setDescribeState(null);
-      setSearchEntryFilter(null);
-      const { restoredFilter, restoredIndex } = popLevel();
-      setFilterText(restoredFilter);
-      setIndex(restoredIndex);
-    });
-  }, [
-    adapter,
-    goBack,
-    popLevel,
-    setFilterText,
-    setIndex,
-  ]);
+  const handleFilterSubmit = useCallback(() => {
+    if (pickers.activePicker) {
+      pickers.activePicker.confirmSearch();
+      return;
+    }
+    actions.setSearchEntryFilter(null);
+    actions.setMode("navigate");
+  }, [actions, pickers]);
 
-  const navigateIntoSelection = useCallback(() => {
-    if (!selectedRow) return;
-    if ((selectedRow.meta?.type as string) === "object") return;
-    void select(selectedRow).then((result: any) => {
-      if (result?.action === "navigate") {
-        setSearchEntryFilter(null);
-        pushLevel(selectedIndex, "");
-        setFilterText("");
-        setDescribeState(null);
-        reset();
-        return;
-      }
-      if (result?._needsUpload && result.metadata) {
-        setUploadPending({ filePath: result.filePath, metadata: result.metadata });
-      }
-    });
-  }, [pushLevel, reset, select, selectedRow, setFilterText, selectedIndex]);
+  const handleCommandSubmit = useCallback(() => {
+    const command = state.commandText.trim();
+    actions.setCommandText("");
+    actions.setMode("navigate");
+    commandRouter(command);
+  }, [actions, commandRouter, state.commandText]);
 
-  const editSelection = useCallback(() => {
-    if (!selectedRow) return;
-    void edit(selectedRow).then((result: any) => {
-      if (result?._needsUpload && result.metadata) {
-        setUploadPending({ filePath: result.filePath, metadata: result.metadata });
-      }
-    });
-  }, [edit, selectedRow]);
-
-  const showDetails = useCallback(() => {
-    if (!selectedRow) return;
-    const requestId = nextDetailRequestId();
-    setDescribeState({ row: selectedRow, fields: null, loading: true, requestId });
-    void (async () => {
-      try {
-        const fields = adapter.capabilities?.detail
-          ? await adapter.capabilities.detail.getDetails(selectedRow)
-          : [
-              { label: "Name", value: selectedRow.cells.name ?? selectedRow.id },
-              { label: "Type", value: String(selectedRow.meta?.type ?? "Unknown") },
-              { label: "Details", value: "Not available for this service" },
-            ];
-        setDescribeState((prev) =>
-          prev && prev.requestId === requestId
-            ? { ...prev, fields, loading: false, requestId }
-            : prev,
-        );
-      } catch (error) {
-        setDescribeState((prev) =>
-          prev && prev.requestId === requestId
-            ? {
-                ...prev,
-                fields: [
-                  { label: "Name", value: selectedRow.cells.name ?? selectedRow.id },
-                  { label: "Error", value: (error as Error).message },
-                ],
-                loading: false,
-                requestId,
-              }
-            : prev,
-        );
-      }
-    })();
-  }, [adapter, selectedRow]);
-
-  const closeDetails = useCallback(() => setDescribeState(null), []);
-
-  const handleActionEffect = useCallback(
-    (effect: ActionEffect, row: TableRow | null) => {
-      switch (effect.type) {
-        case "none":
-          break;
-        case "refresh":
-          void refresh();
-          break;
-        case "feedback": {
-          const timer = setTimeout(() => setYankFeedback(null), 2500);
-          setYankFeedback({ message: effect.message, timer });
-          setPendingAction(null);
-          break;
-        }
-        case "clipboard": {
-          const timer = setTimeout(() => setYankFeedback(null), 2500);
-          setYankFeedback({ message: effect.feedback, timer });
-          setPendingAction(null);
-          break;
-        }
-        case "error": {
-          const timer = setTimeout(() => setYankFeedback(null), 3000);
-          setYankFeedback({ message: effect.message, timer });
-          setPendingAction(null);
-          break;
-        }
-        case "prompt":
-          setPendingAction({
-            effect,
-            row,
-            inputValue: effect.defaultValue ?? "",
-            accumulatedData: effect.data ?? {},
-          });
-          break;
-        case "confirm":
-          setPendingAction({
-            effect,
-            row,
-            inputValue: "",
-            accumulatedData: effect.data ?? {},
-          });
-          break;
-      }
-    },
-    [refresh, setYankFeedback],
-  );
-
-  const submitPendingAction = useCallback(
+  const handleUploadDecision = useCallback(
     (confirmed: boolean) => {
-      if (!pendingAction || !adapter.capabilities?.actions) return;
-
-      const effect = pendingAction.effect;
-      if (effect.type === "confirm" && !confirmed) {
-        setPendingAction(null);
+      if (!state.uploadPending) return;
+      if (!confirmed) {
+        actions.setUploadPending(null);
         return;
       }
-
-      const nextData = {
-        ...pendingAction.accumulatedData,
-        path: pendingAction.inputValue,
-      };
-
-      void adapter.capabilities.actions
-        .executeAction(effect.nextActionId, {
-          row: pendingAction.row,
-          data: nextData,
-        })
-        .then((nextEffect) => {
-          handleActionEffect(nextEffect, pendingAction.row);
-        })
-        .catch((err) => {
-          const timer = setTimeout(() => setYankFeedback(null), 3000);
-          setYankFeedback({
-            message: `Action failed: ${(err as Error).message}`,
-            timer,
-          });
-          setPendingAction(null);
-        });
+      void (async () => {
+        try {
+          await adapter.capabilities?.edit?.uploadFile(
+            state.uploadPending!.filePath,
+            state.uploadPending!.metadata,
+          );
+        } catch (err) {
+          actions.pushFeedback(`Upload failed: ${(err as Error).message}`, 3000);
+        } finally {
+          actions.setUploadPending(null);
+        }
+      })();
     },
-    [
-      adapter.capabilities?.actions,
-      handleActionEffect,
-      pendingAction,
-      setYankFeedback,
-    ],
+    [actions, adapter.capabilities?.edit, state.uploadPending],
   );
 
-  // Wire up keyboard input (includes chord engine + ctrl-C handler)
+  const commandAutocomplete = useCallback(() => {
+    const match = AVAILABLE_COMMANDS.find((cmd) =>
+      cmd.toLowerCase().startsWith(state.commandText.toLowerCase()),
+    );
+    if (!match) return;
+    actions.setCommandText(match);
+    actions.bumpCommandCursorToEnd();
+  }, [actions, state.commandText]);
+
   useMainInput(
     {
-      mode,
-      filterText,
-      commandText,
-      searchEntryFilter,
-      yankMode,
+      mode: state.mode,
+      filterText: state.filterText,
+      commandText: state.commandText,
+      searchEntryFilter: state.searchEntryFilter,
+      yankMode: state.yankMode,
       yankOptions,
       selectedRow,
-      describeState,
-      uploadPending,
-      pendingAction,
+      describeState: state.describeState,
+      uploadPending: state.uploadPending,
+      pendingAction: state.pendingAction,
       adapter,
       pickers,
       helpPanel,
     },
     {
       exit,
-      setMode,
-      moveDown,
-      moveUp,
-      toTop,
-      toBottom,
+      openHelp: helpPanel.open,
+      closeHelp: helpPanel.close,
+      helpPrevTab: helpPanel.goToPrevTab,
+      helpNextTab: helpPanel.goToNextTab,
+      helpScrollUp: helpPanel.scrollUp,
+      helpScrollDown: helpPanel.scrollDown,
+      helpGoToTab: (input) => {
+        helpPanel.goToTab(input);
+      },
+      pickerClose: pickers.closeActivePicker,
+      pickerCancelSearch: () => pickers.activePicker?.cancelSearch(),
+      pickerStartSearch: () => pickers.activePicker?.startSearch(),
+      pickerMoveDown: () => pickers.activePicker?.moveDown(),
+      pickerMoveUp: () => pickers.activePicker?.moveUp(),
+      pickerTop: () => pickers.activePicker?.toTop(),
+      pickerBottom: () => pickers.activePicker?.toBottom(),
+      pickerConfirm: () =>
+        pickers.confirmActivePickerSelection({
+          onSelectResource: switchAdapter,
+          onSelectRegion: setSelectedRegion,
+          onSelectProfile: setSelectedProfile,
+        }),
+      cancelSearchOrCommand: () => {
+        if (state.mode === "search") {
+          if (state.searchEntryFilter !== null && state.filterText !== "") {
+            handleFilterChange(state.searchEntryFilter);
+          }
+          actions.setSearchEntryFilter(null);
+        }
+        actions.setMode("navigate");
+      },
+      clearFilterOrNavigateBack: () => {
+        if (state.filterText !== "") {
+          handleFilterChange("");
+        } else {
+          navigateBack();
+        }
+      },
+      commandAutocomplete,
+      startSearchMode: () => {
+        actions.setSearchEntryFilter(state.filterText);
+        actions.setMode("search");
+      },
+      startCommandMode: () => {
+        actions.setCommandText("");
+        actions.setMode("command");
+      },
+      navigateDown: navigation.moveDown,
+      navigateUp: navigation.moveUp,
+      navigateTop: navigation.toTop,
+      navigateBottom: navigation.toBottom,
       navigateIntoSelection,
-      navigateBack,
       editSelection,
-      showDetails,
+      showDetails: () => showDetails(selectedRow),
+      refresh: () => {
+        void refresh();
+      },
+      enterYankMode: () => actions.setYankMode(true),
+      cancelYankMode: () => actions.setYankMode(false),
+      pushYankFeedback: actions.pushFeedback,
+      runAdapterAction,
       closeDetails,
-      refresh,
-      setCommandText,
-      setCommandCursorToEndToken,
-      setYankMode,
-      pushYankFeedback,
-      setYankFeedback,
-      handleFilterChange,
-      setSearchEntryFilter,
-      setUploadPending,
-      setSelectedRegion,
-      setSelectedProfile,
-      switchAdapter,
-      handleActionEffect,
-      submitPendingAction,
+      cancelPendingPrompt: () => actions.setPendingAction(null),
+      submitPendingAction: (confirmed) => submitPendingAction(state.pendingAction, confirmed),
+      handleUploadDecision,
     },
   );
 
-  const activePickerFilter = pickers.activePicker?.filter ?? filterText;
+  const activePickerFilter = pickers.activePicker?.filter ?? state.filterText;
 
   return (
     <FullscreenBox>
@@ -533,7 +399,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           currentIdentity={currentIdentity}
           region={region}
           terminalWidth={termCols}
-          loading={isLoading || Boolean(describeState?.loading)}
+          loading={isLoading || Boolean(state.describeState?.loading)}
         />
         <Box flexDirection="row" width="100%" flexGrow={1}>
           <AppMainView
@@ -541,57 +407,48 @@ export function App({ initialService, endpointUrl }: AppProps) {
             helpTabs={helpTabs}
             pickers={pickers}
             error={error}
-            describeState={describeState}
+            describeState={state.describeState}
             isLoading={isLoading}
             filteredRows={filteredRows}
             columns={columns}
-            selectedIndex={selectedIndex}
-            scrollOffset={scrollOffset}
-            filterText={filterText}
+            selectedIndex={navigation.selectedIndex}
+            scrollOffset={navigation.scrollOffset}
+            filterText={state.filterText}
             adapter={adapter}
             termCols={termCols}
             tableHeight={tableHeight}
           />
         </Box>
-        {!helpPanel.helpOpen && yankFeedback && (
+        {!helpPanel.helpOpen && state.yankFeedbackMessage && (
           <Box paddingX={1}>
-            <Text color="green">{yankFeedback.message}</Text>
+            <Text color="green">{state.yankFeedbackMessage}</Text>
           </Box>
         )}
-        {pendingAction && pendingAction.effect.type === "prompt" && (
+        {state.pendingAction && state.pendingAction.effect.type === "prompt" && (
           <Box paddingX={1}>
-            <Text color="cyan">{pendingAction.effect.label} </Text>
+            <Text color="cyan">{state.pendingAction.effect.label} </Text>
             <TextInput
-              value={pendingAction.inputValue}
-              onChange={(value) =>
-                setPendingAction((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        inputValue: value,
-                      }
-                    : prev,
-                )
-              }
-              onSubmit={() => submitPendingAction(true)}
+              value={state.pendingAction.inputValue}
+              onChange={(value) => actions.setPendingInputValue(value)}
+              onSubmit={() => submitPendingAction(state.pendingAction, true)}
               focus
             />
           </Box>
         )}
-        {pendingAction && pendingAction.effect.type === "confirm" && (
+        {state.pendingAction && state.pendingAction.effect.type === "confirm" && (
           <Box paddingX={1}>
-            <Text color="yellow">{pendingAction.effect.message} (y/n)</Text>
+            <Text color="yellow">{state.pendingAction.effect.message} (y/n)</Text>
           </Box>
         )}
         <ModeBar
-          mode={mode}
+          mode={state.mode}
           filterText={activePickerFilter}
-          commandText={commandText}
-          commandCursorToEndToken={commandCursorToEndToken}
+          commandText={state.commandText}
+          commandCursorToEndToken={state.commandCursorToEndToken}
           hintOverride={bottomHint}
           pickerSearchActive={pickers.activePicker?.pickerMode === "search"}
           onFilterChange={handleFilterChange}
-          onCommandChange={setCommandText}
+          onCommandChange={actions.setCommandText}
           onFilterSubmit={handleFilterSubmit}
           onCommandSubmit={handleCommandSubmit}
         />

@@ -10,6 +10,20 @@ import { downloadObjectToPath } from "../fetcher.js";
 import { toParentPrefix } from "../utils.js";
 import type { S3Level } from "../adapter.js";
 
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+function hasCode(error: unknown, code: string): boolean {
+  return Boolean(
+    typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: unknown }).code === code,
+  );
+}
+
 export function createS3ActionCapability(
   client: S3Client,
   getLevel: () => S3Level,
@@ -79,9 +93,8 @@ export function createS3ActionCapability(
           message: `Downloaded to ${finalPath}`,
         };
       } catch (err) {
-        const error = err as any;
         // Check for file exists error
-        if (error.code === "EEXIST") {
+        if (hasCode(err, "EEXIST")) {
           return {
             type: "confirm",
             message: `File exists. Overwrite ${destinationPath}?`,
@@ -91,7 +104,7 @@ export function createS3ActionCapability(
         }
         return {
           type: "error",
-          message: `Fetch failed: ${error.message ?? String(error)}`,
+          message: `Fetch failed: ${toErrorMessage(err)}`,
         };
       }
     }
@@ -119,10 +132,9 @@ export function createS3ActionCapability(
           message: `Downloaded to ${finalPath}`,
         };
       } catch (err) {
-        const error = err as any;
         return {
           type: "error",
-          message: `Fetch failed: ${error.message ?? String(error)}`,
+          message: `Fetch failed: ${toErrorMessage(err)}`,
         };
       }
     }

@@ -46,6 +46,16 @@ export interface PickerManager {
   profile: PickerEntry;
   resource: PickerEntry;
   activePicker: PickerEntry | null;
+  openPicker: (id: PickerEntry["id"]) => void;
+  closeActivePicker: () => void;
+  resetPicker: (id: PickerEntry["id"]) => void;
+  confirmActivePickerSelection: (
+    handlers: {
+      onSelectResource: (resourceId: ServiceId) => void;
+      onSelectRegion: (region: string) => void;
+      onSelectProfile: (profile: string) => void;
+    },
+  ) => void;
 }
 
 export function usePickerManager({
@@ -130,18 +140,66 @@ export function usePickerManager({
     ...resourceTable,
   };
 
-  const activePicker = resourceEntry.open
-    ? resourceEntry
-    : regionEntry.open
-      ? regionEntry
-      : profileEntry.open
-        ? profileEntry
-        : null;
+  const activePicker = regionEntry.open
+    ? regionEntry
+    : profileEntry.open
+      ? profileEntry
+      : resourceEntry.open
+        ? resourceEntry
+      : null;
+
+  const getEntry = (id: PickerEntry["id"]): PickerEntry => {
+    switch (id) {
+      case "region":
+        return regionEntry;
+      case "profile":
+        return profileEntry;
+      case "resource":
+        return resourceEntry;
+    }
+  };
+
+  const openPicker = (id: PickerEntry["id"]) => {
+    const entry = getEntry(id);
+    entry.openPicker();
+    entry.reset();
+  };
+
+  const closeActivePicker = () => {
+    activePicker?.closePicker();
+  };
+
+  const resetPicker = (id: PickerEntry["id"]) => {
+    getEntry(id).reset();
+  };
+
+  const confirmActivePickerSelection: PickerManager["confirmActivePickerSelection"] = (
+    handlers,
+  ) => {
+    if (!activePicker?.selectedRow) return;
+
+    switch (activePicker.id) {
+      case "resource":
+        handlers.onSelectResource(activePicker.selectedRow.id as ServiceId);
+        break;
+      case "region":
+        handlers.onSelectRegion(activePicker.selectedRow.id);
+        break;
+      case "profile":
+        handlers.onSelectProfile(activePicker.selectedRow.id);
+        break;
+    }
+    activePicker.closePicker();
+  };
 
   return {
     region: regionEntry,
     profile: profileEntry,
     resource: resourceEntry,
     activePicker,
+    openPicker,
+    closeActivePicker,
+    resetPicker,
+    confirmActivePickerSelection,
   };
 }

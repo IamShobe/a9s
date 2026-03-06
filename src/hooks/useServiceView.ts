@@ -4,7 +4,7 @@ import { extname } from 'path';
 import { execSync } from 'child_process';
 import { stat } from 'fs/promises';
 import type { ServiceAdapter } from '../adapters/ServiceAdapter.js';
-import type { TableRow, ColumnDef } from '../types.js';
+import type { TableRow, ColumnDef, SelectResult, ServiceViewResult } from '../types.js';
 
 const TEXT_EXTENSIONS = new Set([
   '.txt', '.json', '.yaml', '.yml', '.xml', '.html', '.htm',
@@ -80,7 +80,7 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
   }, [refresh, navKey]);
 
   const processResult = useCallback(
-    async (result: any) => {
+    async (result: SelectResult): Promise<ServiceViewResult> => {
       if (result.action === 'navigate') await refresh();
       if (result.action === 'edit') {
         // Get file modification time before opening
@@ -101,10 +101,7 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
           adapter.capabilities?.edit &&
           result.metadata
         ) {
-          // File was modified - would need to show dialog to user
-          // For now, we'll return an indicator that upload is needed
-          // The App component will handle showing the dialog
-          return { ...result, _needsUpload: true };
+          return { ...result, needsUpload: true };
         }
       }
       return result;
@@ -113,7 +110,7 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
   );
 
   const select = useCallback(
-    async (row: TableRow) => {
+    async (row: TableRow): Promise<ServiceViewResult> => {
       return runWithLoading(async () => {
         const result = await adapter.onSelect(row);
         return processResult(result);
@@ -123,7 +120,7 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
   );
 
   const edit = useCallback(
-    async (row: TableRow) => {
+    async (row: TableRow): Promise<ServiceViewResult> => {
       return runWithLoading(async () => {
         const result = adapter.capabilities?.edit
           ? await adapter.capabilities.edit.onEdit(row)

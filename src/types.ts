@@ -23,3 +23,12 @@ export type SelectResult =
   | { action: 'navigate' }
   | { action: 'edit'; filePath: string; metadata?: Record<string, unknown> }
   | { action: 'none' };
+
+export type ServiceViewResult =
+  | SelectResult
+  | {
+      action: 'edit';
+      filePath: string;
+      metadata: Record<string, unknown>;
+      needsUpload: true;
+    };

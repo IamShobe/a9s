@@ -1,24 +1,16 @@
-import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useCallback } from "react";
 import { useInput } from "ink";
 import type { Key } from "ink";
 import clipboardy from "clipboardy";
 import type { AppMode, TableRow } from "../types.js";
 import type { ServiceAdapter, YankOption } from "../adapters/ServiceAdapter.js";
-import type { ActionEffect } from "../adapters/capabilities/ActionCapability.js";
 import type { PendingAction } from "./usePendingAction.js";
 import type { PickerManager } from "./usePickerManager.js";
 import type { HelpPanelState } from "./useHelpPanel.js";
-import type { YankFeedback } from "./useYankMode.js";
-import { KEYBINDINGS } from "../constants/keybindings.js";
-import { KB } from "../constants/keys.js";
-import { useKeyChord, matchesTrigger } from "./useKeyChord.js";
 import { AVAILABLE_COMMANDS } from "../constants/commands.js";
-import type { ServiceId } from "../services.js";
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
+import { useKeyChord, matchesTrigger } from "./useKeyChord.js";
+import { KEYBINDINGS } from "../constants/keybindings.js";
+import { resolveHelpScopeAction, resolveNavigateScopeAction, resolvePickerScopeAction } from "./mainInputScopes.js";
 
 export interface MainInputState {
   mode: AppMode;
@@ -38,35 +30,50 @@ export interface MainInputState {
 
 export interface MainInputHandlers {
   exit: () => void;
-  setMode: (m: AppMode) => void;
-  moveDown: () => void;
-  moveUp: () => void;
-  toTop: () => void;
-  toBottom: () => void;
+  openHelp: () => void;
+  closeHelp: () => void;
+  helpPrevTab: () => void;
+  helpNextTab: () => void;
+  helpScrollUp: () => void;
+  helpScrollDown: () => void;
+  helpGoToTab: (input: string) => void;
+
+  pickerClose: () => void;
+  pickerCancelSearch: () => void;
+  pickerStartSearch: () => void;
+  pickerMoveDown: () => void;
+  pickerMoveUp: () => void;
+  pickerTop: () => void;
+  pickerBottom: () => void;
+  pickerConfirm: () => void;
+
+  cancelSearchOrCommand: () => void;
+  clearFilterOrNavigateBack: () => void;
+  commandAutocomplete: () => void;
+
+  startSearchMode: () => void;
+  startCommandMode: () => void;
+  navigateDown: () => void;
+  navigateUp: () => void;
+  navigateTop: () => void;
+  navigateBottom: () => void;
   navigateIntoSelection: () => void;
-  navigateBack: () => void;
   editSelection: () => void;
   showDetails: () => void;
-  closeDetails: () => void;
-  refresh: () => Promise<void>;
-  setCommandText: (v: string) => void;
-  setCommandCursorToEndToken: Dispatch<SetStateAction<number>>;
-  setYankMode: (v: boolean) => void;
-  pushYankFeedback: (msg: string) => void;
-  setYankFeedback: (v: YankFeedback | null) => void;
-  handleFilterChange: (v: string) => void;
-  setSearchEntryFilter: (v: string | null) => void;
-  setUploadPending: (v: { filePath: string; metadata: Record<string, unknown> } | null) => void;
-  setSelectedRegion: (r: string) => void;
-  setSelectedProfile: (p: string) => void;
-  switchAdapter: (id: ServiceId) => void;
-  handleActionEffect: (effect: ActionEffect, row: TableRow | null) => void;
-  submitPendingAction: (confirmed: boolean) => void;
-}
+  refresh: () => void;
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
+  enterYankMode: () => void;
+  cancelYankMode: () => void;
+  pushYankFeedback: (message: string, durationMs?: number) => void;
+  runAdapterAction: (actionId: string, row: TableRow | null) => void;
+
+  closeDetails: () => void;
+
+  cancelPendingPrompt: () => void;
+  submitPendingAction: (confirmed: boolean) => void;
+
+  handleUploadDecision: (confirmed: boolean) => void;
+}
 
 export function useMainInput(state: MainInputState, handlers: MainInputHandlers) {
   const {
@@ -87,106 +94,45 @@ export function useMainInput(state: MainInputState, handlers: MainInputHandlers)
 
   const {
     exit,
-    setMode,
-    moveDown,
-    moveUp,
-    toTop,
-    toBottom,
+    openHelp,
+    closeHelp,
+    helpPrevTab,
+    helpNextTab,
+    helpScrollUp,
+    helpScrollDown,
+    helpGoToTab,
+    pickerClose,
+    pickerCancelSearch,
+    pickerStartSearch,
+    pickerMoveDown,
+    pickerMoveUp,
+    pickerTop,
+    pickerBottom,
+    pickerConfirm,
+    cancelSearchOrCommand,
+    clearFilterOrNavigateBack,
+    commandAutocomplete,
+    startSearchMode,
+    startCommandMode,
+    navigateDown,
+    navigateUp,
+    navigateTop,
+    navigateBottom,
     navigateIntoSelection,
-    navigateBack,
     editSelection,
     showDetails,
-    closeDetails,
     refresh,
-    setCommandText,
-    setCommandCursorToEndToken,
-    setYankMode,
+    enterYankMode,
+    cancelYankMode,
     pushYankFeedback,
-    setYankFeedback,
-    handleFilterChange,
-    setSearchEntryFilter,
-    setUploadPending,
-    setSelectedRegion,
-    setSelectedProfile,
-    switchAdapter,
-    handleActionEffect,
+    runAdapterAction,
+    closeDetails,
+    cancelPendingPrompt,
     submitPendingAction,
+    handleUploadDecision,
   } = handlers;
 
   const { resolve, reset: resetChord } = useKeyChord(KEYBINDINGS);
-
-  const getActivePicker = useCallback(() => {
-    const { activePicker } = pickers;
-    if (!activePicker) return null;
-
-    const onConfirm = () => {
-      const row = activePicker.selectedRow;
-      if (!row) return;
-      switch (activePicker.id) {
-        case "resource":
-          switchAdapter(row.id as ServiceId);
-          break;
-        case "region":
-          setSelectedRegion(row.id);
-          break;
-        case "profile":
-          setSelectedProfile(row.id);
-          break;
-      }
-      activePicker.closePicker();
-    };
-    return { entry: activePicker, onConfirm };
-  }, [pickers.activePicker, setSelectedProfile, setSelectedRegion, switchAdapter]);
-
-  const handleActivePickerInput = useCallback(
-    (input: string, key: Key): boolean => {
-      const active = getActivePicker();
-      if (!active) return false;
-
-      if (active.entry.pickerMode === "search" && !key.escape) return true;
-
-      const action = resolve(input, key, "picker");
-      switch (action) {
-        case KB.PICKER_CLOSE:
-          resetChord();
-          if (active.entry.pickerMode === "search") {
-            active.entry.cancelSearch();
-          } else {
-            active.entry.closePicker();
-          }
-          return true;
-        case KB.PICKER_FILTER:
-          resetChord();
-          if (active.entry.pickerMode !== "search") {
-            active.entry.startSearch();
-          }
-          return true;
-        case KB.PICKER_DOWN:
-          resetChord();
-          active.entry.moveDown();
-          return true;
-        case KB.PICKER_UP:
-          resetChord();
-          active.entry.moveUp();
-          return true;
-        case KB.PICKER_TOP:
-          resetChord();
-          active.entry.toTop();
-          return true;
-        case KB.PICKER_BOTTOM:
-          resetChord();
-          active.entry.toBottom();
-          return true;
-        case KB.PICKER_CONFIRM:
-          resetChord();
-          active.onConfirm();
-          return true;
-        default:
-          return true;
-      }
-    },
-    [getActivePicker, resetChord, resolve],
-  );
 
   // Ctrl-C fallback
   useEffect(() => {
@@ -194,45 +140,107 @@ export function useMainInput(state: MainInputState, handlers: MainInputHandlers)
       if (data.toString() === "\x03") exit();
     };
     process.stdin.on("data", handle);
-    return () => { process.stdin.off("data", handle); };
+    return () => {
+      process.stdin.off("data", handle);
+    };
   }, [exit]);
 
   const handleInput = useCallback(
     (input: string, key: Key) => {
-
-      // ------------------------------------------------------------------ help
       if (helpPanel.helpOpen) {
-        const action = resolve(input, key, "help");
-        switch (action) {
-          case KB.HELP_CLOSE:       resetChord(); helpPanel.close();         return;
-          case KB.HELP_PREV_TAB:    resetChord(); helpPanel.goToPrevTab();   return;
-          case KB.HELP_NEXT_TAB:    resetChord(); helpPanel.goToNextTab();   return;
-          case KB.HELP_SCROLL_UP:   resetChord(); helpPanel.scrollUp();      return;
-          case KB.HELP_SCROLL_DOWN: resetChord(); helpPanel.scrollDown();    return;
-          default:
-            if (/^[1-9]$/.test(input)) { resetChord(); helpPanel.goToTab(input); }
+        const action = resolveHelpScopeAction(input, resolve(input, key, "help"));
+        switch (action.type) {
+          case "close":
+            resetChord();
+            closeHelp();
+            return;
+          case "prevTab":
+            resetChord();
+            helpPrevTab();
+            return;
+          case "nextTab":
+            resetChord();
+            helpNextTab();
+            return;
+          case "scrollUp":
+            resetChord();
+            helpScrollUp();
+            return;
+          case "scrollDown":
+            resetChord();
+            helpScrollDown();
+            return;
+          case "goToTab":
+            resetChord();
+            helpGoToTab(action.input);
+            return;
+          case "none":
+            return;
         }
-        return;
       }
 
-      // ---------------------------------------------------------------- pickers
-      if (handleActivePickerInput(input, key)) return;
+      if (pickers.activePicker) {
+        const action = resolvePickerScopeAction(
+          key,
+          pickers.activePicker.pickerMode,
+          resolve(input, key, "picker"),
+        );
 
-      // ------------------------------------------------------------------ ?
+        switch (action.type) {
+          case "consume":
+            return;
+          case "close":
+            resetChord();
+            if (pickers.activePicker.pickerMode === "search") {
+              pickerCancelSearch();
+            } else {
+              pickerClose();
+            }
+            return;
+          case "search":
+            resetChord();
+            if (pickers.activePicker.pickerMode !== "search") {
+              pickerStartSearch();
+            }
+            return;
+          case "down":
+            resetChord();
+            pickerMoveDown();
+            return;
+          case "up":
+            resetChord();
+            pickerMoveUp();
+            return;
+          case "top":
+            resetChord();
+            pickerTop();
+            return;
+          case "bottom":
+            resetChord();
+            pickerBottom();
+            return;
+          case "confirm":
+            resetChord();
+            pickerConfirm();
+            return;
+          case "none":
+            return;
+        }
+      }
+
       if (input === "?") {
         resetChord();
         if (mode === "navigate" && !uploadPending && !describeState && !yankMode && !pendingAction) {
-          helpPanel.open();
+          openHelp();
         }
         return;
       }
 
-      // -------------------------------------------- pending action (prompt/confirm)
       if (pendingAction) {
         resetChord();
         if (pendingAction.effect.type === "prompt") {
           if (key.escape) {
-            handleActionEffect({ type: "none" }, pendingAction.row);
+            cancelPendingPrompt();
           }
           return;
         }
@@ -247,67 +255,51 @@ export function useMainInput(state: MainInputState, handlers: MainInputHandlers)
         return;
       }
 
-      // -------------------------------------------------------------- upload confirm
       if (uploadPending) {
         resetChord();
         if (input === "y" || input === "Y") {
-          void (async () => {
-            try {
-              await adapter.capabilities?.edit?.uploadFile(uploadPending.filePath, uploadPending.metadata);
-            } catch (err) {
-              console.error("Upload failed:", (err as Error).message);
-            } finally {
-              setUploadPending(null);
-            }
-          })();
+          handleUploadDecision(true);
         } else if (input === "n" || input === "N" || key.escape) {
-          setUploadPending(null);
+          handleUploadDecision(false);
         }
         return;
       }
 
-      // --------------------------------------------------------------- details panel
       if (describeState) {
         resetChord();
         if (key.escape) closeDetails();
         return;
       }
 
-      // ----------------------------------------------------------------- yank mode
       if (yankMode) {
         resetChord();
         if (!selectedRow) return;
         if (key.escape) {
-          setYankMode(false);
-        } else {
-          const option = yankOptions.find((o) => matchesTrigger(input, key, o.trigger));
-          if (option) {
-            setYankMode(false);
-            void option.resolve(selectedRow).then((value) => {
-              if (value) void clipboardy.write(value).then(() => pushYankFeedback(option.feedback));
-            });
-          }
+          cancelYankMode();
+          return;
         }
+
+        const option = yankOptions.find((o) => matchesTrigger(input, key, o.trigger));
+        if (!option) return;
+
+        cancelYankMode();
+        void option.resolve(selectedRow).then((value) => {
+          if (!value) return;
+          void clipboardy.write(value).then(() => pushYankFeedback(option.feedback));
+        });
         return;
       }
 
-      // ----------------------------------------------------------------- escape
       if (key.escape) {
         resetChord();
         if (mode === "search" || mode === "command") {
-          if (mode === "search" && searchEntryFilter !== null && filterText !== "") {
-            handleFilterChange(searchEntryFilter);
-          }
-          if (mode === "search") setSearchEntryFilter(null);
-          setMode("navigate");
+          cancelSearchOrCommand();
         } else {
-          if (filterText !== "") { handleFilterChange(""); }
-          else { navigateBack(); }
+          clearFilterOrNavigateBack();
         }
         return;
       }
 
-      // ----------------------------------------------------------------- tab
       if (key.tab) {
         resetChord();
         if (mode === "command" && commandText) {
@@ -315,73 +307,116 @@ export function useMainInput(state: MainInputState, handlers: MainInputHandlers)
             cmd.toLowerCase().startsWith(commandText.toLowerCase()),
           );
           if (match) {
-            setCommandText(match);
-            setCommandCursorToEndToken((t) => t + 1);
+            commandAutocomplete();
           }
         }
         return;
       }
 
-      // Text input modes (search/command) are handled by AutocompleteInput
       if (mode === "search" || mode === "command") return;
 
-      // ------------------------------------------------------------- navigate mode
-      const action = resolve(input, key, "navigate");
-      switch (action) {
-        case KB.SEARCH_MODE:
-          setSearchEntryFilter(filterText);
-          setMode("search");
+      const action = resolveNavigateScopeAction(resolve(input, key, "navigate"));
+      switch (action.type) {
+        case "search":
+          startSearchMode();
           return;
-        case KB.COMMAND_MODE:
-          setCommandText("");
-          setMode("command");
+        case "command":
+          startCommandMode();
           return;
-        case KB.QUIT:          exit();                                        return;
-        case KB.REFRESH:       void refresh();                                return;
-        case KB.YANK_MODE:     setYankMode(true);                             return;
-        case KB.DETAILS:       showDetails();                                 return;
-        case KB.EDIT:          editSelection();                               return;
-        case KB.GO_BOTTOM:     toBottom();                                    return;
-        case KB.GO_TOP:        toTop();                                       return;
-        case KB.MOVE_DOWN:     moveDown();                                    return;
-        case KB.MOVE_UP:       moveUp();                                      return;
-        case KB.NAVIGATE_INTO: navigateIntoSelection();                       return;
-        // null or unmatched: could be adapter action or chord in progress — check adapter
-        default:
-          // Try to match against adapter-specific keybindings
+        case "quit":
+          exit();
+          return;
+        case "refresh":
+          refresh();
+          return;
+        case "yank":
+          enterYankMode();
+          return;
+        case "details":
+          showDetails();
+          return;
+        case "edit":
+          editSelection();
+          return;
+        case "bottom":
+          navigateBottom();
+          return;
+        case "top":
+          navigateTop();
+          return;
+        case "down":
+          navigateDown();
+          return;
+        case "up":
+          navigateUp();
+          return;
+        case "enter":
+          navigateIntoSelection();
+          return;
+        case "none":
           if (adapter.capabilities?.actions) {
             const adapterBindings = adapter.capabilities.actions.getKeybindings();
             for (const binding of adapterBindings) {
-              // Simple matching for now (just check char triggers)
               if (binding.trigger.type === "key" && binding.trigger.char === input) {
-                // Dispatch adapter action
-                void adapter.capabilities.actions
-                  .executeAction(binding.actionId, { row: selectedRow })
-                  .then((effect) => {
-                    handleActionEffect(effect, selectedRow);
-                  })
-                  .catch((err) => {
-                    console.error("Action failed:", (err as Error).message);
-                  });
+                runAdapterAction(binding.actionId, selectedRow);
                 resetChord();
                 return;
               }
-              // TODO: Handle chord and special key triggers
             }
           }
       }
     },
     [
-      mode, filterText, commandText, searchEntryFilter, yankMode, yankOptions,
-      selectedRow, describeState, uploadPending, pendingAction, adapter, pickers, helpPanel,
-      exit, setMode, moveDown, moveUp, toTop, toBottom,
-      navigateIntoSelection, navigateBack, editSelection, showDetails, closeDetails,
+      adapter,
+      cancelPendingPrompt,
+      cancelSearchOrCommand,
+      cancelYankMode,
+      clearFilterOrNavigateBack,
+      closeDetails,
+      closeHelp,
+      commandAutocomplete,
+      commandText,
+      describeState,
+      editSelection,
+      enterYankMode,
+      exit,
+      handleUploadDecision,
+      helpGoToTab,
+      helpNextTab,
+      helpPanel.helpOpen,
+      helpPrevTab,
+      helpScrollDown,
+      helpScrollUp,
+      mode,
+      navigateBottom,
+      navigateDown,
+      navigateIntoSelection,
+      navigateTop,
+      navigateUp,
+      openHelp,
+      pendingAction,
+      pickerBottom,
+      pickerCancelSearch,
+      pickerClose,
+      pickerConfirm,
+      pickerMoveDown,
+      pickerMoveUp,
+      pickerStartSearch,
+      pickerTop,
+      pickers.activePicker,
+      pushYankFeedback,
       refresh,
-      setCommandText, setCommandCursorToEndToken,
-      setYankMode, pushYankFeedback, setYankFeedback,
-      handleFilterChange, setSearchEntryFilter, setUploadPending,
-      handleActivePickerInput, handleActionEffect,
-      resolve, resetChord,
+      resolve,
+      resetChord,
+      runAdapterAction,
+      selectedRow,
+      showDetails,
+      startCommandMode,
+      startSearchMode,
+      submitPendingAction,
+      uploadPending,
+      yankMode,
+      yankOptions,
     ],
   );
 
