@@ -3,6 +3,7 @@ import {
   appControllerReducer,
   initialAppControllerState,
 } from "./useAppController.js";
+import { textCell } from "../types.js";
 
 describe("appControllerReducer", () => {
   it("enters and exits search mode", () => {
@@ -46,7 +47,7 @@ describe("appControllerReducer", () => {
     const opened = appControllerReducer(initialAppControllerState, {
       type: "setDescribeState",
       value: {
-        row: { id: "1", cells: { name: "obj" } },
+        row: { id: "1", cells: { name: textCell("obj") } },
         fields: null,
         loading: true,
         requestId: 1,

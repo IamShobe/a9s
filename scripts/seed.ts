@@ -232,6 +232,40 @@ async function ensureAttachedRolePolicy(roleName: string, policyArn: string) {
   console.log(`  Attached managed policy to ${roleName}`);
 }
 
+async function seedSecretsManager() {
+  console.log('\nSeeding Secrets Manager:');
+
+  const secrets = [
+    { name: 'app/db-password', value: 's3cr3tP@ssword123' },
+    { name: 'app/api-key', value: 'sk-test-abc123xyz' },
+    { name: 'app/jwt-secret', value: 'super-secret-jwt-key-do-not-share' },
+    { name: 'infra/config', value: JSON.stringify({ host: 'localhost', port: 5432, db: 'app' }) },
+    { name: 'prod/tls-cert', value: '-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----' },
+    { name: 'monitoring/grafana-api-key', value: 'glsa_test123456' },
+  ];
+
+  for (const secret of secrets) {
+    try {
+      await runAws([
+        'secretsmanager',
+        'create-secret',
+        '--name',
+        secret.name,
+        '--secret-string',
+        secret.value,
+      ]);
+      console.log(`  Created secret: ${secret.name}`);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      if (err.message?.includes('ResourceExistsException')) {
+        console.log(`  Secret already exists: ${secret.name}`);
+      } else {
+        throw e;
+      }
+    }
+  }
+}
+
 async function seedIam() {
   console.log('\nSeeding IAM:');
 
@@ -311,6 +345,7 @@ async function main() {
   }
 
   await seedIam();
+  await seedSecretsManager();
 
   console.log('\nDone! LocalStack seeded with test data.');
   console.log('Run: pnpm dev:local');

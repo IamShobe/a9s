@@ -48,7 +48,10 @@ export function useAppData({
     if (!filterText) return rows;
     const lowerFilter = filterText.toLowerCase();
     return rows.filter((row) =>
-      Object.values(row.cells).some((value) => value.toLowerCase().includes(lowerFilter)),
+      Object.values(row.cells).some((cell) => {
+        const value = typeof cell === 'string' ? cell : cell.displayName;
+        return value.toLowerCase().includes(lowerFilter);
+      }),
     );
   }, [filterText, rows]);
 

@@ -1,6 +1,7 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import { runAwsJsonAsync } from "../../utils/aws.js";
 import type { ColumnDef, TableRow, SelectResult } from "../../types.js";
+import { textCell } from "../../types.js";
 import type {
   IamLevel,
   IamNavFrame,
@@ -62,12 +63,12 @@ export function createIamServiceAdapter(): ServiceAdapter {
         return [
           {
             id: "roles",
-            cells: { name: "Roles", type: "IAM Role List" },
+            cells: { name: textCell("Roles"), type: textCell("IAM Role List") },
             meta: { type: "menu", kind: "roles" },
           },
           {
             id: "policies",
-            cells: { name: "Policies", type: "Managed Policy List" },
+            cells: { name: textCell("Policies"), type: textCell("Managed Policy List") },
             meta: { type: "menu", kind: "policies" },
           },
         ];
@@ -79,9 +80,9 @@ export function createIamServiceAdapter(): ServiceAdapter {
         return (data.Roles ?? []).map((role) => ({
           id: role.RoleName,
           cells: {
-            name: role.RoleName,
-            type: "Role",
-            created: formatDate(role.CreateDate),
+            name: textCell(role.RoleName),
+            type: textCell("Role"),
+            created: textCell(formatDate(role.CreateDate)),
           },
           meta: { type: "role", roleName: role.RoleName, arn: role.Arn },
         }));
@@ -90,7 +91,7 @@ export function createIamServiceAdapter(): ServiceAdapter {
         return [
           {
             id: `${level.roleName}::inline`,
-            cells: { name: "Inline Policies", type: "Role Inline Policies" },
+            cells: { name: textCell("Inline Policies"), type: textCell("Role Inline Policies") },
             meta: {
               type: "menu",
               kind: "role-inline-policies",
@@ -99,7 +100,7 @@ export function createIamServiceAdapter(): ServiceAdapter {
           },
           {
             id: `${level.roleName}::attached`,
-            cells: { name: "Attached Policies", type: "Role Attached Policies" },
+            cells: { name: textCell("Attached Policies"), type: textCell("Role Attached Policies") },
             meta: {
               type: "menu",
               kind: "role-attached-policies",
@@ -118,9 +119,9 @@ export function createIamServiceAdapter(): ServiceAdapter {
         return (data.PolicyNames ?? []).map((policyName) => ({
           id: `${roleName}::inline::${policyName}`,
           cells: {
-            name: policyName,
-            type: "Inline Policy",
-            scope: "Role",
+            name: textCell(policyName),
+            type: textCell("Inline Policy"),
+            scope: textCell("Role"),
           },
           meta: {
             type: "inline-policy",
@@ -140,9 +141,9 @@ export function createIamServiceAdapter(): ServiceAdapter {
         return (data.AttachedPolicies ?? []).map((policy) => ({
           id: policy.PolicyArn,
           cells: {
-            name: policy.PolicyName,
-            type: "Attached Policy",
-            scope: "Managed",
+            name: textCell(policy.PolicyName),
+            type: textCell("Attached Policy"),
+            scope: textCell("Managed"),
           },
           meta: {
             type: "managed-policy",
@@ -161,9 +162,9 @@ export function createIamServiceAdapter(): ServiceAdapter {
         return (data.Policies ?? []).map((policy) => ({
           id: policy.Arn,
           cells: {
-            name: policy.PolicyName,
-            type: "Managed Policy",
-            scope: "Account",
+            name: textCell(policy.PolicyName),
+            type: textCell("Managed Policy"),
+            scope: textCell("Account"),
           },
           meta: {
             type: "managed-policy",

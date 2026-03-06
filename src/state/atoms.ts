@@ -35,3 +35,6 @@ export const adapterSessionAtom = atom((get) => {
   const profile = get(selectedProfileAtom);
   return `${service}:${region}:${profile}`;
 });
+
+/** Toggle state for revealing/hiding secret values. Persists across HMR. */
+export const revealSecretsAtom = atom(false);

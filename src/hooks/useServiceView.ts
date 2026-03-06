@@ -8,6 +8,8 @@ import type { ServiceAdapter } from '../adapters/ServiceAdapter.js';
 import type { TableRow, ColumnDef, SelectResult, ServiceViewResult } from '../types.js';
 import { debugLog } from '../utils/debugLogger.js';
 import { adapterSessionAtom } from '../state/atoms.js';
+import { secretLevelAtom, secretBackStackAtom } from '../views/secretsmanager/adapter.js';
+import { s3LevelAtom, s3BackStackAtom } from '../views/s3/adapter.js';
 
 const TEXT_EXTENSIONS = new Set([
   '.txt', '.json', '.yaml', '.yml', '.xml', '.html', '.htm',
@@ -91,6 +93,9 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
     if (state.adapterId !== adapterId) {
       debugLog(adapterId, 'useLayoutEffect: adapter changed, clearing data');
       dispatch({ type: 'ADAPTER_CHANGED', adapterId });
+
+      // Reset adapter-specific state
+      adapter.reset?.();
     }
   }, [adapterSession, adapterId, state.adapterId]);
 

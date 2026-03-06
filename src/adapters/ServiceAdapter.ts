@@ -22,6 +22,7 @@ export interface ServiceAdapter {
   goBack(): void;
   getPath(): string;
   getContextLabel?(): string; // e.g., "🪣 Buckets" or "📦 Objects"
+  reset?(): void;
 
   // Capability registry — opt-in composition
   capabilities?: {

@@ -58,11 +58,11 @@ export interface TextEditResult {
 function isBackspaceSignal(input: string, key: Key): boolean {
   // Don't match Alt+Backspace sequences (they start with ESC)
   if (input.startsWith("\u001b")) return false;
-  return key.backspace || input === "\u0008" || input === "\u007f" || (key.delete && input === "");
+  return key.backspace || input === "\u0008" || input === "\u007f";
 }
 
 function isDeleteSignal(input: string, key: Key): boolean {
-  return input === "\u001b[3~";
+  return (key.delete && input === "") || input === "\u001b[3~";
 }
 
 export function isAltBackspaceSignal(input: string, key: Key): boolean {

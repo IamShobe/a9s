@@ -36,13 +36,17 @@ export function createS3ActionCapability(
       trigger: { type: "key", char: "f" },
       actionId: "fetch",
       label: "Fetch / download selected file",
+      shortLabel: "download",
       scope: "navigate",
+      adapterId: "s3",
     },
     {
       trigger: { type: "chord", keys: ["g", "p"] },
       actionId: "jump-to-path",
       label: "Go to path jump prompt",
+      shortLabel: "jump path",
       scope: "navigate",
+      adapterId: "s3",
     },
   ];
 

@@ -73,13 +73,12 @@ export type NavigateScopeAction =
   | { type: "command" }
   | { type: "quit" }
   | { type: "refresh" }
+  | { type: "reveal" }
   | { type: "yank" }
   | { type: "details" }
   | { type: "edit" }
   | { type: "bottom" }
   | { type: "top" }
-  | { type: "down" }
-  | { type: "up" }
   | { type: "enter" }
   | { type: "none" };
 
@@ -93,6 +92,8 @@ export function resolveNavigateScopeAction(action: KeyAction | null): NavigateSc
       return { type: "quit" };
     case KB.REFRESH:
       return { type: "refresh" };
+    case KB.REVEAL_TOGGLE:
+      return { type: "reveal" };
     case KB.YANK_MODE:
       return { type: "yank" };
     case KB.DETAILS:
@@ -103,10 +104,6 @@ export function resolveNavigateScopeAction(action: KeyAction | null): NavigateSc
       return { type: "bottom" };
     case KB.GO_TOP:
       return { type: "top" };
-    case KB.MOVE_DOWN:
-      return { type: "down" };
-    case KB.MOVE_UP:
-      return { type: "up" };
     case KB.NAVIGATE_INTO:
       return { type: "enter" };
     default:

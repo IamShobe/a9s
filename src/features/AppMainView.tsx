@@ -1,18 +1,23 @@
-import React, { useLayoutEffect } from "react";
+import React, { useLayoutEffect, useMemo } from "react";
 import { Box, Text } from "ink";
+import { useAtomValue } from "jotai";
 import { Table } from "../components/Table/index.js";
 import { HelpPanel } from "../components/HelpPanel.js";
 import { YankHelpPanel } from "../components/YankHelpPanel.js";
 import { DetailPanel } from "../components/DetailPanel.js";
 import { ErrorStatePanel } from "../components/ErrorStatePanel.js";
 import { TableSkeleton } from "../components/TableSkeleton.js";
+import { DiffViewer } from "../components/DiffViewer.js";
 import { debugLog } from "../utils/debugLogger.js";
+import { revealSecretsAtom } from "../state/atoms.js";
+import { truncateSecretForTable } from "../utils/secretDisplay.js";
 import type { HelpTab } from "../components/HelpPanel.js";
 import type { HelpPanelState } from "../hooks/useHelpPanel.js";
 import type { PickerManager } from "../hooks/usePickerManager.js";
 import type { ServiceAdapter } from "../adapters/ServiceAdapter.js";
 import type { DetailField } from "../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow } from "../types.js";
+import { getCellValue } from "../types.js";
 import type { YankOption } from "../adapters/capabilities/YankCapability.js";
 
 interface AppMainViewProps {
@@ -38,6 +43,9 @@ interface AppMainViewProps {
   yankHelpOpen: boolean;
   yankOptions: YankOption[];
   yankHelpRow: TableRow | null;
+  uploadPending?: { filePath: string; metadata: Record<string, unknown> } | null;
+  uploadPreview?: { old: string; new: string };
+  panelScrollOffset: number;
 }
 
 export function AppMainView({
@@ -48,6 +56,8 @@ export function AppMainView({
   describeState,
   isLoading,
   filteredRows,
+  uploadPending,
+  uploadPreview,
   columns,
   selectedIndex,
   scrollOffset,
@@ -59,7 +69,41 @@ export function AppMainView({
   yankHelpOpen,
   yankOptions,
   yankHelpRow,
+  panelScrollOffset,
 }: AppMainViewProps) {
+  const revealSecrets = useAtomValue(revealSecretsAtom);
+
+  // Format secret values for display ONLY - original rows (via filteredRows) stay unchanged for editing
+  const displayRows = useMemo(() => {
+    return filteredRows.map(row => {
+      const hasSecrets = Object.values(row.cells).some((cell) => {
+        return typeof cell === 'object' && cell?.type === 'secret';
+      });
+
+      if (!hasSecrets) {
+        return row;
+      }
+
+      // Format secret cells for display
+      return {
+        ...row,
+        cells: Object.fromEntries(
+          Object.entries(row.cells).map(([key, cell]) => {
+            if (typeof cell === 'object' && cell?.type === 'secret') {
+              return [
+                key,
+                {
+                  ...cell,
+                  displayName: truncateSecretForTable(cell.displayName, revealSecrets, 50),
+                },
+              ];
+            }
+            return [key, cell];
+          }),
+        ),
+      };
+    });
+  }, [filteredRows, revealSecrets]);
   useLayoutEffect(() => {
     debugLog(adapter.id, `AppMainView render`, {
       isLoading,
@@ -101,6 +145,7 @@ export function AppMainView({
 
   if (pickers.activePicker) {
     const ap = pickers.activePicker;
+    // Pickers don't show secrets, use unformatted rows
     return (
       <Table
         rows={ap.filteredRows}
@@ -123,13 +168,40 @@ export function AppMainView({
     );
   }
 
+  if (uploadPending) {
+    // Overhead: border 2 + header 4 + separators 2 + DiffViewer header+divider 2 = 10
+    const diffVisibleLines = Math.max(1, tableHeight - 10);
+    return (
+      <Box width="100%" borderStyle="round" borderColor="yellow" flexDirection="column">
+        <Box paddingX={1} paddingY={1} flexDirection="column">
+          <Text bold color="yellow">⚠ Overwrite Secret on AWS?</Text>
+          <Text color="gray">This will update the secret permanently.</Text>
+        </Box>
+        <Box paddingX={1} paddingY={1} borderTop borderColor="gray">
+          {uploadPreview ? (
+            <DiffViewer oldValue={uploadPreview.old} newValue={uploadPreview.new} scrollOffset={panelScrollOffset} visibleLines={diffVisibleLines} />
+          ) : (
+            <Text color="gray">Loading preview...</Text>
+          )}
+        </Box>
+        <Box paddingX={1} paddingY={1} borderTop borderColor="gray">
+          <Text>Press <Text bold color="green">y</Text> to confirm or <Text bold color="red">n</Text> to cancel</Text>
+        </Box>
+      </Box>
+    );
+  }
+
   if (describeState) {
+    // Overhead: border 2 + title 1 + separator 1 + footer 2 = 6
+    const detailVisibleLines = Math.max(1, tableHeight - 6);
     return (
       <Box width="100%" borderStyle="round" borderColor="gray">
         <DetailPanel
-          title={describeState.row.cells.name ?? describeState.row.id}
+          title={getCellValue(describeState.row.cells.name) ?? describeState.row.id}
           fields={describeState.fields ?? []}
           isLoading={describeState.loading}
+          scrollOffset={panelScrollOffset}
+          visibleLines={detailVisibleLines}
         />
       </Box>
     );
@@ -158,7 +230,7 @@ export function AppMainView({
 
   return (
     <Table
-      rows={filteredRows}
+      rows={displayRows}
       columns={columns}
       selectedIndex={selectedIndex}
       filterText={filterText}

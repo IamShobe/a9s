@@ -5,6 +5,7 @@ import type {
   SelectResult,
   NavFrame,
 } from "../../types.js";
+import { textCell } from "../../types.js";
 import { createS3Client } from "./client.js";
 import { fetchBuckets, fetchObjects, downloadObject } from "./fetcher.js";
 import type { S3Client } from "@aws-sdk/client-s3";
@@ -64,11 +65,13 @@ export function createS3ServiceAdapter(
       return buckets.map((b) => ({
         id: b.name,
         cells: {
-          name: b.name,
-          type: "Bucket",
-          creationDate: b.creationDate
-            ? b.creationDate.toISOString().replace("T", " ").slice(0, 19)
-            : "-",
+          name: textCell(b.name),
+          type: textCell("Bucket"),
+          creationDate: textCell(
+            b.creationDate
+              ? b.creationDate.toISOString().replace("T", " ").slice(0, 19)
+              : "-",
+          ),
         },
         meta: { type: "bucket" },
       }));
@@ -81,12 +84,14 @@ export function createS3ServiceAdapter(
       return {
         id: obj.key,
         cells: {
-          name: displayKey,
-          type: obj.isFolder ? "Folder" : "File",
-          size: obj.isFolder ? "" : formatSize(obj.size),
-          lastModified: obj.lastModified
-            ? obj.lastModified.toISOString().replace("T", " ").slice(0, 19)
-            : "",
+          name: textCell(displayKey),
+          type: textCell(obj.isFolder ? "Folder" : "File"),
+          size: textCell(obj.isFolder ? "" : formatSize(obj.size)),
+          lastModified: textCell(
+            obj.lastModified
+              ? obj.lastModified.toISOString().replace("T", " ").slice(0, 19)
+              : "",
+          ),
         },
         meta: { type: obj.isFolder ? "folder" : "object", key: obj.key },
       };
@@ -186,6 +191,10 @@ export function createS3ServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    reset() {
+      setLevel({ kind: "buckets" });
+      setBackStack([]);
+    },
     capabilities: {
       edit: editCapability,
       detail: detailCapability,

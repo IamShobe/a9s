@@ -3,6 +3,7 @@ import type { Key } from "ink";
 import type { AdapterKeyBinding } from "../adapters/capabilities/ActionCapability.js";
 import type { YankOption } from "../adapters/capabilities/YankCapability.js";
 import type { KeyAction } from "../constants/keys.js";
+import { KB } from "../constants/keys.js";
 import { KEYBINDINGS } from "../constants/keybindings.js";
 import { useKeyChord, matchesTrigger } from "./useKeyChord.js";
 import {
@@ -44,13 +45,16 @@ export interface InputEventActions {
   };
   navigation: {
     refresh: () => void;
+    revealToggle: () => void;
     showDetails: () => void;
     editSelection: () => void;
-    down: () => void;
-    up: () => void;
     top: () => void;
     bottom: () => void;
     enter: () => void;
+  };
+  scroll: {
+    up: () => void;
+    down: () => void;
   };
   yank: {
     enter: () => void;
@@ -178,6 +182,13 @@ export function translateRawInputEvent(
   }
 
   if (runtime.uploadPending) {
+    const scrollAction = deps.resolve(input, key, "navigate");
+    if (scrollAction === KB.MOVE_DOWN) {
+      return { event: { scope: "scroll", type: "down" }, resetChord: true };
+    }
+    if (scrollAction === KB.MOVE_UP) {
+      return { event: { scope: "scroll", type: "up" }, resetChord: true };
+    }
     if (input === "y" || input === "Y") {
       return { event: { scope: "upload", type: "decision", confirmed: true }, resetChord: true };
     }
@@ -191,6 +202,13 @@ export function translateRawInputEvent(
   }
 
   if (runtime.describeOpen) {
+    const scrollAction = deps.resolve(input, key, "navigate");
+    if (scrollAction === KB.MOVE_DOWN) {
+      return { event: { scope: "scroll", type: "down" }, resetChord: true };
+    }
+    if (scrollAction === KB.MOVE_UP) {
+      return { event: { scope: "scroll", type: "up" }, resetChord: true };
+    }
     if (key.escape) {
       return { event: { scope: "modal", type: "closeDetails" }, resetChord: true };
     }
@@ -234,7 +252,16 @@ export function translateRawInputEvent(
     return { event: null, resetChord: false };
   }
 
-  const navAction = resolveNavigateScopeAction(deps.resolve(input, key, "navigate"));
+  const baseAction = deps.resolve(input, key, "navigate");
+  // Check for scroll actions (j/k) first before other navigate actions
+  if (baseAction === KB.MOVE_DOWN) {
+    return { event: { scope: "scroll", type: "down" }, resetChord: false };
+  }
+  if (baseAction === KB.MOVE_UP) {
+    return { event: { scope: "scroll", type: "up" }, resetChord: false };
+  }
+
+  const navAction = resolveNavigateScopeAction(baseAction);
   switch (navAction.type) {
     case "search":
       return { event: { scope: "mode", type: "startSearch" }, resetChord: false };
@@ -244,6 +271,8 @@ export function translateRawInputEvent(
       return { event: { scope: "navigation", type: "quit" }, resetChord: false };
     case "refresh":
       return { event: { scope: "navigation", type: "refresh" }, resetChord: false };
+    case "reveal":
+      return { event: { scope: "navigation", type: "reveal" }, resetChord: false };
     case "yank":
       return { event: { scope: "navigation", type: "enterYank" }, resetChord: false };
     case "details":
@@ -254,10 +283,6 @@ export function translateRawInputEvent(
       return { event: { scope: "navigation", type: "bottom" }, resetChord: false };
     case "top":
       return { event: { scope: "navigation", type: "top" }, resetChord: false };
-    case "down":
-      return { event: { scope: "navigation", type: "down" }, resetChord: false };
-    case "up":
-      return { event: { scope: "navigation", type: "up" }, resetChord: false };
     case "enter":
       return { event: { scope: "navigation", type: "enter" }, resetChord: false };
     case "none":
@@ -431,6 +456,9 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
         case "refresh":
           actions.navigation.refresh();
           return;
+        case "reveal":
+          actions.navigation.revealToggle();
+          return;
         case "enterYank":
           actions.yank.enter();
           return;
@@ -446,14 +474,18 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
         case "top":
           actions.navigation.top();
           return;
-        case "down":
-          actions.navigation.down();
-          return;
-        case "up":
-          actions.navigation.up();
-          return;
         case "enter":
           actions.navigation.enter();
+          return;
+      }
+      return;
+    case "scroll":
+      switch (event.type) {
+        case "up":
+          actions.scroll.up();
+          return;
+        case "down":
+          actions.scroll.down();
           return;
       }
       return;

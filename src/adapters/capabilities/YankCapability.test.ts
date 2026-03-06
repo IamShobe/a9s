@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createYankCapability } from "./YankCapability.js";
+import { textCell } from "../../types.js";
 
 describe("createYankCapability", () => {
   it("propagates headerKey to public yank options", async () => {
@@ -21,11 +22,11 @@ describe("createYankCapability", () => {
 
     const options = capability.getYankOptions({
       id: "row",
-      cells: { name: "test" },
+      cells: { name: textCell("test") },
       meta: { type: "bucket" },
     });
 
     expect(options[0]?.headerKey).toBe("name");
-    await expect(options[0]?.resolve({ id: "row", cells: { name: "test" }, meta: { type: "bucket" } })).resolves.toBe("hello");
+    await expect(options[0]?.resolve({ id: "row", cells: { name: textCell("test") }, meta: { type: "bucket" } })).resolves.toBe("hello");
   });
 });

@@ -71,11 +71,19 @@ const SCOPE_LABELS: Record<KeyScope, string> = {
 // KeyBinding
 // ---------------------------------------------------------------------------
 
+export interface KeyBindingContext {
+  hasHiddenSecrets: boolean; // true if there are secret values AND they're currently hidden
+  // Add more context fields as needed
+}
+
 export interface KeyBinding {
   action: KeyAction;
   trigger: KeyTrigger;
   scope: KeyScope;
-  label: string; // help panel description
+  label: string; // help panel (long description)
+  shortLabel: string; // hint bar (concise)
+  priority?: number; // higher = more prominent in hints; undefined = normal (100)
+  showIf?: (context: KeyBindingContext) => boolean; // conditional visibility in hints
 }
 
 // ---------------------------------------------------------------------------
@@ -87,59 +95,64 @@ const k_up:   KeyTrigger = { type: "any", of: [{ type: "key", char: "k" }, { typ
 
 export const KEYBINDINGS: KeyBinding[] = [
   // --- Navigate ---
-  { action: KB.MOVE_DOWN,     trigger: j_down,                                     scope: "navigate", label: "Move selection down" },
-  { action: KB.MOVE_UP,       trigger: k_up,                                       scope: "navigate", label: "Move selection up" },
-  { action: KB.GO_TOP,        trigger: { type: "chord", keys: ["g", "g"] },        scope: "navigate", label: "Jump to top" },
-  { action: KB.GO_BOTTOM,     trigger: { type: "key", char: "G" },                 scope: "navigate", label: "Jump to bottom" },
-  { action: KB.NAVIGATE_INTO, trigger: { type: "special", name: "return" },        scope: "navigate", label: "Open bucket/folder" },
-  { action: KB.EDIT,          trigger: { type: "key", char: "e" },                 scope: "navigate", label: "Edit selected item" },
-  { action: KB.DETAILS,       trigger: { type: "key", char: "d" },                 scope: "navigate", label: "Open details panel" },
-  { action: KB.YANK_MODE,     trigger: { type: "key", char: "y" },                 scope: "navigate", label: "Open yank mode" },
-  { action: KB.SEARCH_MODE,   trigger: { type: "key", char: "/" },                 scope: "navigate", label: "Search mode" },
-  { action: KB.COMMAND_MODE,  trigger: { type: "key", char: ":" },                 scope: "navigate", label: "Command mode" },
-  { action: KB.REFRESH,       trigger: { type: "key", char: "r" },                 scope: "navigate", label: "Refresh" },
-  { action: KB.QUIT,          trigger: { type: "key", char: "q" },                 scope: "navigate", label: "Quit" },
-  { action: KB.HELP,          trigger: { type: "key", char: "?" },                 scope: "navigate", label: "Open help (navigate mode only)" },
+  { action: KB.MOVE_DOWN,     trigger: j_down,                                     scope: "navigate", label: "Move selection down", shortLabel: "down" },
+  { action: KB.MOVE_UP,       trigger: k_up,                                       scope: "navigate", label: "Move selection up", shortLabel: "up" },
+  { action: KB.GO_TOP,        trigger: { type: "chord", keys: ["g", "g"] },        scope: "navigate", label: "Jump to top", shortLabel: "top" },
+  { action: KB.GO_BOTTOM,     trigger: { type: "key", char: "G" },                 scope: "navigate", label: "Jump to bottom", shortLabel: "bottom" },
+  { action: KB.NAVIGATE_INTO, trigger: { type: "special", name: "return" },        scope: "navigate", label: "Navigate into / select", shortLabel: "navigate" },
+  { action: KB.EDIT,          trigger: { type: "key", char: "e" },                 scope: "navigate", label: "Edit selected item", shortLabel: "edit" },
+  { action: KB.DETAILS,       trigger: { type: "key", char: "d" },                 scope: "navigate", label: "Open details panel", shortLabel: "details" },
+  { action: KB.YANK_MODE,     trigger: { type: "key", char: "y" },                 scope: "navigate", label: "Open yank mode", shortLabel: "yank" },
+  { action: KB.SEARCH_MODE,   trigger: { type: "key", char: "/" },                 scope: "navigate", label: "Search mode", shortLabel: "search" },
+  { action: KB.COMMAND_MODE,  trigger: { type: "key", char: ":" },                 scope: "navigate", label: "Command mode", shortLabel: "command" },
+  { action: KB.REFRESH,       trigger: { type: "key", char: "r" },                 scope: "navigate", label: "Refresh", shortLabel: "refresh" },
+  { action: KB.REVEAL_TOGGLE, trigger: { type: "key", char: "v" },                 scope: "navigate", label: "Toggle reveal secrets", shortLabel: "reveal", priority: 90, showIf: (ctx) => ctx.hasHiddenSecrets },
+  { action: KB.QUIT,          trigger: { type: "key", char: "q" },                 scope: "navigate", label: "Quit", shortLabel: "quit" },
+  { action: KB.HELP,          trigger: { type: "key", char: "?" },                 scope: "navigate", label: "Open help (navigate mode only)", shortLabel: "help" },
 
   // --- Search (informational — text input handles actual typing) ---
-  { action: KB.SEARCH_MODE,   trigger: { type: "key", char: "/" },                 scope: "search",  label: "Open: press / in navigate mode" },
-  { action: KB.NAVIGATE_INTO, trigger: { type: "special", name: "return" },        scope: "search",  label: "Apply filter and return to navigate" },
-  { action: KB.QUIT,          trigger: { type: "special", name: "escape" },        scope: "search",  label: "Cancel and restore previous filter" },
+  { action: KB.SEARCH_MODE,   trigger: { type: "key", char: "/" },                 scope: "search",  label: "Open: press / in navigate mode", shortLabel: "open search" },
+  { action: KB.NAVIGATE_INTO, trigger: { type: "special", name: "return" },        scope: "search",  label: "Apply filter and return to navigate", shortLabel: "apply filter" },
+  { action: KB.QUIT,          trigger: { type: "special", name: "escape" },        scope: "search",  label: "Cancel and restore previous filter", shortLabel: "cancel search" },
 
   // --- Command (informational) ---
-  { action: KB.COMMAND_MODE,  trigger: { type: "key", char: ":" },                 scope: "command", label: "Open: press : in navigate mode" },
-  { action: KB.NAVIGATE_INTO, trigger: { type: "special", name: "return" },        scope: "command", label: "Run command" },
-  { action: KB.QUIT,          trigger: { type: "special", name: "escape" },        scope: "command", label: "Cancel command mode" },
+  { action: KB.COMMAND_MODE,  trigger: { type: "key", char: ":" },                 scope: "command", label: "Open: press : in navigate mode", shortLabel: "open command" },
+  { action: KB.NAVIGATE_INTO, trigger: { type: "special", name: "return" },        scope: "command", label: "Run command", shortLabel: "run" },
+  { action: KB.QUIT,          trigger: { type: "special", name: "escape" },        scope: "command", label: "Cancel command mode", shortLabel: "cancel" },
 
   // --- Yank (informational — actual options come from adapter.capabilities?.yank?.getYankOptions) ---
-  { action: KB.YANK_MODE,     trigger: { type: "key", char: "y" },                 scope: "yank",   label: "Open: press y in navigate mode" },
-  { action: KB.YANK_MODE,     trigger: { type: "key", char: "n" },                 scope: "yank",   label: "Copy selected name" },
-  { action: KB.YANK_MODE,     trigger: { type: "key", char: "a" },                 scope: "yank",   label: "Copy ARN (when available)" },
-  { action: KB.QUIT,          trigger: { type: "special", name: "escape" },        scope: "yank",   label: "Cancel yank mode" },
-
-  // --- Details (informational) ---
-  { action: KB.DETAILS,       trigger: { type: "key", char: "d" },                 scope: "details", label: "Open: press d in navigate mode" },
-  { action: KB.QUIT,          trigger: { type: "special", name: "escape" },        scope: "details", label: "Close details panel" },
+  { action: KB.YANK_MODE,     trigger: { type: "key", char: "y" },                 scope: "yank",   label: "Open: press y in navigate mode", shortLabel: "open yank" },
+  { action: KB.YANK_MODE,     trigger: { type: "key", char: "n" },                 scope: "yank",   label: "Copy selected name", shortLabel: "copy name" },
+  { action: KB.YANK_MODE,     trigger: { type: "key", char: "a" },                 scope: "yank",   label: "Copy ARN (when available)", shortLabel: "copy arn" },
+  { action: KB.QUIT,          trigger: { type: "special", name: "escape" },        scope: "yank",   label: "Cancel yank mode", shortLabel: "cancel" },
 
   // --- Upload (informational) ---
-  { action: KB.YANK_MODE,     trigger: { type: "key", char: "y" },                 scope: "upload", label: "Upload edited file" },
-  { action: KB.QUIT,          trigger: { type: "any", of: [{ type:"key", char:"n" }, { type:"special", name:"escape" }] }, scope: "upload", label: "Cancel upload" },
+  { action: KB.MOVE_DOWN,     trigger: j_down,                                     scope: "upload", label: "Scroll diff down", shortLabel: "scroll down" },
+  { action: KB.MOVE_UP,       trigger: k_up,                                       scope: "upload", label: "Scroll diff up", shortLabel: "scroll up" },
+  { action: KB.YANK_MODE,     trigger: { type: "key", char: "y" },                 scope: "upload", label: "Upload edited file", shortLabel: "upload" },
+  { action: KB.QUIT,          trigger: { type: "any", of: [{ type:"key", char:"n" }, { type:"special", name:"escape" }] }, scope: "upload", label: "Cancel upload", shortLabel: "cancel" },
+
+  // --- Details ---
+  { action: KB.DETAILS,       trigger: { type: "key", char: "d" },                 scope: "details", label: "Open: press d in navigate mode", shortLabel: "open details" },
+  { action: KB.MOVE_DOWN,     trigger: j_down,                                     scope: "details", label: "Scroll down", shortLabel: "scroll down" },
+  { action: KB.MOVE_UP,       trigger: k_up,                                       scope: "details", label: "Scroll up", shortLabel: "scroll up" },
+  { action: KB.QUIT,          trigger: { type: "special", name: "escape" },        scope: "details", label: "Close details panel", shortLabel: "close" },
 
   // --- Picker ---
-  { action: KB.PICKER_DOWN,   trigger: j_down,                                     scope: "picker", label: "Move down" },
-  { action: KB.PICKER_UP,     trigger: k_up,                                       scope: "picker", label: "Move up" },
-  { action: KB.PICKER_TOP,    trigger: { type: "chord", keys: ["g", "g"] },        scope: "picker", label: "Jump to top" },
-  { action: KB.PICKER_BOTTOM, trigger: { type: "key", char: "G" },                 scope: "picker", label: "Jump to bottom" },
-  { action: KB.PICKER_FILTER, trigger: { type: "key", char: "/" },                 scope: "picker", label: "Filter" },
-  { action: KB.PICKER_CONFIRM,trigger: { type: "special", name: "return" },        scope: "picker", label: "Confirm selection" },
-  { action: KB.PICKER_CLOSE,  trigger: { type: "special", name: "escape" },        scope: "picker", label: "Close" },
+  { action: KB.PICKER_DOWN,   trigger: j_down,                                     scope: "picker", label: "Move down", shortLabel: "down" },
+  { action: KB.PICKER_UP,     trigger: k_up,                                       scope: "picker", label: "Move up", shortLabel: "up" },
+  { action: KB.PICKER_TOP,    trigger: { type: "chord", keys: ["g", "g"] },        scope: "picker", label: "Jump to top", shortLabel: "top" },
+  { action: KB.PICKER_BOTTOM, trigger: { type: "key", char: "G" },                 scope: "picker", label: "Jump to bottom", shortLabel: "bottom" },
+  { action: KB.PICKER_FILTER, trigger: { type: "key", char: "/" },                 scope: "picker", label: "Filter", shortLabel: "filter" },
+  { action: KB.PICKER_CONFIRM,trigger: { type: "special", name: "return" },        scope: "picker", label: "Confirm selection", shortLabel: "confirm" },
+  { action: KB.PICKER_CLOSE,  trigger: { type: "special", name: "escape" },        scope: "picker", label: "Close", shortLabel: "close" },
 
   // --- Help panel ---
-  { action: KB.HELP_PREV_TAB,    trigger: { type: "any", of: [{ type:"key", char:"h" }, { type:"special", name:"leftArrow"  }] }, scope: "help", label: "Previous tab" },
-  { action: KB.HELP_NEXT_TAB,    trigger: { type: "any", of: [{ type:"key", char:"l" }, { type:"special", name:"rightArrow" }] }, scope: "help", label: "Next tab" },
-  { action: KB.HELP_SCROLL_UP,   trigger: k_up,                                     scope: "help", label: "Scroll up" },
-  { action: KB.HELP_SCROLL_DOWN, trigger: j_down,                                   scope: "help", label: "Scroll down" },
-  { action: KB.HELP_CLOSE,       trigger: { type: "any", of: [{ type:"key", char:"?" }, { type:"special", name:"escape" }] }, scope: "help", label: "Close help" },
+  { action: KB.HELP_PREV_TAB,    trigger: { type: "any", of: [{ type:"key", char:"h" }, { type:"special", name:"leftArrow"  }] }, scope: "help", label: "Previous tab", shortLabel: "prev" },
+  { action: KB.HELP_NEXT_TAB,    trigger: { type: "any", of: [{ type:"key", char:"l" }, { type:"special", name:"rightArrow" }] }, scope: "help", label: "Next tab", shortLabel: "next" },
+  { action: KB.HELP_SCROLL_UP,   trigger: k_up,                                     scope: "help", label: "Scroll up", shortLabel: "scroll up" },
+  { action: KB.HELP_SCROLL_DOWN, trigger: j_down,                                   scope: "help", label: "Scroll down", shortLabel: "scroll down" },
+  { action: KB.HELP_CLOSE,       trigger: { type: "any", of: [{ type:"key", char:"?" }, { type:"special", name:"escape" }] }, scope: "help", label: "Close help", shortLabel: "close" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -215,7 +228,7 @@ export function buildNavigateHint(): string {
     " " +
     navigateKeys
       .slice(0, 6)
-      .map((kb) => `${triggerToString(kb.trigger)} ${kb.label.toLowerCase()}`)
+      .map((kb) => `${triggerToString(kb.trigger)} ${kb.shortLabel}`)
       .join("  •  ")
   );
 }
@@ -225,6 +238,7 @@ export function buildScopeHint(
   scope: KeyScope,
   adapterBindings?: AdapterKeyBinding[],
   maxItems = 8,
+  context: KeyBindingContext = { hasHiddenSecrets: false },
 ): string {
   const filtered = KEYBINDINGS.filter((kb) => kb.scope === scope);
 
@@ -236,57 +250,86 @@ export function buildScopeHint(
     return true;
   });
 
-  // Add adapter-specific bindings
-  const adapterItems: Array<{ trigger: KeyTrigger; label: string }> = [];
+  // Process adapter-specific bindings with filtering and priority support
+  const adapterBindingsByKey = new Map<
+    string,
+    { trigger: KeyTrigger; shortLabel: string; priority?: number }
+  >();
+
   if (adapterBindings) {
     for (const ab of adapterBindings) {
       if ((ab.scope || "navigate") === scope) {
         const key = `${ab.actionId}|${triggerToString(ab.trigger)}`;
         if (!seen.has(key)) {
-          seen.add(key);
-          adapterItems.push({ trigger: ab.trigger, label: ab.label });
+          const passesFilter = !ab.showIf || ab.showIf(context);
+          if (passesFilter) {
+            seen.add(key);
+            const shortLabel = ab.shortLabel || ab.label;
+            const item: { trigger: KeyTrigger; shortLabel: string; priority?: number } = {
+              trigger: ab.trigger,
+              shortLabel: `${ab.adapterId}: ${shortLabel}`,
+            };
+            if (ab.priority !== undefined) {
+              item.priority = ab.priority;
+            }
+            adapterBindingsByKey.set(key, item);
+          }
         }
       }
     }
   }
 
-  const shortLabel = (label: string): string =>
-    label
-      .replace(/^Open:\s*/i, "")
-      .replace(/\(navigate mode only\)/gi, "")
-      .replace(/^Move selection /i, "")
-      .replace(/^Jump to /i, "")
-      .replace(/^Open /i, "")
-      .replace(/^Apply filter and /i, "")
-      .replace(/^Cancel and /i, "")
-      .replace(/^Copy selected /i, "copy ")
-      .replace(/^Copy /i, "copy ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase();
-
-  let ordered: Array<{ trigger: KeyTrigger; label: string }> = [
-    ...compact,
-    ...adapterItems,
-  ];
+  type HintItem = { trigger: KeyTrigger; shortLabel: string };
+  let ordered: HintItem[];
 
   if (scope === "navigate") {
-    const priority: KeyAction[] = [
-      KB.MOVE_DOWN,
-      KB.MOVE_UP,
-      KB.SEARCH_MODE,
-      KB.HELP,
+    // Filter core bindings
+    const filteredCore = compact.filter(
+      (kb) => !kb.showIf || kb.showIf(context),
+    );
+
+    // Create sortable items with priority
+    interface SortableItem extends HintItem {
+      priority: number;
+    }
+
+    const allItems: SortableItem[] = [
+      ...filteredCore.map((kb) => ({
+        trigger: kb.trigger,
+        shortLabel: kb.shortLabel,
+        priority: kb.priority ?? 100,
+      })),
+      ...Array.from(adapterBindingsByKey.values()).map((item) => ({
+        trigger: item.trigger,
+        shortLabel: item.shortLabel,
+        priority: item.priority ?? 100,
+      })),
     ];
-    const priorityItems = priority
-      .map((action) => compact.find((kb) => kb.action === action))
-      .filter((kb): kb is KeyBinding => Boolean(kb));
-    const restItems = compact.filter((kb) => !priority.includes(kb.action));
-    ordered = [...priorityItems, ...restItems, ...adapterItems];
+
+    // Sort by priority (lower number = higher prominence) and drop the priority field
+    ordered = allItems
+      .sort((a, b) => a.priority - b.priority)
+      .map(({ priority, ...item }) => item);
+  } else {
+    // For non-navigate scopes, filter but maintain source order (core first, then adapters)
+    const filteredCore = compact
+      .filter((kb) => !kb.showIf || kb.showIf(context))
+      .map((kb) => ({
+        trigger: kb.trigger,
+        shortLabel: kb.shortLabel,
+      }));
+
+    ordered = [
+      ...filteredCore,
+      ...Array.from(adapterBindingsByKey.values()).map((item) => ({
+        trigger: item.trigger,
+        shortLabel: item.shortLabel,
+      })),
+    ];
   }
 
   const parts = ordered.slice(0, maxItems).map((item) => {
-    const label = shortLabel(item.label);
-    return `${triggerToString(item.trigger)} · ${label}`;
+    return `${triggerToString(item.trigger)} · ${item.shortLabel}`;
   });
 
   return parts.length > 0 ? ` ${parts.join(" • ")}` : "";

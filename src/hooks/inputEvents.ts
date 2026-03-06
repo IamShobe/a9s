@@ -29,7 +29,8 @@ export type InputEvent =
   | { scope: "pending"; type: "submit"; confirmed: boolean }
   | { scope: "upload"; type: "decision"; confirmed: boolean }
   | { scope: "mode"; type: "cancelSearchOrCommand" | "clearFilterOrNavigateBack" | "startSearch" | "startCommand" | "commandAutocomplete" }
-  | { scope: "navigation"; type: "quit" | "refresh" | "enterYank" | "showDetails" | "edit" | "bottom" | "top" | "down" | "up" | "enter" }
+  | { scope: "navigation"; type: "quit" | "refresh" | "reveal" | "enterYank" | "showDetails" | "edit" | "bottom" | "top" | "enter" }
+  | { scope: "scroll"; type: "up" | "down" }
   | { scope: "adapterAction"; type: "run"; actionId: string; row: TableRow | null };
 
 export type InputDispatcher = (event: InputEvent) => void;

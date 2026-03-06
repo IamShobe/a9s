@@ -13,7 +13,10 @@ export function usePickerTable({ rows, filterText, maxHeight }: UsePickerTableAr
     if (!filterText) return rows;
     const lower = filterText.toLowerCase();
     return rows.filter((row) =>
-      Object.values(row.cells).some((value) => value.toLowerCase().includes(lower)),
+      Object.values(row.cells).some((cell) => {
+        const value = typeof cell === 'string' ? cell : cell.displayName;
+        return value.toLowerCase().includes(lower);
+      }),
     );
   }, [filterText, rows]);
 

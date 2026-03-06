@@ -3,9 +3,10 @@ import {
   applyDetailError,
   applyDetailSuccess,
 } from "./useDetailController.js";
+import { textCell } from "../types.js";
 
 describe("detail state stale-request guards", () => {
-  const row = { id: "file.txt", cells: { name: "file.txt" } };
+  const row = { id: "file.txt", cells: { name: textCell("file.txt") } };
 
   it("applies success only when request id is current", () => {
     const current = {

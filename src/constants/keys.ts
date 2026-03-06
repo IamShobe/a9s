@@ -16,6 +16,7 @@ export const KB = {
   SEARCH_MODE:      "search_mode",     // /
   COMMAND_MODE:     "command_mode",    // :
   REFRESH:          "refresh",         // r
+  REVEAL_TOGGLE:    "reveal_toggle",   // v (secrets/fields only)
   QUIT:             "quit",            // q
   HELP:             "help",            // ?
   JUMP_TO_PATH:     "jump_to_path",    // chord: g p  (S3 only)

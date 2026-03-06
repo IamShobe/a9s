@@ -7,6 +7,7 @@ import {
   translateRawInputEvent,
 } from "./useInputEventProcessor.js";
 import type { InputRuntimeState } from "./inputEvents.js";
+import { textCell } from "../types.js";
 
 const key = (patch: Partial<Key> = {}): Key =>
   ({
@@ -94,7 +95,7 @@ describe("translateRawInputEvent", () => {
     const result = translateRawInputEvent(
       "?",
       key(),
-      { ...baseRuntime, yankMode: true, selectedRow: { id: "r1", cells: { name: "x" } } },
+      { ...baseRuntime, yankMode: true, selectedRow: { id: "r1", cells: { name: textCell("x") } } },
       {
         resolve: () => null,
         hasCommandAutocomplete: () => false,
@@ -109,11 +110,11 @@ describe("translateRawInputEvent", () => {
 
 describe("resolveAdapterBindingEvent", () => {
   it("resolves adapter chord keybindings like g p", () => {
-    const row = { id: "row-1", cells: { name: "n" } };
+    const row = { id: "row-1", cells: { name: textCell("n") } };
     const first = resolveAdapterBindingEvent(
       "g",
       key(),
-      [{ trigger: { type: "chord", keys: ["g", "p"] }, actionId: "jump-to-path", label: "jump" }],
+      [{ trigger: { type: "chord", keys: ["g", "p"] }, actionId: "jump-to-path", label: "jump", adapterId: "s3" }],
       [],
       row,
     );
@@ -123,7 +124,7 @@ describe("resolveAdapterBindingEvent", () => {
     const second = resolveAdapterBindingEvent(
       "p",
       key(),
-      [{ trigger: { type: "chord", keys: ["g", "p"] }, actionId: "jump-to-path", label: "jump" }],
+      [{ trigger: { type: "chord", keys: ["g", "p"] }, actionId: "jump-to-path", label: "jump", adapterId: "s3" }],
       first.nextPending,
       row,
     );
@@ -169,13 +170,16 @@ describe("applyInputEvent", () => {
       },
       navigation: {
         refresh: vi.fn(),
+        revealToggle: vi.fn(),
         showDetails: vi.fn(),
         editSelection: vi.fn(),
-        down: vi.fn(),
-        up: vi.fn(),
         top: vi.fn(),
         bottom: vi.fn(),
         enter: vi.fn(),
+      },
+      scroll: {
+        up: vi.fn(),
+        down: vi.fn(),
       },
       yank: {
         enter: vi.fn(),

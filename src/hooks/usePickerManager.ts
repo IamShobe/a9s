@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { AwsRegionOption } from "./useAwsRegions.js";
 import type { AwsProfileOption } from "./useAwsProfiles.js";
 import type { ColumnDef, TableRow } from "../types.js";
+import { textCell } from "../types.js";
 import { usePickerState } from "./usePickerState.js";
 import { usePickerTable } from "./usePickerTable.js";
 import { SERVICE_REGISTRY } from "../services.js";
@@ -71,7 +72,7 @@ export function usePickerManager({
     () =>
       availableRegions.map((r) => ({
         id: r.name,
-        cells: { region: r.name, description: r.description },
+        cells: { region: textCell(r.name), description: textCell(r.description) },
         meta: {},
       })),
     [availableRegions],
@@ -81,7 +82,7 @@ export function usePickerManager({
     () =>
       availableProfiles.map((p) => ({
         id: p.name,
-        cells: { profile: p.name, description: p.description },
+        cells: { profile: textCell(p.name), description: textCell(p.description) },
         meta: {},
       })),
     [availableProfiles],
@@ -91,7 +92,7 @@ export function usePickerManager({
     () =>
       (Object.keys(SERVICE_REGISTRY) as ServiceId[]).map((serviceId) => ({
         id: serviceId,
-        cells: { resource: serviceId, description: `${serviceId.toUpperCase()} service` },
+        cells: { resource: textCell(serviceId), description: textCell(`${serviceId.toUpperCase()} service`) },
         meta: {},
       })),
     [],

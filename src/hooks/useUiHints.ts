@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { COMMAND_MODE_HINT } from "../constants/commands.js";
-import { buildScopeHint } from "../constants/keybindings.js";
+import {
+  buildScopeHint,
+  type KeyBindingContext,
+} from "../constants/keybindings.js";
 import type { AdapterKeyBinding } from "../adapters/capabilities/ActionCapability.js";
 import type { AppMode } from "../types.js";
 import type { PickerManager } from "./usePickerManager.js";
@@ -28,6 +31,7 @@ interface UseUiHintsArgs {
   yankMode: boolean;
   adapterBindings: AdapterKeyBinding[];
   yankHint: string;
+  context: KeyBindingContext;
 }
 
 export function useUiHints({
@@ -40,6 +44,7 @@ export function useUiHints({
   yankMode,
   adapterBindings,
   yankHint,
+  context,
 }: UseUiHintsArgs) {
   const uiScope = useMemo<UiScope>(() => {
     if (helpOpen) return "help";
@@ -51,16 +56,24 @@ export function useUiHints({
     if (mode === "search") return "search";
     if (mode === "command") return "command";
     return "navigate";
-  }, [describeState, helpOpen, mode, pendingAction, pickers.activePicker, uploadPending, yankMode]);
+  }, [
+    describeState,
+    helpOpen,
+    mode,
+    pendingAction,
+    pickers.activePicker,
+    uploadPending,
+    yankMode,
+  ]);
 
   const bottomHint = useMemo(() => {
     switch (uiScope) {
       case "help":
-        return buildScopeHint("help", adapterBindings);
+        return buildScopeHint("help", adapterBindings, 8, context);
       case "picker":
         return pickers.activePicker?.pickerMode === "search"
-          ? buildScopeHint("search", adapterBindings)
-          : buildScopeHint("picker", adapterBindings);
+          ? buildScopeHint("search", adapterBindings, 8, context)
+          : buildScopeHint("picker", adapterBindings, 8, context);
       case "adapter-action":
         if (pendingAction?.effect.type === "prompt") {
           return " Enter value  •  Esc cancel";
@@ -70,21 +83,28 @@ export function useUiHints({
         }
         return "";
       case "upload":
-        return buildScopeHint("upload", adapterBindings);
+        return buildScopeHint("upload", adapterBindings, 8, context);
       case "details":
-        return buildScopeHint("details", adapterBindings);
+        return buildScopeHint("details", adapterBindings, 8, context);
       case "yank":
         return ` ${yankHint}`;
       case "search":
-        return buildScopeHint("search", adapterBindings);
+        return buildScopeHint("search", adapterBindings, 8, context);
       case "command":
         return COMMAND_MODE_HINT;
       case "navigate":
-        return buildScopeHint("navigate", adapterBindings, 4);
+        return buildScopeHint("navigate", adapterBindings, 8, context);
       default:
         return "";
     }
-  }, [adapterBindings, pendingAction, pickers.activePicker, uiScope, yankHint]);
+  }, [
+    adapterBindings,
+    context,
+    pendingAction,
+    pickers.activePicker,
+    uiScope,
+    yankHint,
+  ]);
 
   return {
     uiScope,

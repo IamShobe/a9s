@@ -4,7 +4,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3,route53,dynamodb,iam,sts
+      - SERVICES=s3,route53,dynamodb,iam,sts,secretsmanager
       - DEFAULT_REGION=us-east-1
     volumes:
       - localstack_data:/var/lib/localstack

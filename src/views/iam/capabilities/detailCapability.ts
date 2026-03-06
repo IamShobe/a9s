@@ -1,5 +1,6 @@
 import type { DetailCapability, DetailField } from "../../../adapters/capabilities/DetailCapability.js";
 import type { TableRow } from "../../../types.js";
+import { getCellValue } from "../../../types.js";
 import { runAwsJsonAsync } from "../../../utils/aws.js";
 import { safeString, formatDate } from "../utils.js";
 import type { IamLevel, IamRowMeta, AwsRole, AwsManagedPolicy } from "../types.js";
@@ -95,7 +96,7 @@ export function createIamDetailCapability(
       ];
     }
 
-    const label = row.cells.name ?? row.id;
+    const label = getCellValue(row.cells.name) ?? row.id;
     return [
       { label: "Name", value: label },
       { label: "Type", value: safeString(meta?.type ?? "Item") },

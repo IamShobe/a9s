@@ -31,6 +31,7 @@ import {
   currentlySelectedServiceAtom,
   selectedRegionAtom,
   selectedProfileAtom,
+  revealSecretsAtom,
 } from "./state/atoms.js";
 
 const INITIAL_AWS_PROFILE = process.env.AWS_PROFILE;
@@ -46,14 +47,22 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   const [selectedRegion, setSelectedRegion] = useAtom(selectedRegionAtom);
   const [selectedProfile, setSelectedProfile] = useAtom(selectedProfileAtom);
-  const [currentService, setCurrentService] = useAtom(currentlySelectedServiceAtom);
+  const [currentService, setCurrentService] = useAtom(
+    currentlySelectedServiceAtom,
+  );
+  const [revealSecrets, setRevealSecrets] = useAtom(revealSecretsAtom);
 
   const { accountName, accountId, awsProfile, currentIdentity, region } =
     useAwsContext(endpointUrl, selectedRegion, selectedProfile);
   const availableRegions = useAwsRegions(selectedRegion, selectedProfile);
   const availableProfiles = useAwsProfiles();
 
-  const { reset: resetHierarchy, updateCurrentFilter, pushLevel, popLevel } = useHierarchyState();
+  const {
+    reset: resetHierarchy,
+    updateCurrentFilter,
+    pushLevel,
+    popLevel,
+  } = useHierarchyState();
   const { state, actions } = useAppController();
 
   useEffect(() => {
@@ -75,7 +84,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const HUD_LINES = 3;
   const MODEBAR_LINES = 1;
   const HEADER_LINES = 2;
-  const tableHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES - HEADER_LINES - 4);
+  const tableHeight = Math.max(
+    1,
+    termRows - HUD_LINES - MODEBAR_LINES - HEADER_LINES - 4,
+  );
 
   const {
     adapter,
@@ -147,8 +159,15 @@ export function App({ initialService, endpointUrl }: AppProps) {
         navigation.reset();
         return;
       }
-      if (result.action === "edit" && "needsUpload" in result && result.needsUpload) {
-        actions.setUploadPending({ filePath: result.filePath, metadata: result.metadata });
+      if (
+        result.action === "edit" &&
+        "needsUpload" in result &&
+        result.needsUpload
+      ) {
+        actions.setUploadPending({
+          filePath: result.filePath,
+          metadata: result.metadata,
+        });
       }
     });
   }, [actions, navigation, pushLevel, select, selectedRow]);
@@ -156,16 +175,31 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const editSelection = useCallback(() => {
     if (!selectedRow) return;
     void edit(selectedRow).then((result: ServiceViewResult) => {
-      if (result.action === "edit" && "needsUpload" in result && result.needsUpload) {
-        actions.setUploadPending({ filePath: result.filePath, metadata: result.metadata });
+      if (
+        result.action === "edit" &&
+        "needsUpload" in result &&
+        result.needsUpload
+      ) {
+        actions.setUploadPending({
+          filePath: result.filePath,
+          metadata: result.metadata,
+        });
       }
     });
   }, [actions, edit, selectedRow]);
 
-  const { showDetails, closeDetails } = useDetailController({
+  const { showDetails: showDetailsBase, closeDetails } = useDetailController({
     adapter,
     setDescribeState: actions.setDescribeState,
   });
+
+  const showDetails = useCallback(
+    (row: TableRow | null) => {
+      setPanelScrollOffset(0);
+      showDetailsBase(row);
+    },
+    [showDetailsBase],
+  );
 
   const { handleActionEffect, submitPendingAction } = useActionController({
     adapter,
@@ -183,7 +217,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
           handleActionEffect(effect, row);
         })
         .catch((err) => {
-          actions.pushFeedback(`Action failed: ${(err as Error).message}`, 3000);
+          actions.pushFeedback(
+            `Action failed: ${(err as Error).message}`,
+            3000,
+          );
         });
     },
     [actions, adapter.capabilities?.actions, handleActionEffect],
@@ -206,24 +243,42 @@ export function App({ initialService, endpointUrl }: AppProps) {
     feedback: "Copied Name",
     headerKey: "name",
     isRelevant: () => true,
-    resolve: async (row: TableRow) => row.cells.name ?? null,
+    resolve: async (row: TableRow) => {
+      const nameCell = row.cells.name;
+      if (!nameCell) return null;
+      return typeof nameCell === 'string' ? nameCell : nameCell.displayName;
+    },
   };
 
   const yankOptions = useMemo(() => {
     const adapterOptions = selectedRow
-      ? adapter.capabilities?.yank?.getYankOptions(selectedRow) ?? []
+      ? (adapter.capabilities?.yank?.getYankOptions(selectedRow) ?? [])
       : [];
     return [nameOption, ...adapterOptions];
   }, [adapter, selectedRow]);
 
   const yankHint = useMemo(
-    () => [...yankOptions.map((o) => `${triggerToString(o.trigger)} · ${o.label}`), "Esc cancel"].join(" • "),
+    () =>
+      [
+        ...yankOptions.map((o) => `${triggerToString(o.trigger)} · ${o.label}`),
+        "Esc cancel",
+      ].join(" • "),
     [yankOptions],
   );
   const yankHeaderMarkers = useMemo(
     () => deriveYankHeaderMarkers(state.yankMode, yankOptions),
     [state.yankMode, yankOptions],
   );
+
+  // Compute context for keybinding hints
+  const uiHintsContext = useMemo(() => {
+    // Check if any visible row contains secret cells
+    const hasSecretData = filteredRows.some((row) =>
+      Object.values(row.cells).some((cell) => typeof cell === 'object' && cell?.type === 'secret'),
+    );
+    // Only show reveal toggle if there are secrets AND they're currently hidden
+    return { hasHiddenSecrets: hasSecretData && !revealSecrets };
+  }, [filteredRows, revealSecrets]);
 
   const { bottomHint } = useUiHints({
     mode: state.mode,
@@ -235,6 +290,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
     yankMode: state.yankMode,
     adapterBindings,
     yankHint,
+    context: uiHintsContext,
   });
 
   const commandRouter = useCommandRouter({
@@ -275,11 +331,19 @@ export function App({ initialService, endpointUrl }: AppProps) {
     commandRouter(command);
   }, [actions, commandRouter, state.commandText]);
 
+  const [uploadPreview, setUploadPreview] = useState<{
+    old: string;
+    new: string;
+  }>({ old: "", new: "" });
+  const [panelScrollOffset, setPanelScrollOffset] = useState(0);
+
   const handleUploadDecision = useCallback(
     (confirmed: boolean) => {
       if (!state.uploadPending) return;
       if (!confirmed) {
+        actions.pushFeedback("Upload cancelled", 2000);
         actions.setUploadPending(null);
+        setUploadPreview({ old: "", new: "" });
         return;
       }
       void (async () => {
@@ -288,15 +352,104 @@ export function App({ initialService, endpointUrl }: AppProps) {
             state.uploadPending!.filePath,
             state.uploadPending!.metadata,
           );
+          actions.pushFeedback("✓ Uploaded successfully", 2000);
+          // Refresh to show updated data
+          await refresh();
         } catch (err) {
-          actions.pushFeedback(`Upload failed: ${(err as Error).message}`, 3000);
+          actions.pushFeedback(
+            `✗ Upload failed: ${(err as Error).message}`,
+            3000,
+          );
         } finally {
           actions.setUploadPending(null);
+          setUploadPreview({ old: "", new: "" });
         }
       })();
     },
-    [actions, adapter.capabilities?.edit, state.uploadPending],
+    [actions, adapter.capabilities?.edit, state.uploadPending, refresh],
   );
+
+  // Load preview when uploadPending changes
+  useEffect(() => {
+    if (state.uploadPending) {
+      setPanelScrollOffset(0);
+      void (async () => {
+        try {
+          const { readFile } = await import("fs/promises");
+          const newContent = await readFile(
+            state.uploadPending!.filePath,
+            "utf-8",
+          );
+
+          // Try to get old value from adapter (current value from AWS)
+          let oldContent = "";
+          const meta = state.uploadPending!.metadata;
+
+          // For Secrets Manager fields: fetch the current field value
+          if (meta.fieldKey && meta.secretArn) {
+            try {
+              const { runAwsJsonAsync } = await import("./utils/aws.js");
+              const regionArgs = selectedRegion
+                ? ["--region", selectedRegion]
+                : [];
+              const secretData = await runAwsJsonAsync<{
+                SecretString?: string;
+              }>([
+                "secretsmanager",
+                "get-secret-value",
+                "--secret-id",
+                meta.secretArn as string,
+                ...regionArgs,
+              ]);
+
+              const secretString = secretData.SecretString || "";
+
+              // $RAW field is the whole secret value, not a JSON field
+              if (meta.fieldKey === "$RAW") {
+                oldContent = secretString;
+              } else {
+                // Regular JSON field - parse and extract
+                try {
+                  const parsed = JSON.parse(secretString);
+                  oldContent = parsed[meta.fieldKey as string] || "";
+                } catch {
+                  // Not JSON - oldContent stays empty
+                }
+              }
+            } catch {
+              // Failed to fetch
+            }
+          }
+          // For whole secrets: fetch current secret value
+          else if (meta.secretArn && !meta.fieldKey) {
+            try {
+              const { runAwsJsonAsync } = await import("./utils/aws.js");
+              const regionArgs = selectedRegion
+                ? ["--region", selectedRegion]
+                : [];
+              const secretData = await runAwsJsonAsync<{
+                SecretString?: string;
+              }>([
+                "secretsmanager",
+                "get-secret-value",
+                "--secret-id",
+                meta.secretArn as string,
+                ...regionArgs,
+              ]);
+
+              oldContent = secretData.SecretString || "";
+            } catch {
+              // Failed to fetch
+            }
+          }
+
+          setUploadPreview({ old: oldContent, new: newContent });
+        } catch {
+          setUploadPreview({ old: "", new: "[Unable to load preview]" });
+        }
+      })();
+    }
+  }, [state.uploadPending, selectedRegion]);
 
   const commandAutocomplete = useCallback(() => {
     const match = AVAILABLE_COMMANDS.find((cmd) =>
@@ -384,13 +537,30 @@ export function App({ initialService, endpointUrl }: AppProps) {
         refresh: () => {
           void refresh();
         },
+        revealToggle: () => {
+          setRevealSecrets(!revealSecrets);
+        },
         showDetails: () => showDetails(selectedRow),
         editSelection,
-        down: navigation.moveDown,
-        up: navigation.moveUp,
         top: navigation.toTop,
         bottom: navigation.toBottom,
         enter: navigateIntoSelection,
+      },
+      scroll: {
+        up: () => {
+          if (state.uploadPending || state.describeState) {
+            setPanelScrollOffset((p) => Math.max(0, p - 1));
+          } else {
+            navigation.moveUp();
+          }
+        },
+        down: () => {
+          if (state.uploadPending || state.describeState) {
+            setPanelScrollOffset((p) => p + 1);
+          } else {
+            navigation.moveDown();
+          }
+        },
       },
       yank: {
         enter: () => {
@@ -413,7 +583,8 @@ export function App({ initialService, endpointUrl }: AppProps) {
       },
       pending: {
         cancelPrompt: () => actions.setPendingAction(null),
-        submit: (confirmed) => submitPendingAction(state.pendingAction, confirmed),
+        submit: (confirmed) =>
+          submitPendingAction(state.pendingAction, confirmed),
       },
       upload: {
         decide: handleUploadDecision,
@@ -427,7 +598,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
     pushYankFeedback: actions.pushFeedback,
     writeClipboard: clipboardy.write,
     hasCommandAutocomplete: (text) =>
-      AVAILABLE_COMMANDS.some((cmd) => cmd.toLowerCase().startsWith(text.toLowerCase())),
+      AVAILABLE_COMMANDS.some((cmd) =>
+        cmd.toLowerCase().startsWith(text.toLowerCase()),
+      ),
   });
 
   useMainInput(inputDispatch);
@@ -468,6 +641,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
             yankHelpOpen={state.yankHelpOpen}
             yankOptions={yankOptions}
             yankHelpRow={selectedRow}
+            uploadPending={state.uploadPending}
+            uploadPreview={uploadPreview}
+            panelScrollOffset={panelScrollOffset}
             {...(yankHeaderMarkers ? { headerMarkers: yankHeaderMarkers } : {})}
           />
         </Box>
@@ -476,22 +652,26 @@ export function App({ initialService, endpointUrl }: AppProps) {
             <Text color="green">{state.yankFeedbackMessage}</Text>
           </Box>
         )}
-        {state.pendingAction && state.pendingAction.effect.type === "prompt" && (
-          <Box paddingX={1}>
-            <Text color="cyan">{state.pendingAction.effect.label} </Text>
-            <AdvancedTextInput
-              value={state.pendingAction.inputValue}
-              onChange={(value) => actions.setPendingInputValue(value)}
-              onSubmit={() => submitPendingAction(state.pendingAction, true)}
-              focus
-            />
-          </Box>
-        )}
-        {state.pendingAction && state.pendingAction.effect.type === "confirm" && (
-          <Box paddingX={1}>
-            <Text color="yellow">{state.pendingAction.effect.message} (y/n)</Text>
-          </Box>
-        )}
+        {state.pendingAction &&
+          state.pendingAction.effect.type === "prompt" && (
+            <Box paddingX={1}>
+              <Text color="cyan">{state.pendingAction.effect.label} </Text>
+              <AdvancedTextInput
+                value={state.pendingAction.inputValue}
+                onChange={(value) => actions.setPendingInputValue(value)}
+                onSubmit={() => submitPendingAction(state.pendingAction, true)}
+                focus
+              />
+            </Box>
+          )}
+        {state.pendingAction &&
+          state.pendingAction.effect.type === "confirm" && (
+            <Box paddingX={1}>
+              <Text color="yellow">
+                {state.pendingAction.effect.message} (y/n)
+              </Text>
+            </Box>
+          )}
         <ModeBar
           mode={state.mode}
           filterText={activePickerFilter}

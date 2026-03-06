@@ -4,6 +4,7 @@ import { render } from "ink-testing-library";
 import { AppMainView } from "./AppMainView.js";
 import type { PickerManager } from "../hooks/usePickerManager.js";
 import type { YankOption } from "../adapters/capabilities/YankCapability.js";
+import { textCell } from "../types.js";
 
 function createPickerManager(active: PickerManager["activePicker"]): PickerManager {
   const noop = () => {};
@@ -64,7 +65,7 @@ const baseProps = {
   error: null,
   describeState: null,
   isLoading: false,
-  filteredRows: [{ id: "r1", cells: { name: "row1" } }],
+  filteredRows: [{ id: "r1", cells: { name: textCell("row1") } }],
   columns: [{ key: "name", label: "Name" }],
   selectedIndex: 0,
   scrollOffset: 0,
@@ -86,6 +87,7 @@ const baseProps = {
   yankHelpOpen: false,
   yankOptions: [] as YankOption[],
   yankHelpRow: null,
+  panelScrollOffset: 0,
 };
 
 describe("AppMainView integration", () => {
@@ -105,7 +107,7 @@ describe("AppMainView integration", () => {
       ...createPickerManager(null).resource,
       open: true,
       contextLabel: "Select AWS Resource",
-      filteredRows: [{ id: "s3", cells: { resource: "s3", description: "S3" } }],
+      filteredRows: [{ id: "s3", cells: { resource: textCell("s3"), description: textCell("S3") } }],
       columns: [
         { key: "resource", label: "Resource" },
         { key: "description", label: "Description" },
@@ -127,7 +129,7 @@ describe("AppMainView integration", () => {
       <AppMainView
         {...baseProps}
         describeState={{
-          row: { id: "obj-1", cells: { name: "object-1" } },
+          row: { id: "obj-1", cells: { name: textCell("object-1") } },
           fields: [{ label: "Name", value: "object-1" }],
           loading: false,
         }}
@@ -162,7 +164,7 @@ describe("AppMainView integration", () => {
             resolve: async () => "x",
           },
         ]}
-        yankHelpRow={{ id: "row", cells: { name: "item" } }}
+        yankHelpRow={{ id: "row", cells: { name: textCell("item") } }}
       />,
     );
 

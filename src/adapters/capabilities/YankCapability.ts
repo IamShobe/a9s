@@ -1,11 +1,11 @@
 import type { z } from "zod";
-import type { TableRow } from "../../types.js";
+import type { TableRow, Cell } from "../../types.js";
 import type { KeyTrigger } from "../../constants/keybindings.js";
 
 /** TableRow with strongly-typed meta from adapter's Zod schema */
 export interface ParsedRow<TMeta> {
   id: string;
-  cells: Record<string, string>;
+  cells: Record<string, Cell>;
   meta: TMeta;
 }
 

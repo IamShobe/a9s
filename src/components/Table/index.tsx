@@ -94,8 +94,9 @@ const Row = React.memo(function Row({
         </Text>,
       );
 
-    const cell = row.cells[col.key] ?? "";
-    const truncated = truncate(cell, colWidths[i]!);
+    const cellData = row.cells[col.key] ?? "";
+    const cellValue = typeof cellData === 'string' ? cellData : cellData.displayName;
+    const truncated = truncate(cellValue, colWidths[i]!);
     const highlighted =
       filterText && truncated
         ? highlightMatch(truncated, filterText, isSelected)
