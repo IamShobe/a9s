@@ -1,8 +1,9 @@
+import { SERVICE_REGISTRY } from "../services.js";
+
+const SERVICE_COMMANDS = Object.keys(SERVICE_REGISTRY);
+
 export const AVAILABLE_COMMANDS = [
-  "s3",
-  "route53",
-  "dynamodb",
-  "iam",
+  ...SERVICE_COMMANDS,
   "regions",
   "profiles",
   "resources",

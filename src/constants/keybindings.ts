@@ -1,6 +1,7 @@
 import type { HelpItem, HelpTab } from "../components/HelpPanel.js";
 import { KB } from "./keys.js";
 import type { KeyAction } from "./keys.js";
+import type { AdapterKeyBinding } from "../adapters/capabilities/ActionCapability.js";
 
 // ---------------------------------------------------------------------------
 // Trigger types — describe both how to match a key press AND how to display it
@@ -74,8 +75,7 @@ export interface KeyBinding {
   action: KeyAction;
   trigger: KeyTrigger;
   scope: KeyScope;
-  label: string;        // help panel description
-  condition?: string;   // e.g. "S3" — filtered per adapter
+  label: string; // help panel description
 }
 
 // ---------------------------------------------------------------------------
@@ -91,11 +91,9 @@ export const KEYBINDINGS: KeyBinding[] = [
   { action: KB.MOVE_UP,       trigger: k_up,                                       scope: "navigate", label: "Move selection up" },
   { action: KB.GO_TOP,        trigger: { type: "chord", keys: ["g", "g"] },        scope: "navigate", label: "Jump to top" },
   { action: KB.GO_BOTTOM,     trigger: { type: "key", char: "G" },                 scope: "navigate", label: "Jump to bottom" },
-  { action: KB.JUMP_TO_PATH,  trigger: { type: "chord", keys: ["g", "p"] },        scope: "navigate", label: "Go to path jump prompt", condition: "S3" },
   { action: KB.NAVIGATE_INTO, trigger: { type: "special", name: "return" },        scope: "navigate", label: "Open bucket/folder" },
   { action: KB.EDIT,          trigger: { type: "key", char: "e" },                 scope: "navigate", label: "Edit selected item" },
   { action: KB.DETAILS,       trigger: { type: "key", char: "d" },                 scope: "navigate", label: "Open details panel" },
-  { action: KB.FETCH,         trigger: { type: "key", char: "f" },                 scope: "navigate", label: "Fetch / download selected file", condition: "S3" },
   { action: KB.YANK_MODE,     trigger: { type: "key", char: "y" },                 scope: "navigate", label: "Open yank mode" },
   { action: KB.SEARCH_MODE,   trigger: { type: "key", char: "/" },                 scope: "navigate", label: "Search mode" },
   { action: KB.COMMAND_MODE,  trigger: { type: "key", char: ":" },                 scope: "navigate", label: "Command mode" },
@@ -113,13 +111,10 @@ export const KEYBINDINGS: KeyBinding[] = [
   { action: KB.NAVIGATE_INTO, trigger: { type: "special", name: "return" },        scope: "command", label: "Run command" },
   { action: KB.QUIT,          trigger: { type: "special", name: "escape" },        scope: "command", label: "Cancel command mode" },
 
-  // --- Yank (informational — actual options come from adapter.getYankOptions) ---
+  // --- Yank (informational — actual options come from adapter.capabilities?.yank?.getYankOptions) ---
   { action: KB.YANK_MODE,     trigger: { type: "key", char: "y" },                 scope: "yank",   label: "Open: press y in navigate mode" },
   { action: KB.YANK_MODE,     trigger: { type: "key", char: "n" },                 scope: "yank",   label: "Copy selected name" },
   { action: KB.YANK_MODE,     trigger: { type: "key", char: "a" },                 scope: "yank",   label: "Copy ARN (when available)" },
-  { action: KB.YANK_MODE,     trigger: { type: "key", char: "k" },                 scope: "yank",   label: "Copy S3/object key path", condition: "S3" },
-  { action: KB.YANK_MODE,     trigger: { type: "key", char: "e" },                 scope: "yank",   label: "Copy ETag (objects only)", condition: "S3" },
-  { action: KB.YANK_MODE,     trigger: { type: "key", char: "d" },                 scope: "yank",   label: "Copy Last Modified (objects only)", condition: "S3" },
   { action: KB.QUIT,          trigger: { type: "special", name: "escape" },        scope: "yank",   label: "Cancel yank mode" },
 
   // --- Details (informational) ---
@@ -163,20 +158,33 @@ const SCOPE_ORDER: KeyScope[] = [
 ];
 
 /**
- * Build HelpPanel tabs from KEYBINDINGS. Pass adapterId to include adapter-specific bindings.
+ * Build HelpPanel tabs from KEYBINDINGS and adapter-specific bindings.
  * Display key is automatically derived from each binding's trigger.
  */
-export function buildHelpTabs(adapterId?: string): HelpTab[] {
+export function buildHelpTabs(
+  adapterId?: string,
+  adapterBindings?: AdapterKeyBinding[],
+): HelpTab[] {
   const groups = new Map<KeyScope, HelpItem[]>();
 
   for (const kb of KEYBINDINGS) {
-    if (kb.condition === "S3" && adapterId !== "s3") continue;
-
     if (!groups.has(kb.scope)) groups.set(kb.scope, []);
     groups.get(kb.scope)!.push({
       key: triggerToString(kb.trigger),
-      description: kb.condition ? `${kb.label} (${kb.condition})` : kb.label,
+      description: kb.label,
     });
+  }
+
+  // Add adapter-specific bindings
+  if (adapterBindings) {
+    for (const ab of adapterBindings) {
+      const scope = ab.scope || "navigate";
+      if (!groups.has(scope)) groups.set(scope, []);
+      groups.get(scope)!.push({
+        key: triggerToString(ab.trigger),
+        description: ab.label,
+      });
+    }
   }
 
   // De-duplicate entries with identical key+description within the same scope
@@ -202,9 +210,7 @@ export function buildHelpTabs(adapterId?: string): HelpTab[] {
 
 /** Derive the navigate mode hint string from KEYBINDINGS */
 export function buildNavigateHint(): string {
-  const navigateKeys = KEYBINDINGS.filter(
-    (kb) => kb.scope === "navigate" && !kb.condition,
-  );
+  const navigateKeys = KEYBINDINGS.filter((kb) => kb.scope === "navigate");
   return (
     " " +
     navigateKeys
@@ -214,17 +220,13 @@ export function buildNavigateHint(): string {
   );
 }
 
-/** Generic bottom-hint builder for a given scope, derived from KEYBINDINGS. */
+/** Generic bottom-hint builder for a given scope, derived from KEYBINDINGS and adapter bindings. */
 export function buildScopeHint(
   scope: KeyScope,
-  adapterId?: string,
+  adapterBindings?: AdapterKeyBinding[],
   maxItems = 8,
 ): string {
-  const filtered = KEYBINDINGS.filter((kb) => {
-    if (kb.scope !== scope) return false;
-    if (kb.condition === "S3" && adapterId !== "s3") return false;
-    return true;
-  });
+  const filtered = KEYBINDINGS.filter((kb) => kb.scope === scope);
 
   const seen = new Set<string>();
   const compact = filtered.filter((kb) => {
@@ -233,6 +235,20 @@ export function buildScopeHint(
     seen.add(key);
     return true;
   });
+
+  // Add adapter-specific bindings
+  const adapterItems: Array<{ trigger: KeyTrigger; label: string }> = [];
+  if (adapterBindings) {
+    for (const ab of adapterBindings) {
+      if ((ab.scope || "navigate") === scope) {
+        const key = `${ab.actionId}|${triggerToString(ab.trigger)}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          adapterItems.push({ trigger: ab.trigger, label: ab.label });
+        }
+      }
+    }
+  }
 
   const shortLabel = (label: string): string =>
     label
@@ -249,7 +265,11 @@ export function buildScopeHint(
       .trim()
       .toLowerCase();
 
-  let ordered = compact;
+  let ordered: Array<{ trigger: KeyTrigger; label: string }> = [
+    ...compact,
+    ...adapterItems,
+  ];
+
   if (scope === "navigate") {
     const priority: KeyAction[] = [
       KB.MOVE_DOWN,
@@ -257,17 +277,16 @@ export function buildScopeHint(
       KB.SEARCH_MODE,
       KB.HELP,
     ];
-    ordered = [
-      ...priority
-        .map((action) => compact.find((kb) => kb.action === action))
-        .filter((kb): kb is KeyBinding => Boolean(kb)),
-      ...compact.filter((kb) => !priority.includes(kb.action)),
-    ];
+    const priorityItems = priority
+      .map((action) => compact.find((kb) => kb.action === action))
+      .filter((kb): kb is KeyBinding => Boolean(kb));
+    const restItems = compact.filter((kb) => !priority.includes(kb.action));
+    ordered = [...priorityItems, ...restItems, ...adapterItems];
   }
 
-  const parts = ordered.slice(0, maxItems).map((kb) => {
-    const label = shortLabel(kb.label);
-    return `${triggerToString(kb.trigger)} · ${label}`;
+  const parts = ordered.slice(0, maxItems).map((item) => {
+    const label = shortLabel(item.label);
+    return `${triggerToString(item.trigger)} · ${label}`;
   });
 
   return parts.length > 0 ? ` ${parts.join(" • ")}` : "";

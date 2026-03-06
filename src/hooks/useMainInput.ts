@@ -5,7 +5,8 @@ import type { Key } from "ink";
 import clipboardy from "clipboardy";
 import type { AppMode, TableRow } from "../types.js";
 import type { ServiceAdapter, YankOption } from "../adapters/ServiceAdapter.js";
-import type { FetchPrompt, FetchOverwritePending } from "./useFetchFlow.js";
+import type { ActionEffect } from "../adapters/capabilities/ActionCapability.js";
+import type { PendingAction } from "./usePendingAction.js";
 import type { PickerManager } from "./usePickerManager.js";
 import type { HelpPanelState } from "./useHelpPanel.js";
 import type { YankFeedback } from "./useYankMode.js";
@@ -29,9 +30,7 @@ export interface MainInputState {
   selectedRow: TableRow | null;
   describeState: unknown | null;
   uploadPending: { filePath: string; metadata: Record<string, unknown> } | null;
-  fetchPrompt: FetchPrompt | null;
-  fetchOverwritePending: FetchOverwritePending | null;
-  jumpPrompt: string | null;
+  pendingAction: PendingAction | null;
   adapter: ServiceAdapter;
   pickers: PickerManager;
   helpPanel: HelpPanelState;
@@ -49,7 +48,6 @@ export interface MainInputHandlers {
   editSelection: () => void;
   showDetails: () => void;
   closeDetails: () => void;
-  openFetchPrompt: () => void;
   refresh: () => Promise<void>;
   setCommandText: (v: string) => void;
   setCommandCursorToEndToken: Dispatch<SetStateAction<number>>;
@@ -58,13 +56,12 @@ export interface MainInputHandlers {
   setYankFeedback: (v: YankFeedback | null) => void;
   handleFilterChange: (v: string) => void;
   setSearchEntryFilter: (v: string | null) => void;
-  setJumpPrompt: (v: string | null) => void;
-  setFetchPrompt: Dispatch<SetStateAction<FetchPrompt | null>>;
-  setFetchOverwritePending: (v: FetchOverwritePending | null) => void;
   setUploadPending: (v: { filePath: string; metadata: Record<string, unknown> } | null) => void;
   setSelectedRegion: (r: string) => void;
   setSelectedProfile: (p: string) => void;
   switchAdapter: (id: ServiceId) => void;
+  handleActionEffect: (effect: ActionEffect, row: TableRow | null) => void;
+  submitPendingAction: (confirmed: boolean) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,21 +70,47 @@ export interface MainInputHandlers {
 
 export function useMainInput(state: MainInputState, handlers: MainInputHandlers) {
   const {
-    mode, filterText, commandText, searchEntryFilter,
-    yankMode, yankOptions, selectedRow,
-    describeState, uploadPending, fetchPrompt, fetchOverwritePending, jumpPrompt,
-    adapter, pickers, helpPanel,
+    mode,
+    filterText,
+    commandText,
+    searchEntryFilter,
+    yankMode,
+    yankOptions,
+    selectedRow,
+    describeState,
+    uploadPending,
+    pendingAction,
+    adapter,
+    pickers,
+    helpPanel,
   } = state;
 
   const {
-    exit, setMode, moveDown, moveUp, toTop, toBottom,
-    navigateIntoSelection, navigateBack, editSelection, showDetails, closeDetails,
-    openFetchPrompt, refresh,
-    setCommandText, setCommandCursorToEndToken,
-    setYankMode, pushYankFeedback, setYankFeedback,
-    handleFilterChange, setSearchEntryFilter, setJumpPrompt,
-    setFetchPrompt, setFetchOverwritePending, setUploadPending,
-    setSelectedRegion, setSelectedProfile, switchAdapter,
+    exit,
+    setMode,
+    moveDown,
+    moveUp,
+    toTop,
+    toBottom,
+    navigateIntoSelection,
+    navigateBack,
+    editSelection,
+    showDetails,
+    closeDetails,
+    refresh,
+    setCommandText,
+    setCommandCursorToEndToken,
+    setYankMode,
+    pushYankFeedback,
+    setYankFeedback,
+    handleFilterChange,
+    setSearchEntryFilter,
+    setUploadPending,
+    setSelectedRegion,
+    setSelectedProfile,
+    switchAdapter,
+    handleActionEffect,
+    submitPendingAction,
   } = handlers;
 
   const { resolve, reset: resetChord } = useKeyChord(KEYBINDINGS);
@@ -218,43 +241,29 @@ export function useMainInput(state: MainInputState, handlers: MainInputHandlers)
       // ------------------------------------------------------------------ ?
       if (input === "?") {
         resetChord();
-        if (mode === "navigate" && !uploadPending && !describeState && !yankMode) {
+        if (mode === "navigate" && !uploadPending && !describeState && !yankMode && !pendingAction) {
           helpPanel.open();
         }
         return;
       }
 
-      // ----------------------------------------------------------- jump prompt
-      if (jumpPrompt !== null) {
-        if (key.escape) { resetChord(); setJumpPrompt(null); }
-        return;
-      }
-
-      // ---------------------------------------------------- fetch overwrite confirm
-      if (fetchOverwritePending) {
+      // -------------------------------------------- pending action (prompt/confirm)
+      if (pendingAction) {
         resetChord();
-        if (input === "y" || input === "Y") {
-          if (!adapter.fetchTo) { setFetchOverwritePending(null); return; }
-          void adapter
-            .fetchTo(fetchOverwritePending.row, fetchOverwritePending.destinationPath, true)
-            .then((savedTo) => {
-              const timer = setTimeout(() => setYankFeedback(null), 2500);
-              setYankFeedback({ message: `Downloaded to ${savedTo}`, timer });
-            })
-            .catch((err) => {
-              const timer = setTimeout(() => setYankFeedback(null), 3000);
-              setYankFeedback({ message: `Fetch failed: ${(err as Error).message}`, timer });
-            })
-            .finally(() => { setFetchOverwritePending(null); });
-        } else if (input === "n" || input === "N" || key.escape) {
-          setFetchOverwritePending(null);
+        if (pendingAction.effect.type === "prompt") {
+          if (key.escape) {
+            handleActionEffect({ type: "none" }, pendingAction.row);
+          }
+          return;
         }
-        return;
-      }
-
-      // ----------------------------------------------------- fetch path prompt
-      if (fetchPrompt) {
-        if (key.escape) { resetChord(); setFetchPrompt(null); }
+        if (pendingAction.effect.type === "confirm") {
+          if (input === "y" || input === "Y") {
+            submitPendingAction(true);
+          } else if (input === "n" || input === "N" || key.escape) {
+            submitPendingAction(false);
+          }
+          return;
+        }
         return;
       }
 
@@ -264,7 +273,7 @@ export function useMainInput(state: MainInputState, handlers: MainInputHandlers)
         if (input === "y" || input === "Y") {
           void (async () => {
             try {
-              await adapter.uploadFile?.(uploadPending.filePath, uploadPending.metadata);
+              await adapter.capabilities?.edit?.uploadFile(uploadPending.filePath, uploadPending.metadata);
             } catch (err) {
               console.error("Upload failed:", (err as Error).message);
             } finally {
@@ -295,9 +304,9 @@ export function useMainInput(state: MainInputState, handlers: MainInputHandlers)
           void clipboardy.write(selectedRow.cells.name ?? "").then(() => pushYankFeedback("Copied Name"));
         } else {
           const option = yankOptions.find((o) => o.key === input && o.key !== "Esc");
-          if (option && adapter.getClipboardValue) {
+          if (option && adapter.capabilities?.yank) {
             setYankMode(false);
-            void adapter.getClipboardValue(selectedRow, input).then((value) => {
+            void adapter.capabilities.yank.getClipboardValue(selectedRow, input).then((value) => {
               if (value) void clipboardy.write(value).then(() => pushYankFeedback(option.feedback));
             });
           }
@@ -355,28 +364,46 @@ export function useMainInput(state: MainInputState, handlers: MainInputHandlers)
         case KB.YANK_MODE:     setYankMode(true);                             return;
         case KB.DETAILS:       showDetails();                                 return;
         case KB.EDIT:          editSelection();                               return;
-        case KB.FETCH:         openFetchPrompt();                             return;
         case KB.GO_BOTTOM:     toBottom();                                    return;
         case KB.GO_TOP:        toTop();                                       return;
-        case KB.JUMP_TO_PATH:  if (adapter.id === "s3") setJumpPrompt("/");  return;
         case KB.MOVE_DOWN:     moveDown();                                    return;
         case KB.MOVE_UP:       moveUp();                                      return;
         case KB.NAVIGATE_INTO: navigateIntoSelection();                       return;
-        // null or unmatched: chord in progress or unbound key — do nothing
+        // null or unmatched: could be adapter action or chord in progress — check adapter
+        default:
+          // Try to match against adapter-specific keybindings
+          if (adapter.capabilities?.actions) {
+            const adapterBindings = adapter.capabilities.actions.getKeybindings();
+            for (const binding of adapterBindings) {
+              // Simple matching for now (just check char triggers)
+              if (binding.trigger.type === "key" && binding.trigger.char === input) {
+                // Dispatch adapter action
+                void adapter.capabilities.actions
+                  .executeAction(binding.actionId, { row: selectedRow })
+                  .then((effect) => {
+                    handleActionEffect(effect, selectedRow);
+                  })
+                  .catch((err) => {
+                    console.error("Action failed:", (err as Error).message);
+                  });
+                resetChord();
+                return;
+              }
+              // TODO: Handle chord and special key triggers
+            }
+          }
       }
     },
     [
       mode, filterText, commandText, searchEntryFilter, yankMode, yankOptions,
-      selectedRow, describeState, uploadPending, fetchPrompt, fetchOverwritePending,
-      jumpPrompt, adapter, pickers, helpPanel,
+      selectedRow, describeState, uploadPending, pendingAction, adapter, pickers, helpPanel,
       exit, setMode, moveDown, moveUp, toTop, toBottom,
       navigateIntoSelection, navigateBack, editSelection, showDetails, closeDetails,
-      openFetchPrompt, refresh,
+      refresh,
       setCommandText, setCommandCursorToEndToken,
       setYankMode, pushYankFeedback, setYankFeedback,
-      handleFilterChange, setSearchEntryFilter, setJumpPrompt,
-      setFetchPrompt, setFetchOverwritePending, setUploadPending,
-      handleActivePickerInput,
+      handleFilterChange, setSearchEntryFilter, setUploadPending,
+      handleActivePickerInput, handleActionEffect,
       resolve, resetChord,
     ],
   );

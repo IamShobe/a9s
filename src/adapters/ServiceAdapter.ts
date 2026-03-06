@@ -1,15 +1,14 @@
 import type { ColumnDef, TableRow, SelectResult } from '../types.js';
+import type { EditCapability } from './capabilities/EditCapability.js';
+import type { DetailCapability } from './capabilities/DetailCapability.js';
+import type { YankCapability } from './capabilities/YankCapability.js';
+import type { ActionCapability } from './capabilities/ActionCapability.js';
 
-export interface DetailField {
-  label: string;
-  value: string;
-}
-
-export interface YankOption {
-  key: string;
-  label: string;
-  feedback: string;
-}
+// Re-export capability types for convenience
+export type { EditCapability } from './capabilities/EditCapability.js';
+export type { DetailCapability, DetailField } from './capabilities/DetailCapability.js';
+export type { YankCapability, YankOption } from './capabilities/YankCapability.js';
+export type { ActionCapability, AdapterKeyBinding, ActionContext, ActionEffect } from './capabilities/ActionCapability.js';
 
 export interface ServiceAdapter {
   id: string;
@@ -19,15 +18,16 @@ export interface ServiceAdapter {
   getColumns(): ColumnDef[];
   getRows(): Promise<TableRow[]>;
   onSelect(row: TableRow): Promise<SelectResult>;
-  onEdit?(row: TableRow): Promise<SelectResult>;
   canGoBack(): boolean;
   goBack(): void;
   getPath(): string;
   getContextLabel?(): string; // e.g., "🪣 Buckets" or "📦 Objects"
-  uploadFile?(filePath: string, metadata: Record<string, unknown>): Promise<void>; // Upload edited file
-  getDetails?(row: TableRow): Promise<DetailField[]>; // Get detail fields for a row
-  fetchTo?(row: TableRow, destinationPath: string, overwrite?: boolean): Promise<string>; // Download object to destination path
-  jumpTo?(target: string): Promise<void>; // Jump to logical location (service-specific)
-  getYankOptions?(row: TableRow): YankOption[]; // Adapter-specific copy options (beyond "n" for name)
-  getClipboardValue?(row: TableRow, yankKey: string): Promise<string | null>; // Resolve value for a yank key
+
+  // Capability registry — opt-in composition
+  capabilities?: {
+    edit?: EditCapability;
+    detail?: DetailCapability;
+    yank?: YankCapability;
+    actions?: ActionCapability;
+  };
 }

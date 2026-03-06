@@ -1,41 +1,17 @@
-import { S3ServiceAdapter } from "./views/s3/adapter.js";
-import { Route53ServiceAdapter } from "./views/route53/adapter.js";
-import { DynamoDBServiceAdapter } from "./views/dynamodb/adapter.js";
-import { IamServiceAdapter } from "./views/iam/adapter.js";
+import { createS3ServiceAdapter } from "./views/s3/adapter.js";
+import { createRoute53ServiceAdapter } from "./views/route53/adapter.js";
+import { createDynamoDBServiceAdapter } from "./views/dynamodb/adapter.js";
+import { createIamServiceAdapter } from "./views/iam/adapter.js";
+
 export const SERVICE_REGISTRY = {
-  s3: (
-    endpointUrl?: string,
-    region?: string,
-    getLevel?: () => any,
-    setLevel?: (level: any) => void,
-    getBackStack?: () => any,
-    setBackStack?: (stack: any) => void,
-  ) => {
-    if (getLevel && setLevel && getBackStack && setBackStack) {
-      return new S3ServiceAdapter(
-        endpointUrl,
-        region,
-        getLevel,
-        setLevel,
-        getBackStack,
-        setBackStack,
-      );
-    }
-    return new S3ServiceAdapter(
-      endpointUrl,
-      region,
-      () => ({ kind: "buckets" }),
-      () => {},
-      () => [],
-      () => {},
-    );
-  },
+  s3: (endpointUrl?: string, region?: string) =>
+    createS3ServiceAdapter(endpointUrl, region),
   route53: (endpointUrl?: string, region?: string) =>
-    new Route53ServiceAdapter(),
+    createRoute53ServiceAdapter(),
   dynamodb: (endpointUrl?: string, region?: string) =>
-    new DynamoDBServiceAdapter(),
+    createDynamoDBServiceAdapter(),
   iam: (endpointUrl?: string, region?: string) =>
-    new IamServiceAdapter(),
+    createIamServiceAdapter(),
 } as const;
 
 export type ServiceId = keyof typeof SERVICE_REGISTRY;

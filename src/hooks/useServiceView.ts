@@ -94,7 +94,13 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
         const after = await stat(result.filePath).catch(() => null);
         const afterMtime = after?.mtimeMs;
 
-        if (beforeMtime && afterMtime && beforeMtime !== afterMtime && adapter.uploadFile && result.metadata) {
+        if (
+          beforeMtime &&
+          afterMtime &&
+          beforeMtime !== afterMtime &&
+          adapter.capabilities?.edit &&
+          result.metadata
+        ) {
           // File was modified - would need to show dialog to user
           // For now, we'll return an indicator that upload is needed
           // The App component will handle showing the dialog
@@ -119,8 +125,8 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
   const edit = useCallback(
     async (row: TableRow) => {
       return runWithLoading(async () => {
-        const result = adapter.onEdit
-          ? await adapter.onEdit(row)
+        const result = adapter.capabilities?.edit
+          ? await adapter.capabilities.edit.onEdit(row)
           : await adapter.onSelect(row);
         return processResult(result);
       });

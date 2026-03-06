@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Text, useApp } from "ink";
-import { useAtom, getDefaultStore } from "jotai";
+import { useAtom } from "jotai";
 import TextInput from "ink-text-input";
-import { isAbsolute, resolve } from "path";
 
 import { HUD } from "./components/HUD.js";
 import { ModeBar } from "./components/ModeBar.js";
@@ -10,7 +9,7 @@ import { FullscreenBox, useScreenSize } from "./utils/withFullscreen.js";
 import { useNavigation } from "./hooks/useNavigation.js";
 import { useYankMode } from "./hooks/useYankMode.js";
 import { useHelpPanel } from "./hooks/useHelpPanel.js";
-import { useFetchFlow } from "./hooks/useFetchFlow.js";
+import { usePendingAction } from "./hooks/usePendingAction.js";
 import { useServiceView } from "./hooks/useServiceView.js";
 import { useAwsContext } from "./hooks/useAwsContext.js";
 import { useAwsRegions } from "./hooks/useAwsRegions.js";
@@ -21,9 +20,9 @@ import { useHierarchyState } from "./hooks/useHierarchyState.js";
 import { AppMainView } from "./features/AppMainView.js";
 import { SERVICE_REGISTRY } from "./services.js";
 import type { ServiceId } from "./services.js";
-import { s3LevelAtom, s3BackStackAtom } from "./views/s3/adapter.js";
 import type { TableRow } from "./types.js";
-import type { DetailField, ServiceAdapter } from "./adapters/ServiceAdapter.js";
+import type { ServiceAdapter } from "./adapters/ServiceAdapter.js";
+import type { ActionEffect } from "./adapters/capabilities/ActionCapability.js";
 import { COMMAND_MODE_HINT } from "./constants/commands.js";
 import { buildHelpTabs, buildScopeHint } from "./constants/keybindings.js";
 import {
@@ -76,32 +75,20 @@ export function App({ initialService, endpointUrl }: AppProps) {
   } | null>(null);
   const [describeState, setDescribeState] = useState<{
     row: TableRow;
-    fields: DetailField[] | null;
+    fields: Array<{ label: string; value: string }> | null;
     loading: boolean;
     requestId: number;
   } | null>(null);
   const [searchEntryFilter, setSearchEntryFilter] = useState<string | null>(null);
-  const [jumpPrompt, setJumpPrompt] = useState<string | null>(null);
   const [commandCursorToEndToken, setCommandCursorToEndToken] = useState(0);
 
   // Feature hooks
   const { yankMode, setYankMode, yankFeedback, setYankFeedback, pushYankFeedback } = useYankMode();
-  const { fetchPrompt, setFetchPrompt, fetchOverwritePending, setFetchOverwritePending } = useFetchFlow();
+  const { pendingAction, setPendingAction } = usePendingAction();
 
   const adapter = useMemo<ServiceAdapter>(() => {
-    if (currentService === "s3") {
-      const store = getDefaultStore();
-      return SERVICE_REGISTRY.s3(
-        endpointUrl,
-        selectedRegion,
-        () => store.get(s3LevelAtom),
-        (level) => store.set(s3LevelAtom, level),
-        () => store.get(s3BackStackAtom),
-        (stack) => store.set(s3BackStackAtom, stack),
-      );
-    }
     return SERVICE_REGISTRY[currentService](endpointUrl, selectedRegion);
-  }, [currentService, endpointUrl, selectedRegion, selectedProfile]);
+  }, [currentService, endpointUrl, selectedRegion]);
 
   useEffect(() => {
     if (selectedProfile === "$default") {
@@ -159,7 +146,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const yankOptions = useMemo(() => {
     const base = [{ key: "n", label: "copy name", feedback: "Copied Name" }];
     if (!selectedRow) return [...base, { key: "Esc", label: "cancel", feedback: "" }];
-    const adapterOptions = adapter.getYankOptions?.(selectedRow) ?? [];
+    const adapterOptions = adapter.capabilities?.yank?.getYankOptions(selectedRow) ?? [];
     return [...base, ...adapterOptions, { key: "Esc", label: "cancel", feedback: "" }];
   }, [adapter, selectedRow]);
 
@@ -169,7 +156,14 @@ export function App({ initialService, endpointUrl }: AppProps) {
   );
 
   // Help panel
-  const helpTabs = useMemo(() => buildHelpTabs(adapter.id), [adapter.id]);
+  const adapterBindings = useMemo(
+    () => adapter.capabilities?.actions?.getKeybindings() ?? [],
+    [adapter],
+  );
+  const helpTabs = useMemo(
+    () => buildHelpTabs(adapter.id, adapterBindings),
+    [adapter.id, adapterBindings],
+  );
   const helpContainerHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES);
   const helpPanel = useHelpPanel(helpTabs, helpContainerHeight);
 
@@ -181,48 +175,46 @@ export function App({ initialService, endpointUrl }: AppProps) {
         ? "profiles"
         : pickers.resource.open
           ? "resources"
-          : jumpPrompt !== null
-            ? "jump"
-            : fetchOverwritePending
-              ? "fetch-overwrite"
-              : fetchPrompt
-                ? "fetch"
-                : uploadPending
-                  ? "upload"
-                  : describeState
-                    ? "details"
-                    : yankMode
-                      ? "yank"
-                      : mode;
+          : pendingAction
+            ? "adapter-action"
+            : uploadPending
+              ? "upload"
+              : describeState
+                ? "details"
+                : yankMode
+                  ? "yank"
+                  : mode;
 
   const bottomHint = useMemo(() => {
     switch (uiScopeActual) {
       case "help":
-        return buildScopeHint("help", adapter.id);
+        return buildScopeHint("help", adapterBindings);
       case "regions":
       case "profiles":
       case "resources":
-        return buildScopeHint("picker", adapter.id);
-      case "jump":
-        return " Enter jump  •  Esc cancel";
-      case "fetch":
-        return " Enter download to path  •  Esc cancel";
-      case "fetch-overwrite":
-        return " y overwrite file  •  n/Esc cancel";
+        return buildScopeHint("picker", adapterBindings);
+      case "adapter-action":
+        if (pendingAction?.effect.type === "prompt") {
+          return " Enter value  •  Esc cancel";
+        }
+        if (pendingAction?.effect.type === "confirm") {
+          return " y confirm  •  n/Esc cancel";
+        }
+        return "";
       case "upload":
-        return buildScopeHint("upload", adapter.id);
+        return buildScopeHint("upload", adapterBindings);
       case "details":
-        return buildScopeHint("details", adapter.id);
+        return buildScopeHint("details", adapterBindings);
       case "yank":
         return ` ${yankHint}`;
       case "search":
-        return buildScopeHint("search", adapter.id);
+        return buildScopeHint("search", adapterBindings);
       case "command":
         return COMMAND_MODE_HINT;
       default:
-        return buildScopeHint("navigate", adapter.id, 4);
+        return buildScopeHint("navigate", adapterBindings, 4);
     }
-  }, [adapter.id, uiScopeActual, yankHint]);
+  }, [adapterBindings, uiScopeActual, yankHint, pendingAction]);
 
   const switchAdapter = useCallback(
     (serviceId: ServiceId) => {
@@ -348,8 +340,8 @@ export function App({ initialService, endpointUrl }: AppProps) {
     setDescribeState({ row: selectedRow, fields: null, loading: true, requestId });
     void (async () => {
       try {
-        const fields = adapter.getDetails
-          ? await adapter.getDetails(selectedRow)
+        const fields = adapter.capabilities?.detail
+          ? await adapter.capabilities.detail.getDetails(selectedRow)
           : [
               { label: "Name", value: selectedRow.cells.name ?? selectedRow.id },
               { label: "Type", value: String(selectedRow.meta?.type ?? "Unknown") },
@@ -380,82 +372,136 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   const closeDetails = useCallback(() => setDescribeState(null), []);
 
-  const openFetchPrompt = useCallback(() => {
-    if (!selectedRow || (selectedRow.meta?.type as string) !== "object") return;
-    const configured = process.env.DOWNLOAD_LOCATION;
-    const cwd = process.cwd();
-    const defaultPath = configured
-      ? isAbsolute(configured) ? configured : resolve(cwd, configured)
-      : cwd;
-    setFetchPrompt({ row: selectedRow, destinationPath: defaultPath });
-  }, [selectedRow, setFetchPrompt]);
-
-  const submitFetchPrompt = useCallback(() => {
-    if (!fetchPrompt) return;
-    const target = fetchPrompt.destinationPath.trim();
-    if (!target) return;
-    if (!adapter.fetchTo) return;
-    void adapter
-      .fetchTo(fetchPrompt.row, target, false)
-      .then((savedTo) => {
-        const timer = setTimeout(() => setYankFeedback(null), 2500);
-        setYankFeedback({ message: `Downloaded to ${savedTo}`, timer });
-      })
-      .catch((err) => {
-        const message = (err as Error).message;
-        if (message.startsWith("EEXIST_FILE:")) {
-          const finalPath = message.slice("EEXIST_FILE:".length);
-          setFetchOverwritePending({ row: fetchPrompt.row, destinationPath: target, finalPath });
-          setFetchPrompt(null);
-          return;
+  const handleActionEffect = useCallback(
+    (effect: ActionEffect, row: TableRow | null) => {
+      switch (effect.type) {
+        case "none":
+          break;
+        case "refresh":
+          void refresh();
+          break;
+        case "feedback": {
+          const timer = setTimeout(() => setYankFeedback(null), 2500);
+          setYankFeedback({ message: effect.message, timer });
+          setPendingAction(null);
+          break;
         }
-        const timer = setTimeout(() => setYankFeedback(null), 3000);
-        setYankFeedback({ message: `Fetch failed: ${message}`, timer });
-      })
-      .finally(() => {
-        setFetchPrompt((prev) => prev && prev.row.id === fetchPrompt.row.id ? null : prev);
-      });
-  }, [adapter, fetchPrompt, setFetchOverwritePending, setFetchPrompt, setYankFeedback]);
+        case "clipboard": {
+          const timer = setTimeout(() => setYankFeedback(null), 2500);
+          setYankFeedback({ message: effect.feedback, timer });
+          setPendingAction(null);
+          break;
+        }
+        case "error": {
+          const timer = setTimeout(() => setYankFeedback(null), 3000);
+          setYankFeedback({ message: effect.message, timer });
+          setPendingAction(null);
+          break;
+        }
+        case "prompt":
+          setPendingAction({
+            effect,
+            row,
+            inputValue: effect.defaultValue ?? "",
+            accumulatedData: effect.data ?? {},
+          });
+          break;
+        case "confirm":
+          setPendingAction({
+            effect,
+            row,
+            inputValue: "",
+            accumulatedData: effect.data ?? {},
+          });
+          break;
+      }
+    },
+    [refresh, setYankFeedback],
+  );
 
-  const submitJumpPrompt = useCallback(() => {
-    if (jumpPrompt === null) return;
-    const target = jumpPrompt.trim();
-    if (!target) return;
-    if (!adapter.jumpTo) return;
-    void adapter
-      .jumpTo(target)
-      .then(async () => {
-        setJumpPrompt(null);
-        setMode("navigate");
-        setFilterText("");
-        setSearchEntryFilter(null);
-        pushLevel(selectedIndex, "");
-        reset();
-        await refresh();
-      })
-      .catch((err) => {
-        const timer = setTimeout(() => setYankFeedback(null), 3000);
-        setYankFeedback({ message: `Jump failed: ${(err as Error).message}`, timer });
-      });
-  }, [adapter, jumpPrompt, pushLevel, refresh, reset, setFilterText, setMode, setYankFeedback, selectedIndex]);
+  const submitPendingAction = useCallback(
+    (confirmed: boolean) => {
+      if (!pendingAction || !adapter.capabilities?.actions) return;
+
+      const effect = pendingAction.effect;
+      if (effect.type === "confirm" && !confirmed) {
+        setPendingAction(null);
+        return;
+      }
+
+      const nextData = {
+        ...pendingAction.accumulatedData,
+        path: pendingAction.inputValue,
+      };
+
+      void adapter.capabilities.actions
+        .executeAction(effect.nextActionId, {
+          row: pendingAction.row,
+          data: nextData,
+        })
+        .then((nextEffect) => {
+          handleActionEffect(nextEffect, pendingAction.row);
+        })
+        .catch((err) => {
+          const timer = setTimeout(() => setYankFeedback(null), 3000);
+          setYankFeedback({
+            message: `Action failed: ${(err as Error).message}`,
+            timer,
+          });
+          setPendingAction(null);
+        });
+    },
+    [
+      adapter.capabilities?.actions,
+      handleActionEffect,
+      pendingAction,
+      setYankFeedback,
+    ],
+  );
 
   // Wire up keyboard input (includes chord engine + ctrl-C handler)
   useMainInput(
     {
-      mode, filterText, commandText, searchEntryFilter,
-      yankMode, yankOptions, selectedRow,
-      describeState, uploadPending, fetchPrompt, fetchOverwritePending, jumpPrompt,
-      adapter, pickers, helpPanel,
+      mode,
+      filterText,
+      commandText,
+      searchEntryFilter,
+      yankMode,
+      yankOptions,
+      selectedRow,
+      describeState,
+      uploadPending,
+      pendingAction,
+      adapter,
+      pickers,
+      helpPanel,
     },
     {
-      exit, setMode, moveDown, moveUp, toTop, toBottom,
-      navigateIntoSelection, navigateBack, editSelection, showDetails, closeDetails,
-      openFetchPrompt, refresh,
-      setCommandText, setCommandCursorToEndToken,
-      setYankMode, pushYankFeedback, setYankFeedback,
-      handleFilterChange, setSearchEntryFilter, setJumpPrompt,
-      setFetchPrompt, setFetchOverwritePending, setUploadPending,
-      setSelectedRegion, setSelectedProfile, switchAdapter,
+      exit,
+      setMode,
+      moveDown,
+      moveUp,
+      toTop,
+      toBottom,
+      navigateIntoSelection,
+      navigateBack,
+      editSelection,
+      showDetails,
+      closeDetails,
+      refresh,
+      setCommandText,
+      setCommandCursorToEndToken,
+      setYankMode,
+      pushYankFeedback,
+      setYankFeedback,
+      handleFilterChange,
+      setSearchEntryFilter,
+      setUploadPending,
+      setSelectedRegion,
+      setSelectedProfile,
+      switchAdapter,
+      handleActionEffect,
+      submitPendingAction,
     },
   );
 
@@ -505,35 +551,29 @@ export function App({ initialService, endpointUrl }: AppProps) {
             <Text color="green">{yankFeedback.message}</Text>
           </Box>
         )}
-        {fetchPrompt && (
+        {pendingAction && pendingAction.effect.type === "prompt" && (
           <Box paddingX={1}>
-            <Text color="cyan">Fetch to: </Text>
+            <Text color="cyan">{pendingAction.effect.label} </Text>
             <TextInput
-              value={fetchPrompt.destinationPath}
+              value={pendingAction.inputValue}
               onChange={(value) =>
-                setFetchPrompt((prev) => prev ? { ...prev, destinationPath: value } : prev)
+                setPendingAction((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        inputValue: value,
+                      }
+                    : prev,
+                )
               }
-              onSubmit={submitFetchPrompt}
+              onSubmit={() => submitPendingAction(true)}
               focus
             />
           </Box>
         )}
-        {jumpPrompt !== null && (
+        {pendingAction && pendingAction.effect.type === "confirm" && (
           <Box paddingX={1}>
-            <Text color="cyan">Jump to: </Text>
-            <TextInput
-              value={jumpPrompt}
-              onChange={setJumpPrompt}
-              onSubmit={submitJumpPrompt}
-              focus
-            />
-          </Box>
-        )}
-        {fetchOverwritePending && (
-          <Box paddingX={1}>
-            <Text color="yellow">
-              Overwrite existing file {fetchOverwritePending.finalPath}? (y/n)
-            </Text>
+            <Text color="yellow">{pendingAction.effect.message} (y/n)</Text>
           </Box>
         )}
         <ModeBar
