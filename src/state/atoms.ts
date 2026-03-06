@@ -27,3 +27,11 @@ export const selectedRegionAtom = atom(
 
 /** Selected AWS profile. "$default" means use ambient credentials. */
 export const selectedProfileAtom = atom(process.env.AWS_PROFILE ?? "$default");
+
+/** Derived atom: adapter session ID. Changes atomically when service/region/profile change. */
+export const adapterSessionAtom = atom((get) => {
+  const service = get(currentlySelectedServiceAtom);
+  const region = get(selectedRegionAtom);
+  const profile = get(selectedProfileAtom);
+  return `${service}:${region}:${profile}`;
+});

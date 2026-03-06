@@ -1,10 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useReducer } from 'react';
+import { useAtomValue } from 'jotai';
 import open from 'open';
 import { extname } from 'path';
 import { execSync } from 'child_process';
 import { stat } from 'fs/promises';
 import type { ServiceAdapter } from '../adapters/ServiceAdapter.js';
 import type { TableRow, ColumnDef, SelectResult, ServiceViewResult } from '../types.js';
+import { debugLog } from '../utils/debugLogger.js';
+import { adapterSessionAtom } from '../state/atoms.js';
 
 const TEXT_EXTENSIONS = new Set([
   '.txt', '.json', '.yaml', '.yml', '.xml', '.html', '.htm',
@@ -35,24 +38,76 @@ async function openFile(filePath: string): Promise<void> {
   }
 }
 
+interface DataState {
+  adapterId: string;
+  rows: TableRow[];
+  columns: ColumnDef[];
+  loadingCount: number;
+  error: string | null;
+}
+
+type DataAction =
+  | { type: 'ADAPTER_CHANGED'; adapterId: string }
+  | { type: 'BEGIN_LOADING' }
+  | { type: 'END_LOADING' }
+  | { type: 'SET_DATA'; rows: TableRow[]; columns: ColumnDef[] }
+  | { type: 'SET_ERROR'; error: string | null };
+
+function dataReducer(state: DataState, action: DataAction): DataState {
+  switch (action.type) {
+    case 'ADAPTER_CHANGED':
+      return {
+        adapterId: action.adapterId,
+        rows: [],
+        columns: [],
+        loadingCount: 0,
+        error: null,
+      };
+    case 'BEGIN_LOADING':
+      return { ...state, loadingCount: state.loadingCount + 1 };
+    case 'END_LOADING':
+      return { ...state, loadingCount: Math.max(0, state.loadingCount - 1) };
+    case 'SET_DATA':
+      return { ...state, rows: action.rows, columns: action.columns };
+    case 'SET_ERROR':
+      return { ...state, error: action.error };
+  }
+}
+
 export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
-  const [rows, setRows] = useState<TableRow[]>([]);
-  const [columns, setColumns] = useState<ColumnDef[]>([]);
-  const [loadingCount, setLoadingCount] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const adapterId = adapter.id;
+  const adapterSession = useAtomValue(adapterSessionAtom);
+
+  const [state, dispatch] = useReducer(dataReducer, {
+    adapterId,
+    rows: [],
+    columns: [],
+    loadingCount: 0,
+    error: null,
+  });
+
+  // Clear data atomically when adapter session changes (before paint)
+  useLayoutEffect(() => {
+    if (state.adapterId !== adapterId) {
+      debugLog(adapterId, 'useLayoutEffect: adapter changed, clearing data');
+      dispatch({ type: 'ADAPTER_CHANGED', adapterId });
+    }
+  }, [adapterSession, adapterId, state.adapterId]);
 
   const beginLoading = useCallback(() => {
-    setLoadingCount((prev) => prev + 1);
-  }, []);
+    debugLog(adapterId, 'beginLoading');
+    dispatch({ type: 'BEGIN_LOADING' });
+  }, [adapterId]);
 
   const endLoading = useCallback(() => {
-    setLoadingCount((prev) => Math.max(0, prev - 1));
-  }, []);
+    debugLog(adapterId, 'endLoading');
+    dispatch({ type: 'END_LOADING' });
+  }, [adapterId]);
 
   const runWithLoading = useCallback(
     async <T>(fn: () => Promise<T>, clearError = false): Promise<T> => {
       beginLoading();
-      if (clearError) setError(null);
+      if (clearError) dispatch({ type: 'SET_ERROR', error: null });
       try {
         return await fn();
       } finally {
@@ -63,21 +118,41 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
   );
 
   const refresh = useCallback(async () => {
+    debugLog(adapterId, 'refresh() called');
     return runWithLoading(async () => {
-      setColumns(adapter.getColumns());
+      debugLog(adapterId, 'fetching rows...');
+      const columns = adapter.getColumns();
+      dispatch({ type: 'SET_ERROR', error: null });
       try {
         const r = await adapter.getRows();
-        setRows(r);
-        setColumns(adapter.getColumns());
+        debugLog(adapterId, `got ${r.length} rows from adapter`);
+        dispatch({ type: 'SET_DATA', rows: r, columns });
       } catch (e) {
-        setError((e as Error).message);
+        debugLog(adapterId, 'fetch error', (e as Error).message);
+        dispatch({ type: 'SET_ERROR', error: (e as Error).message });
       }
     }, true);
-  }, [adapter, runWithLoading]);
+  }, [adapter, runWithLoading, adapterId]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh, navKey]);
+    debugLog(adapterId, 'useEffect: adapter changed, fetching data');
+    void (async () => {
+      dispatch({ type: 'BEGIN_LOADING' });
+      dispatch({ type: 'SET_ERROR', error: null });
+      debugLog(adapterId, 'fetching rows...');
+      const columns = adapter.getColumns();
+      try {
+        const r = await adapter.getRows();
+        debugLog(adapterId, `got ${r.length} rows from adapter`);
+        dispatch({ type: 'SET_DATA', rows: r, columns });
+      } catch (e) {
+        debugLog(adapterId, 'fetch error', (e as Error).message);
+        dispatch({ type: 'SET_ERROR', error: (e as Error).message });
+      } finally {
+        dispatch({ type: 'END_LOADING' });
+      }
+    })();
+  }, [adapter, navKey, adapterId]);
 
   const processResult = useCallback(
     async (result: SelectResult): Promise<ServiceViewResult> => {
@@ -111,12 +186,13 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
 
   const select = useCallback(
     async (row: TableRow): Promise<ServiceViewResult> => {
+      debugLog(adapterId, 'select() called for row', row.id);
       return runWithLoading(async () => {
         const result = await adapter.onSelect(row);
         return processResult(result);
       });
     },
-    [adapter, processResult, runWithLoading]
+    [adapter, processResult, runWithLoading, adapterId]
   );
 
   const edit = useCallback(
@@ -139,11 +215,14 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
     });
   }, [adapter, refresh, runWithLoading]);
 
+  // Derive effective values: detect if reducer state is stale (adapter changed but ADAPTER_CHANGED not yet processed)
+  const isTransitioning = state.adapterId !== adapterId;
+
   return {
-    rows,
-    columns,
-    isLoading: loadingCount > 0,
-    error,
+    rows: isTransitioning ? [] : state.rows,
+    columns: isTransitioning ? [] : state.columns,
+    isLoading: isTransitioning || state.loadingCount > 0,
+    error: isTransitioning ? null : state.error,
     select,
     edit,
     goBack,

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useLayoutEffect } from "react";
 import { Box, Text } from "ink";
 import { Table } from "../components/Table/index.js";
 import { HelpPanel } from "../components/HelpPanel.js";
@@ -6,6 +6,7 @@ import { YankHelpPanel } from "../components/YankHelpPanel.js";
 import { DetailPanel } from "../components/DetailPanel.js";
 import { ErrorStatePanel } from "../components/ErrorStatePanel.js";
 import { TableSkeleton } from "../components/TableSkeleton.js";
+import { debugLog } from "../utils/debugLogger.js";
 import type { HelpTab } from "../components/HelpPanel.js";
 import type { HelpPanelState } from "../hooks/useHelpPanel.js";
 import type { PickerManager } from "../hooks/usePickerManager.js";
@@ -59,6 +60,29 @@ export function AppMainView({
   yankOptions,
   yankHelpRow,
 }: AppMainViewProps) {
+  useLayoutEffect(() => {
+    debugLog(adapter.id, `AppMainView render`, {
+      isLoading,
+      filteredRowsCount: filteredRows.length,
+      columnsCount: columns.length,
+      isHelp: helpPanel.helpOpen,
+      hasDescribe: !!describeState,
+      hasPicker: !!pickers.activePicker,
+      hasYankHelp: yankHelpOpen,
+      hasError: !!error,
+    });
+  }, [
+    adapter.id,
+    isLoading,
+    filteredRows.length,
+    columns.length,
+    helpPanel.helpOpen,
+    describeState,
+    pickers.activePicker,
+    yankHelpOpen,
+    error,
+  ]);
+
   if (helpPanel.helpOpen) {
     return (
       <Box width="100%" borderStyle="round" borderColor="blue">

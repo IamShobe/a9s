@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useLayoutEffect } from "react";
 import { SERVICE_REGISTRY } from "../services.js";
 import type { ServiceId } from "../services.js";
 import type { ServiceAdapter } from "../adapters/ServiceAdapter.js";
 import { useServiceView } from "./useServiceView.js";
 import { useNavigation } from "./useNavigation.js";
 import { usePickerManager } from "./usePickerManager.js";
+import { debugLog } from "../utils/debugLogger.js";
 import type { AwsRegionOption } from "./useAwsRegions.js";
 import type { AwsProfileOption } from "./useAwsProfiles.js";
 
@@ -28,11 +29,20 @@ export function useAppData({
   availableProfiles,
 }: UseAppDataArgs) {
   const adapter = useMemo<ServiceAdapter>(() => {
+    debugLog(currentService, `useAppData: adapter created`);
     return SERVICE_REGISTRY[currentService](endpointUrl, selectedRegion);
   }, [currentService, endpointUrl, selectedRegion]);
 
   const { rows, columns, isLoading, error, select, edit, goBack, refresh, path } =
     useServiceView(adapter);
+
+  useLayoutEffect(() => {
+    debugLog(adapter.id, `useAppData: received rows from useServiceView`, {
+      rowCount: rows.length,
+      isLoading,
+      'state.adapterId': rows.length > 0 ? 'has-data' : 'empty',
+    });
+  }, [rows.length, isLoading, adapter.id]);
 
   const filteredRows = useMemo(() => {
     if (!filterText) return rows;
