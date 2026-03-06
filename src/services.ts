@@ -6,8 +6,8 @@ import { createSecretsManagerServiceAdapter } from "./views/secretsmanager/adapt
 
 export const SERVICE_REGISTRY = {
   s3: (endpointUrl?: string, region?: string) => createS3ServiceAdapter(endpointUrl, region),
-  route53: (_endpointUrl?: string, _region?: string) => createRoute53ServiceAdapter(),
-  dynamodb: (_endpointUrl?: string, _region?: string) => createDynamoDBServiceAdapter(),
+  route53: (_endpointUrl?: string, region?: string) => createRoute53ServiceAdapter(undefined, region),
+  dynamodb: (_endpointUrl?: string, region?: string) => createDynamoDBServiceAdapter(undefined, region),
   iam: (_endpointUrl?: string, _region?: string) => createIamServiceAdapter(),
   secretsmanager: (endpointUrl?: string, region?: string) =>
     createSecretsManagerServiceAdapter(endpointUrl, region),
