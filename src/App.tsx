@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useApp } from "ink";
 import { useAtom } from "jotai";
 import clipboardy from "clipboardy";
@@ -27,12 +27,16 @@ import type { ServiceViewResult, TableRow } from "./types.js";
 import { AVAILABLE_COMMANDS } from "./constants/commands.js";
 import { buildHelpTabs, triggerToString } from "./constants/keybindings.js";
 import type { InputRuntimeState } from "./hooks/inputEvents.js";
+import { useTheme } from "./contexts/ThemeContext.js";
+import { saveConfig } from "./utils/config.js";
 import {
   currentlySelectedServiceAtom,
   selectedRegionAtom,
   selectedProfileAtom,
   revealSecretsAtom,
+  themeNameAtom,
 } from "./state/atoms.js";
+import type { ThemeName } from "./constants/theme.js";
 
 const INITIAL_AWS_PROFILE = process.env.AWS_PROFILE;
 
@@ -49,6 +53,14 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const [selectedProfile, setSelectedProfile] = useAtom(selectedProfileAtom);
   const [currentService, setCurrentService] = useAtom(currentlySelectedServiceAtom);
   const [revealSecrets, setRevealSecrets] = useAtom(revealSecretsAtom);
+  const [themeName, setThemeName] = useAtom(themeNameAtom);
+  const THEME = useTheme();
+
+  // Live theme preview: refs to restore original when picker is cancelled
+  const themeNameRef = useRef(themeName);
+  themeNameRef.current = themeName; // always in sync, not a dep
+  const originalThemeRef = useRef(themeName);
+  const themePickerConfirmedRef = useRef(false);
 
   const { accountName, accountId, awsProfile, currentIdentity, region } = useAwsContext(
     endpointUrl,
@@ -112,6 +124,23 @@ export function App({ initialService, endpointUrl }: AppProps) {
     pickers.openPicker("resource");
     setDidOpenInitialResources(true);
   }, [didOpenInitialResources, pickers]);
+
+  // Save original theme when theme picker opens; restore it if picker is cancelled
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (pickers.theme.open) {
+      originalThemeRef.current = themeNameRef.current;
+      themePickerConfirmedRef.current = false;
+    } else if (!themePickerConfirmedRef.current) {
+      setThemeName(originalThemeRef.current);
+    }
+  }, [pickers.theme.open]);
+
+  // Live preview: apply hovered theme immediately as selection changes
+  useEffect(() => {
+    if (!pickers.theme.open || !pickers.theme.selectedRow) return;
+    setThemeName(pickers.theme.selectedRow.id as ThemeName);
+  }, [pickers.theme.open, pickers.theme.selectedRow, setThemeName]);
 
   const switchAdapter = useCallback(
     (serviceId: ServiceId) => {
@@ -281,6 +310,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
     openProfilePicker: () => pickers.openPicker("profile"),
     openRegionPicker: () => pickers.openPicker("region"),
     openResourcePicker: () => pickers.openPicker("resource"),
+    openThemePicker: () => pickers.openPicker("theme"),
     exit,
   });
 
@@ -475,6 +505,11 @@ export function App({ initialService, endpointUrl }: AppProps) {
             onSelectResource: switchAdapter,
             onSelectRegion: setSelectedRegion,
             onSelectProfile: setSelectedProfile,
+            onSelectTheme: (name: ThemeName) => {
+              themePickerConfirmedRef.current = true;
+              setThemeName(name);
+              saveConfig({ theme: name });
+            },
           }),
       },
       mode: {
@@ -577,10 +612,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   return (
     <FullscreenBox>
-      <Box flexDirection="column" width={termCols} height={termRows}>
+      <Box flexDirection="column" width={termCols} height={termRows} backgroundColor={THEME.global.mainBg}>
         <HUD
           serviceLabel={adapter.label}
-          hudColor={adapter.hudColor}
+          hudColor={THEME.serviceColors[adapter.id] ?? adapter.hudColor}
           path={path}
           accountName={accountName}
           accountId={accountId}
@@ -617,12 +652,12 @@ export function App({ initialService, endpointUrl }: AppProps) {
         </Box>
         {!helpPanel.helpOpen && state.yankFeedbackMessage && (
           <Box paddingX={1}>
-            <Text color="green">{state.yankFeedbackMessage}</Text>
+            <Text color={THEME.feedback.successText}>{state.yankFeedbackMessage}</Text>
           </Box>
         )}
         {state.pendingAction && state.pendingAction.effect.type === "prompt" && (
           <Box paddingX={1}>
-            <Text color="cyan">{state.pendingAction.effect.label} </Text>
+            <Text color={THEME.feedback.promptText}>{state.pendingAction.effect.label} </Text>
             <AdvancedTextInput
               value={state.pendingAction.inputValue}
               onChange={(value) => actions.setPendingInputValue(value)}
@@ -633,7 +668,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
         )}
         {state.pendingAction && state.pendingAction.effect.type === "confirm" && (
           <Box paddingX={1}>
-            <Text color="yellow">{state.pendingAction.effect.message} (y/n)</Text>
+            <Text color={THEME.feedback.confirmText}>{state.pendingAction.effect.message} (y/n)</Text>
           </Box>
         )}
         <ModeBar

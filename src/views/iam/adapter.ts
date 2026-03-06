@@ -14,6 +14,7 @@ import { formatDate } from "./utils.js";
 import { createIamEditCapability } from "./capabilities/editCapability.js";
 import { createIamDetailCapability } from "./capabilities/detailCapability.js";
 import { createIamYankCapability } from "./capabilities/yankCapability.js";
+import { SERVICE_COLORS } from "../../constants/theme.js";
 
 function getIamMeta(row: TableRow): IamRowMeta | undefined {
   return row.meta as IamRowMeta | undefined;
@@ -271,7 +272,7 @@ export function createIamServiceAdapter(): ServiceAdapter {
   return {
     id: "iam",
     label: "IAM",
-    hudColor: { bg: "magenta", fg: "white" },
+    hudColor: SERVICE_COLORS.iam,
     getColumns,
     getRows,
     onSelect,

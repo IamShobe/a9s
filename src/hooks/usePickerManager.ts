@@ -7,10 +7,12 @@ import { usePickerState } from "./usePickerState.js";
 import { usePickerTable } from "./usePickerTable.js";
 import { SERVICE_REGISTRY } from "../services.js";
 import type { ServiceId } from "../services.js";
+import { THEMES, THEME_LABELS } from "../constants/theme.js";
+import type { ThemeName } from "../constants/theme.js";
 
 export interface PickerEntry {
   // Picker identity
-  id: "region" | "profile" | "resource";
+  id: "region" | "profile" | "resource" | "theme";
   columns: ColumnDef[];
   contextLabel: string;
   // Picker open/filter/search state
@@ -46,6 +48,7 @@ export interface PickerManager {
   region: PickerEntry;
   profile: PickerEntry;
   resource: PickerEntry;
+  theme: PickerEntry;
   activePicker: PickerEntry | null;
   openPicker: (id: PickerEntry["id"]) => void;
   closeActivePicker: () => void;
@@ -54,6 +57,7 @@ export interface PickerManager {
     onSelectResource: (resourceId: ServiceId) => void;
     onSelectRegion: (region: string) => void;
     onSelectProfile: (profile: string) => void;
+    onSelectTheme: (themeName: ThemeName) => void;
   }) => void;
 }
 
@@ -65,6 +69,7 @@ export function usePickerManager({
   const region = usePickerState();
   const profile = usePickerState();
   const resource = usePickerState();
+  const theme = usePickerState();
 
   const regionRows = useMemo<TableRow[]>(
     () =>
@@ -99,6 +104,19 @@ export function usePickerManager({
     [],
   );
 
+  const themeRows = useMemo<TableRow[]>(
+    () =>
+      (Object.keys(THEMES) as ThemeName[]).map((themeName) => ({
+        id: themeName,
+        cells: {
+          theme: textCell(THEME_LABELS[themeName]),
+          id: textCell(themeName),
+        },
+        meta: {},
+      })),
+    [],
+  );
+
   const regionTable = usePickerTable({
     rows: regionRows,
     filterText: region.filter,
@@ -112,6 +130,11 @@ export function usePickerManager({
   const resourceTable = usePickerTable({
     rows: resourceRows,
     filterText: resource.filter,
+    maxHeight: tableHeight,
+  });
+  const themeTable = usePickerTable({
+    rows: themeRows,
+    filterText: theme.filter,
     maxHeight: tableHeight,
   });
 
@@ -128,6 +151,11 @@ export function usePickerManager({
   const resourceColumns: ColumnDef[] = [
     { key: "resource", label: "Resource" },
     { key: "description", label: "Description" },
+  ];
+
+  const themeColumns: ColumnDef[] = [
+    { key: "theme", label: "Theme" },
+    { key: "id", label: "ID" },
   ];
 
   const regionEntry: PickerEntry = {
@@ -154,13 +182,23 @@ export function usePickerManager({
     ...resourceTable,
   };
 
+  const themeEntry: PickerEntry = {
+    id: "theme",
+    columns: themeColumns,
+    contextLabel: "Select Theme",
+    ...theme,
+    ...themeTable,
+  };
+
   const activePicker = regionEntry.open
     ? regionEntry
     : profileEntry.open
       ? profileEntry
       : resourceEntry.open
         ? resourceEntry
-        : null;
+        : themeEntry.open
+          ? themeEntry
+          : null;
 
   const getEntry = (id: PickerEntry["id"]): PickerEntry => {
     switch (id) {
@@ -170,6 +208,8 @@ export function usePickerManager({
         return profileEntry;
       case "resource":
         return resourceEntry;
+      case "theme":
+        return themeEntry;
     }
   };
 
@@ -202,6 +242,9 @@ export function usePickerManager({
       case "profile":
         handlers.onSelectProfile(activePicker.selectedRow.id);
         break;
+      case "theme":
+        handlers.onSelectTheme(activePicker.selectedRow.id as ThemeName);
+        break;
     }
     activePicker.closePicker();
   };
@@ -210,6 +253,7 @@ export function usePickerManager({
     region: regionEntry,
     profile: profileEntry,
     resource: resourceEntry,
+    theme: themeEntry,
     activePicker,
     openPicker,
     closeActivePicker,

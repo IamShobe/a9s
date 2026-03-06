@@ -4,6 +4,7 @@ import { Alert, Badge, StatusMessage, UnorderedList } from "@inkjs/ui";
 import type { YankOption } from "../adapters/capabilities/YankCapability.js";
 import { triggerToString } from "../constants/keybindings.js";
 import type { TableRow } from "../types.js";
+import { useTheme } from "../contexts/ThemeContext.js";
 
 interface YankHelpPanelProps {
   options: YankOption[];
@@ -11,6 +12,7 @@ interface YankHelpPanelProps {
 }
 
 export function YankHelpPanel({ options, row }: YankHelpPanelProps) {
+  const THEME = useTheme();
   const [resolvedValues, setResolvedValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -63,10 +65,10 @@ export function YankHelpPanel({ options, row }: YankHelpPanelProps) {
           <UnorderedList.Item key={`${option.label}-${triggerToString(option.trigger)}`}>
             <Box flexDirection="column">
               <Box>
-                <Badge color="yellow">{triggerToString(option.trigger)}</Badge>
+                <Badge color={THEME.panel.keyText}>{triggerToString(option.trigger)}</Badge>
                 <Text> {option.label}</Text>
               </Box>
-              <Text color="gray">
+              <Text color={THEME.panel.panelHintText}>
                 {row
                   ? `  -> ${resolvedValues[`${option.label}-${triggerToString(option.trigger)}`] ?? "(loading...)"}`
                   : "  -> (no value)"}

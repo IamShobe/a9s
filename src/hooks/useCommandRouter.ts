@@ -6,6 +6,7 @@ export type ParsedCommand =
   | { type: "openProfiles" }
   | { type: "openRegions" }
   | { type: "openResources" }
+  | { type: "openThemePicker" }
   | { type: "setRegion"; region: string }
   | { type: "setProfile"; profile: string }
   | { type: "quit" }
@@ -17,6 +18,7 @@ export function parseCommand(input: string): ParsedCommand {
   if (command === "profiles") return { type: "openProfiles" };
   if (command === "regions") return { type: "openRegions" };
   if (command === "resources") return { type: "openResources" };
+  if (command === "theme") return { type: "openThemePicker" };
 
   const regionMatch = command.match(/^(region|use-region)\s+([a-z0-9-]+)$/i);
   if (regionMatch?.[2]) {
@@ -46,6 +48,7 @@ interface UseCommandRouterArgs {
   openProfilePicker: () => void;
   openRegionPicker: () => void;
   openResourcePicker: () => void;
+  openThemePicker: () => void;
   exit: () => void;
 }
 
@@ -62,6 +65,9 @@ export function useCommandRouter(args: UseCommandRouterArgs) {
           return;
         case "openResources":
           args.openResourcePicker();
+          return;
+        case "openThemePicker":
+          args.openThemePicker();
           return;
         case "setRegion":
           args.setSelectedRegion(parsed.region);

@@ -3,6 +3,7 @@ import { Command, Option } from "@commander-js/extra-typings";
 import { App } from "./App.js";
 import { SERVICE_REGISTRY, type ServiceId } from "./services.js";
 import { withFullscreen } from "./utils/withFullscreen.js";
+import { ThemeProvider } from "./contexts/ThemeContext.js";
 
 const SERVICE_IDS = Object.keys(SERVICE_REGISTRY) as ServiceId[];
 
@@ -29,7 +30,9 @@ const options = program.opts();
 
 void (async () => {
   const { instance, cleanup } = withFullscreen(
-    <App initialService={options.service} endpointUrl={options.endpointUrl} />,
+    <ThemeProvider>
+      <App initialService={options.service} endpointUrl={options.endpointUrl} />
+    </ThemeProvider>,
   );
 
   process.on("SIGINT", () => {

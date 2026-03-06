@@ -3,6 +3,7 @@ import { Box, Text } from "ink";
 import type { AppMode } from "../types.js";
 import { AutocompleteInput, type AutocompleteInputHandle } from "./AutocompleteInput.js";
 import { AVAILABLE_COMMANDS } from "../constants/commands.js";
+import { useTheme } from "../contexts/ThemeContext.js";
 
 interface ModeBarProps {
   mode: AppMode;
@@ -21,12 +22,6 @@ const MODE_ICONS: Record<AppMode, string> = {
   navigate: "◉",
   search: "/",
   command: ":",
-};
-
-const MODE_COLORS: Record<AppMode, string> = {
-  navigate: "blue",
-  search: "blue",
-  command: "blue",
 };
 
 export const ModeBar = React.forwardRef<
@@ -51,6 +46,7 @@ export const ModeBar = React.forwardRef<
     },
     ref,
   ) => {
+    const THEME = useTheme();
     const commandInputRef = useRef<AutocompleteInputHandle>(null);
     const filterInputRef = useRef<AutocompleteInputHandle>(null);
 
@@ -62,7 +58,7 @@ export const ModeBar = React.forwardRef<
         .filter(Boolean);
 
       return (
-        <Text color="gray" wrap="truncate-end">
+        <Text color={THEME.modebar.keybindingDescText} wrap="truncate-end">
           {entries.map((entry, idx) => {
             const [rawKey, rawDesc] = entry.split("·").map((x) => x.trim());
             const keyPart = rawKey ?? entry;
@@ -70,9 +66,9 @@ export const ModeBar = React.forwardRef<
 
             return (
               <React.Fragment key={`hint-${idx}`}>
-                <Text color="yellow">{keyPart}</Text>
-                {descPart ? <Text color="gray"> {descPart}</Text> : null}
-                {idx < entries.length - 1 ? <Text color="gray"> • </Text> : null}
+                <Text color={THEME.modebar.keybindingKeyText}>{keyPart}</Text>
+                {descPart ? <Text color={THEME.modebar.keybindingDescText}> {descPart}</Text> : null}
+                {idx < entries.length - 1 ? <Text color={THEME.modebar.keybindingSeparatorText}> • </Text> : null}
               </React.Fragment>
             );
           })}
@@ -93,7 +89,7 @@ export const ModeBar = React.forwardRef<
     return (
       <Box flexDirection="column" width="100%">
         <Box paddingX={1}>
-          <Text color={MODE_COLORS[mode]} bold>
+          <Text color={THEME.modebar.modeIconText} bold>
             {icon}
           </Text>
           <Text> </Text>

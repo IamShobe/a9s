@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
+import { useTheme } from "../contexts/ThemeContext.js";
 
 export interface HelpItem {
   key: string;
@@ -36,6 +37,7 @@ export function HelpPanel({
   maxRows,
   scrollOffset,
 }: HelpPanelProps) {
+  const THEME = useTheme();
   const currentTab = tabs[activeTab] ?? tabs[0];
   const keyColWidth = 12;
   const descColWidth = Math.max(16, terminalWidth - keyColWidth - 8);
@@ -55,10 +57,10 @@ export function HelpPanel({
 
   return (
     <Box flexDirection="column" paddingX={1} flexGrow={1}>
-      <Text bold color="blue">
+      <Text bold color={THEME.panel.panelTitleText}>
         {title}
       </Text>
-      <Text color="gray">{scopeLabel}</Text>
+      <Text color={THEME.panel.panelHintText}>{scopeLabel}</Text>
       <Box>
         {tabRow.map((chip) => {
           const isActive = chip.idx === activeTab;
@@ -66,8 +68,8 @@ export function HelpPanel({
             <Text
               key={`chip-${chip.idx}`}
               {...(isActive
-                ? { backgroundColor: "blue" as const, color: "white" as const }
-                : { color: "cyan" as const })}
+                ? { backgroundColor: THEME.panel.activeTabBg, color: THEME.panel.activeTabText }
+                : { color: THEME.panel.inactiveTabText })}
               bold={isActive}
             >
               {chip.label}
@@ -78,7 +80,7 @@ export function HelpPanel({
       <Box flexDirection="column" flexGrow={1}>
         {visibleItems.map((item, idx) => (
           <Box key={`${item.key}-${scrollOffset + idx}`}>
-            <Text color="yellow" bold>
+            <Text color={THEME.panel.keyText} bold>
               {truncate(item.key, keyColWidth).padEnd(keyColWidth)}
             </Text>
             <Text>{truncate(item.description, descColWidth)}</Text>

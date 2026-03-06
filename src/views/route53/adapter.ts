@@ -12,6 +12,7 @@ import type {
 } from "./types.js";
 import { createRoute53DetailCapability } from "./capabilities/detailCapability.js";
 import { createRoute53YankCapability } from "./capabilities/yankCapability.js";
+import { SERVICE_COLORS } from "../../constants/theme.js";
 
 interface Route53NavFrame extends NavFrame {
   level: Route53Level;
@@ -192,7 +193,7 @@ export function createRoute53ServiceAdapter(
   return {
     id: "route53",
     label: "Route53",
-    hudColor: { bg: "cyan", fg: "black" },
+    hudColor: SERVICE_COLORS.route53,
     getColumns,
     getRows,
     onSelect,

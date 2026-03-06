@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import type { DetailField } from "../adapters/ServiceAdapter.js";
+import { useTheme } from "../contexts/ThemeContext.js";
 
 interface DetailPanelProps {
   title: string;
@@ -17,6 +18,7 @@ export function DetailPanel({
   scrollOffset,
   visibleLines,
 }: DetailPanelProps) {
+  const THEME = useTheme();
   const labelWidth = Math.max(...fields.map((f) => f.label.length), 12);
 
   // Clamp scrollOffset to valid range
@@ -32,34 +34,34 @@ export function DetailPanel({
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <Text bold color="blue">
+      <Text bold color={THEME.panel.panelTitleText}>
         {title}
       </Text>
-      <Text color="gray">{"─".repeat(40)}</Text>
+      <Text color={THEME.panel.panelDividerText}>{"─".repeat(40)}</Text>
       {isLoading ? (
-        <Text color="gray">Loading...</Text>
+        <Text color={THEME.panel.panelHintText}>Loading...</Text>
       ) : (
         <>
           {hasMoreAbove && (
-            <Text color="gray" dimColor>
+            <Text color={THEME.panel.panelHintText} dimColor>
               ↑ {clampedOffset} more above
             </Text>
           )}
           {visibleFields.map((f) => (
             <Box key={f.label}>
-              <Text color="gray">{f.label.padEnd(labelWidth + 2)}</Text>
+              <Text color={THEME.panel.detailFieldLabelText}>{f.label.padEnd(labelWidth + 2)}</Text>
               <Text>{f.value}</Text>
             </Box>
           ))}
           {hasMoreBelow && (
-            <Text color="gray" dimColor>
+            <Text color={THEME.panel.panelHintText} dimColor>
               ↓ {fields.length - clampedOffset - visibleLines} more below
             </Text>
           )}
         </>
       )}
-      <Text color="gray">{"─".repeat(40)}</Text>
-      <Text color="gray">j/k scroll • Esc close</Text>
+      <Text color={THEME.panel.panelDividerText}>{"─".repeat(40)}</Text>
+      <Text color={THEME.panel.panelHintText}>j/k scroll • Esc close</Text>
     </Box>
   );
 }
