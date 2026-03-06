@@ -39,6 +39,8 @@
     "dev:local": "AWS_ENDPOINT_URL=http://localhost:4566 AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test tsx --watch src/index.tsx",
     "dev": "tsx --watch src/index.tsx",
     "build": "tsc",
+    "lint": "oxlint",
+    "format": "oxfmt --fix",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm build"
@@ -61,6 +63,8 @@
     "@types/node": "^25.3.3",
     "@types/react": "^19.2.14",
     "ink-testing-library": "^4.0.0",
+    "oxfmt": "^0.36.0",
+    "oxlint": "^1.51.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
