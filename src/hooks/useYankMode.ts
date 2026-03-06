@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 
-interface YankFeedback {
+export interface YankFeedback {
   message: string;
   timer: NodeJS.Timeout;
 }

@@ -81,3 +81,5 @@ export function useHelpPanel(helpTabs: HelpTab[], helpContainerHeight: number) {
     goToTab,
   };
 }
+
+export type HelpPanelState = ReturnType<typeof useHelpPanel>;
