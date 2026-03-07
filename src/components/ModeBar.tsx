@@ -46,7 +46,7 @@ export const ModeBar = React.forwardRef<
     },
     ref,
   ) => {
-    const THEME = useTheme();
+    const theme = useTheme();
     const commandInputRef = useRef<AutocompleteInputHandle>(null);
     const filterInputRef = useRef<AutocompleteInputHandle>(null);
 
@@ -58,7 +58,7 @@ export const ModeBar = React.forwardRef<
         .filter(Boolean);
 
       return (
-        <Text color={THEME.modebar.keybindingDescText} wrap="truncate-end">
+        <Text color={theme.modebar.keybindingDescText} wrap="truncate-end">
           {entries.map((entry, idx) => {
             const [rawKey, rawDesc] = entry.split("·").map((x) => x.trim());
             const keyPart = rawKey ?? entry;
@@ -66,9 +66,9 @@ export const ModeBar = React.forwardRef<
 
             return (
               <React.Fragment key={`hint-${idx}`}>
-                <Text color={THEME.modebar.keybindingKeyText}>{keyPart}</Text>
-                {descPart ? <Text color={THEME.modebar.keybindingDescText}> {descPart}</Text> : null}
-                {idx < entries.length - 1 ? <Text color={THEME.modebar.keybindingSeparatorText}> • </Text> : null}
+                <Text color={theme.modebar.keybindingKeyText}>{keyPart}</Text>
+                {descPart ? <Text color={theme.modebar.keybindingDescText}> {descPart}</Text> : null}
+                {idx < entries.length - 1 ? <Text color={theme.modebar.keybindingSeparatorText}> • </Text> : null}
               </React.Fragment>
             );
           })}
@@ -89,7 +89,7 @@ export const ModeBar = React.forwardRef<
     return (
       <Box flexDirection="column" width="100%">
         <Box paddingX={1}>
-          <Text color={THEME.modebar.modeIconText} bold>
+          <Text color={theme.modebar.modeIconText} bold>
             {icon}
           </Text>
           <Text> </Text>

@@ -17,4 +17,4 @@ export const AVAILABLE_COMMANDS = [
 ] as const;
 
 export const COMMAND_MODE_HINT =
-  " Commands: s3 route53 dynamodb iam quit regions profiles resources theme  •  Enter run  •  Esc cancel";
+  ` Commands: ${SERVICE_COMMANDS.join(" ")} quit regions profiles resources theme  •  Enter run  •  Esc cancel`;

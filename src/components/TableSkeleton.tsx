@@ -23,7 +23,7 @@ export function TableSkeleton({
   rows = 8,
   contextLabel,
 }: TableSkeletonProps) {
-  const THEME = useTheme();
+  const theme = useTheme();
   const FRAMES = ["░", "▒", "▓"] as const;
   const [frame, setFrame] = React.useState(0);
   const colWidths = computeColumnWidths(columns, terminalWidth);
@@ -41,7 +41,7 @@ export function TableSkeleton({
     <Box flexDirection="column" flexGrow={1}>
       {contextLabel ? (
         <>
-          <Text bold color={THEME.skeleton.skeletonContextLabelText}>
+          <Text bold color={theme.skeleton.skeletonContextLabelText}>
             {contextLabel}
           </Text>
           <Box height={1} />
@@ -51,22 +51,22 @@ export function TableSkeleton({
       <Box>
         {columns.map((col, i) => (
           <React.Fragment key={col.key}>
-            {i > 0 ? <Text color={THEME.skeleton.skeletonSeparatorText}> │ </Text> : null}
-            <Text bold color={THEME.skeleton.skeletonHeaderText}>
+            {i > 0 ? <Text color={theme.skeleton.skeletonSeparatorText}> │ </Text> : null}
+            <Text bold color={theme.skeleton.skeletonHeaderText}>
               {truncate(col.label, colWidths[i] ?? 1)}
             </Text>
           </React.Fragment>
         ))}
       </Box>
 
-      <Text color={THEME.skeleton.skeletonDividerText}>{columns.map((_, i) => fill(colWidths[i] ?? 1, "─")).join("─┼─")}</Text>
+      <Text color={theme.skeleton.skeletonDividerText}>{columns.map((_, i) => fill(colWidths[i] ?? 1, "─")).join("─┼─")}</Text>
 
       {Array.from({ length: rows }).map((_, rowIdx) => (
         <Box key={`skeleton-row-${rowIdx}`}>
           {columns.map((col, i) => (
             <React.Fragment key={`${col.key}-${rowIdx}`}>
-              {i > 0 ? <Text color={THEME.skeleton.skeletonSeparatorText}> │ </Text> : null}
-              <Text color={THEME.skeleton.skeletonCellText}>{fill(Math.max(1, colWidths[i] ?? 1), shade)}</Text>
+              {i > 0 ? <Text color={theme.skeleton.skeletonSeparatorText}> │ </Text> : null}
+              <Text color={theme.skeleton.skeletonCellText}>{fill(Math.max(1, colWidths[i] ?? 1), shade)}</Text>
             </React.Fragment>
           ))}
         </Box>

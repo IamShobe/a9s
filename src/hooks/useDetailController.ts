@@ -2,7 +2,7 @@ import { useCallback, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { ServiceAdapter } from "../adapters/ServiceAdapter.js";
 import type { TableRow } from "../types.js";
-import { getCellValue } from "../types.js";
+import { getCellLabel } from "../types.js";
 import type { DescribeState } from "./useAppController.js";
 
 interface UseDetailControllerArgs {
@@ -31,7 +31,7 @@ export function applyDetailError(
     fields: [
       {
         label: "Name",
-        value: selectedRow.cells.name ? getCellValue(selectedRow.cells.name) : selectedRow.id,
+        value: selectedRow.cells.name ? getCellLabel(selectedRow.cells.name) : selectedRow.id,
       },
       { label: "Error", value: error.message },
     ],
@@ -57,7 +57,7 @@ export function useDetailController({ adapter, setDescribeState }: UseDetailCont
                 {
                   label: "Name",
                   value: selectedRow.cells.name
-                    ? getCellValue(selectedRow.cells.name)
+                    ? getCellLabel(selectedRow.cells.name)
                     : selectedRow.id,
                 },
                 { label: "Type", value: String(selectedRow.meta?.type ?? "Unknown") },
@@ -66,8 +66,9 @@ export function useDetailController({ adapter, setDescribeState }: UseDetailCont
 
           setDescribeState((prev) => applyDetailSuccess(prev, requestId, fields));
         } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
           setDescribeState((prev) =>
-            applyDetailError(prev, requestId, selectedRow, error as Error),
+            applyDetailError(prev, requestId, selectedRow, err),
           );
         }
       })();

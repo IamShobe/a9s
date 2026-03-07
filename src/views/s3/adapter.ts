@@ -96,26 +96,29 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
       return { action: "navigate" };
     }
 
-    const type = row.meta?.type as string;
+    const meta = row.meta as { type?: string; key?: string } | undefined;
+    const type = meta?.type;
     if (type === "folder") {
+      if (!meta?.key) return { action: "none" };
       const newStack = [...backStack, { level: level, selectedIndex: 0 }];
       setBackStack(newStack);
       setLevel({
         kind: "objects",
         bucket: level.bucket,
-        prefix: row.meta?.key as string,
+        prefix: meta.key,
       });
       return { action: "navigate" };
     }
 
     if (type === "object") {
-      const filePath = await downloadObject(client, level.bucket, row.meta?.key as string);
+      if (!meta?.key) return { action: "none" };
+      const filePath = await downloadObject(client, level.bucket, meta.key);
       return {
         action: "edit",
         filePath,
         metadata: {
           bucket: level.bucket,
-          key: row.meta?.key,
+          key: meta.key,
         },
       };
     }

@@ -11,8 +11,19 @@ const DEFAULT_PROFILE: AwsProfileOption = {
   description: "use process credentials/environment",
 };
 
-let cachedProfiles: AwsProfileOption[] | null = null;
-let pendingProfilesPromise: Promise<AwsProfileOption[]> | null = null;
+function createCache<T>(fetchFn: () => Promise<T>) {
+  let cached: T | null = null;
+  let pending: Promise<T> | null = null;
+  return {
+    peek: (): T | null => cached,
+    get: async (): Promise<T> => {
+      if (cached !== null) return cached;
+      if (!pending) pending = fetchFn().then((r) => { cached = r; return r; });
+      return pending;
+    },
+    clear: () => { cached = null; pending = null; },
+  };
+}
 
 async function fetchProfiles(): Promise<AwsProfileOption[]> {
   const stdout = await runAwsCli(["configure", "list-profiles"], 3000);
@@ -35,35 +46,27 @@ async function fetchProfiles(): Promise<AwsProfileOption[]> {
   return hasDefault ? withMeta : [DEFAULT_PROFILE, ...withMeta];
 }
 
+const profilesCache = createCache(fetchProfiles);
+
 export function useAwsProfiles(): AwsProfileOption[] {
-  const [profiles, setProfiles] = useState<AwsProfileOption[]>([]);
+  const [profiles, setProfiles] = useState<AwsProfileOption[]>(() => profilesCache.peek() ?? []);
 
   useEffect(() => {
     let alive = true;
 
-    if (cachedProfiles) {
-      setProfiles(cachedProfiles);
-      return () => {
-        alive = false;
-      };
+    const immediate = profilesCache.peek();
+    if (immediate) {
+      setProfiles(immediate);
+      return () => { alive = false; };
     }
 
     setProfiles([DEFAULT_PROFILE]);
 
-    if (!pendingProfilesPromise) {
-      pendingProfilesPromise = fetchProfiles().then((result) => {
-        cachedProfiles = result;
-        return result;
-      });
-    }
-
-    void pendingProfilesPromise.then((result) => {
+    void profilesCache.get().then((result) => {
       if (alive) setProfiles(result);
     });
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
   return profiles;

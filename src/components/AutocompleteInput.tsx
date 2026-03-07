@@ -22,7 +22,7 @@ export const AutocompleteInput = React.forwardRef<AutocompleteInputHandle, Autoc
     { value, onChange, onSubmit, placeholder, suggestions = [], focus = true, cursorToEndToken },
     ref,
   ) => {
-    const THEME = useTheme();
+    const theme = useTheme();
     const [inputKey, setInputKey] = useState(0);
 
     const matchingSuggestions = useMemo(() => {
@@ -60,7 +60,7 @@ export const AutocompleteInput = React.forwardRef<AutocompleteInputHandle, Autoc
           {...(cursorToEndToken !== undefined ? { cursorToEndToken } : {})}
         />
         {suggestion && (
-          <Text color={THEME.input.suggestionText} dimColor>
+          <Text color={theme.input.suggestionText} dimColor>
             {suggestion}
           </Text>
         )}

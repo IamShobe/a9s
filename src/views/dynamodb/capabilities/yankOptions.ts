@@ -13,7 +13,8 @@ export const DynamoDBYankOptions: YankOptionDef<
     feedback: "Copied table name",
     isRelevant: (row) => row.meta.type === "table",
     resolve: async (row) => {
-      return row.meta.tableName ?? null;
+      if (row.meta.type !== "table") return null;
+      return row.meta.tableName;
     },
   },
   {
@@ -22,7 +23,8 @@ export const DynamoDBYankOptions: YankOptionDef<
     feedback: "Copied table ARN",
     isRelevant: (row) => row.meta.type === "table",
     resolve: async (row) => {
-      return row.meta.tableArn ?? null;
+      if (row.meta.type !== "table") return null;
+      return row.meta.tableArn;
     },
   },
 
@@ -33,18 +35,12 @@ export const DynamoDBYankOptions: YankOptionDef<
     feedback: "Copied primary key",
     isRelevant: (row) => row.meta.type === "item",
     resolve: async (row) => {
-      if (!row.meta.itemPkValue && !row.meta.itemSkValue) {
-        return null;
-      }
-
+      if (row.meta.type !== "item") return null;
+      const { itemPkValue, itemSkValue } = row.meta;
+      if (!itemPkValue && !itemSkValue) return null;
       const obj: Record<string, string> = {};
-      if (row.meta.itemPkValue) {
-        obj.pk = row.meta.itemPkValue;
-      }
-      if (row.meta.itemSkValue) {
-        obj.sk = row.meta.itemSkValue;
-      }
-
+      if (itemPkValue) obj.pk = itemPkValue;
+      if (itemSkValue) obj.sk = itemSkValue;
       return JSON.stringify(obj);
     },
   },
@@ -52,9 +48,10 @@ export const DynamoDBYankOptions: YankOptionDef<
     trigger: { type: "key", char: "j" },
     label: "Copy entire item (JSON)",
     feedback: "Copied item",
-    isRelevant: (row) => row.meta.type === "item" && !!row.meta.itemJson,
+    isRelevant: (row) => row.meta.type === "item",
     resolve: async (row) => {
-      return row.meta.itemJson ?? null;
+      if (row.meta.type !== "item") return null;
+      return row.meta.itemJson;
     },
   },
 
@@ -65,7 +62,8 @@ export const DynamoDBYankOptions: YankOptionDef<
     feedback: "Copied attribute value",
     isRelevant: (row) => row.meta.type === "item-field",
     resolve: async (row) => {
-      return row.meta.fieldValue ?? null;
+      if (row.meta.type !== "item-field") return null;
+      return row.meta.fieldValue;
     },
   },
   {
@@ -74,7 +72,8 @@ export const DynamoDBYankOptions: YankOptionDef<
     feedback: "Copied attribute name",
     isRelevant: (row) => row.meta.type === "item-field",
     resolve: async (row) => {
-      return row.meta.fieldName ?? null;
+      if (row.meta.type !== "item-field") return null;
+      return row.meta.fieldName;
     },
   },
 ];

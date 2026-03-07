@@ -27,11 +27,3 @@ export function debugLog(tag: string, message: string, data?: unknown): void {
     // Silently fail if we can't write to log file
   }
 }
-
-export function clearDebugLog(): void {
-  try {
-    appendFileSync(LOG_FILE, "\n\n=== LOG CLEARED ===\n\n");
-  } catch {
-    // Silently fail
-  }
-}

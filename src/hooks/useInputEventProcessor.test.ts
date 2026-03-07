@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Key } from "ink";
 import { KB } from "../constants/keys.js";
 import {
   applyInputEvent,
@@ -8,27 +7,7 @@ import {
 } from "./useInputEventProcessor.js";
 import type { InputRuntimeState } from "./inputEvents.js";
 import { textCell } from "../types.js";
-
-const key = (patch: Partial<Key> = {}): Key =>
-  ({
-    upArrow: false,
-    downArrow: false,
-    leftArrow: false,
-    rightArrow: false,
-    pageDown: false,
-    pageUp: false,
-    home: false,
-    end: false,
-    return: false,
-    escape: false,
-    ctrl: false,
-    shift: false,
-    tab: false,
-    backspace: false,
-    delete: false,
-    meta: false,
-    ...patch,
-  }) as Key;
+import { key } from "../testing/keyFixtures.js";
 
 const baseRuntime: InputRuntimeState = {
   mode: "navigate",

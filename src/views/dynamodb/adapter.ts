@@ -24,6 +24,7 @@ import {
 import { createDynamoDBDetailCapability } from "./capabilities/detailCapability.js";
 import { createDynamoDBYankCapability } from "./capabilities/yankCapability.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
+import { debugLog } from "../../utils/debugLogger.js";
 
 interface DynamoDBNavFrame extends NavFrame {
   level: DynamoDBLevel;
@@ -64,7 +65,8 @@ export function createDynamoDBServiceAdapter(
       const table = data.Table;
       tableDescriptionCache.set(tableName, table);
       return table;
-    } catch {
+    } catch (e) {
+      debugLog("dynamodb", `getTableDescription failed for ${tableName}`, e);
       return null;
     }
   };
@@ -117,6 +119,44 @@ export function createDynamoDBServiceAdapter(
     ];
   };
 
+  function dynamoItemsToRows(
+    items: DynamoDBItem[],
+    table: AwsDynamoDBTableDescription,
+    tableName: string,
+  ): TableRow[] {
+    return items.map((item, index) => {
+      const pkValue = extractPkValue(item, table);
+      const skValue = extractSkValue(item, table);
+      const itemSize = JSON.stringify(item).length;
+
+      const cells: Record<string, ReturnType<typeof textCell>> = {
+        name: textCell(`Item ${index + 1}`),
+        "#": textCell(String(index + 1)),
+        pk: textCell(pkValue ?? "-"),
+        sk: textCell(skValue ?? "-"),
+        size: textCell(`${itemSize}B`),
+      };
+
+      return {
+        id: pkValue && skValue
+          ? `${tableName}-pk:${pkValue}-sk:${skValue}`
+          : pkValue
+            ? `${tableName}-pk:${pkValue}`
+            : `${tableName}-idx:${index}`,
+        cells,
+        meta: {
+          type: "item",
+          tableName,
+          itemIndex: index,
+          itemPkValue: pkValue ?? undefined,
+          itemSkValue: skValue ?? undefined,
+          itemSize,
+          itemJson: JSON.stringify(item),
+        } satisfies DynamoDBRowMeta,
+      };
+    });
+  }
+
   const getRows = async (): Promise<TableRow[]> => {
     const level = getLevel();
 
@@ -138,13 +178,6 @@ export function createDynamoDBServiceAdapter(
         return tables
           .filter((t) => t !== null)
           .map((table) => {
-            const statusColor =
-              table.TableStatus === "ACTIVE"
-                ? "green"
-                : table.TableStatus === "CREATING" || table.TableStatus === "UPDATING"
-                  ? "yellow"
-                  : "red";
-
             return {
               id: table.TableArn,
               cells: {
@@ -164,7 +197,8 @@ export function createDynamoDBServiceAdapter(
               } satisfies DynamoDBRowMeta,
             };
           });
-      } catch {
+      } catch (e) {
+        debugLog("dynamodb", "getRows (tables) failed", e);
         return [];
       }
     }
@@ -176,36 +210,7 @@ export function createDynamoDBServiceAdapter(
         // Check cache
         const cached = itemsCache.get(tableName);
         if (cached) {
-          const table = cached.table;
-          const items = cached.items;
-
-          return items.map((item, index) => {
-            const pkValue = extractPkValue(item, table);
-            const skValue = extractSkValue(item, table);
-            const itemSize = JSON.stringify(item).length;
-
-            const cells: Record<string, any> = {
-              name: textCell(`Item ${index + 1}`),
-              "#": textCell(String(index + 1)),
-              pk: textCell(pkValue ?? "-"),
-              sk: textCell(skValue ?? "-"),
-              size: textCell(`${itemSize}B`),
-            };
-
-            return {
-              id: `${tableName}-${index}`,
-              cells,
-              meta: {
-                type: "item",
-                tableName,
-                itemIndex: index,
-                itemPkValue: pkValue ?? undefined,
-                itemSkValue: skValue ?? undefined,
-                itemSize,
-                itemJson: JSON.stringify(item),
-              } satisfies DynamoDBRowMeta,
-            };
-          });
+          return dynamoItemsToRows(cached.items, cached.table, tableName);
         }
 
         // Fetch table description to get key schema
@@ -229,35 +234,9 @@ export function createDynamoDBServiceAdapter(
 
         const items = scanData.Items ?? [];
         itemsCache.set(tableName, { items, table });
-
-        return items.map((item, index) => {
-          const pkValue = extractPkValue(item, table);
-          const skValue = extractSkValue(item, table);
-          const itemSize = JSON.stringify(item).length;
-
-          const cells: Record<string, any> = {
-            name: textCell(`Item ${index + 1}`),
-            "#": textCell(String(index + 1)),
-            pk: textCell(pkValue ?? "-"),
-            sk: textCell(skValue ?? "-"),
-            size: textCell(`${itemSize}B`),
-          };
-
-          return {
-            id: `${tableName}-${index}`,
-            cells,
-            meta: {
-              type: "item",
-              tableName,
-              itemIndex: index,
-              itemPkValue: pkValue ?? undefined,
-              itemSkValue: skValue ?? undefined,
-              itemSize,
-              itemJson: JSON.stringify(item),
-            } satisfies DynamoDBRowMeta,
-          };
-        });
-      } catch {
+        return dynamoItemsToRows(items, table, tableName);
+      } catch (e) {
+        debugLog("dynamodb", `getRows (items) failed for ${tableName}`, e);
         return [];
       }
     }

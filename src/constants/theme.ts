@@ -1,25 +1,19 @@
 /**
  * Theme system: multiple named themes, switchable at runtime via :theme command.
  *
- * Monokai color strategy:
- * - Magenta: Primary brand/structure — panel titles, account name
- * - Blue: Active state — selected row bg, path bar bg, active tab bg
- * - Cyan: Table & panel structure — column headers, mode icon, detail labels, profile
- * - Yellow: Data & keys — account ID, identity line, keybinding keys
- * - Green: Location & success — region, success feedback, confirm keys
- * - Red: Errors & destructive
- * - White: Body text
- * - Gray: Subtle chrome — separators, dividers, inactive elements
+ * Each theme is defined as a compact ThemePalette (~12 fields). The createTheme()
+ * factory derives all 70+ ThemeTokens from those palette roles. Optional palette
+ * fields override the default derivation for themes that deviate from the pattern.
  *
- * Catppuccin Mocha strategy (256-color hex palette):
- * - #cba6f7 Mauve:    panel titles, account name
- * - #89b4fa Blue:     selected row bg, path bar bg, active tab bg
- * - #89dceb Sky:      column headers, mode icon, detail labels, profile
- * - #f9e2af Yellow:   account ID, identity line, keybinding keys
- * - #a6e3a1 Green:    region, success feedback
- * - #f38ba8 Red:      errors
- * - #cdd6f4 Text:     body text
- * - #45475a Surface1: separators, dividers
+ * Semantic color roles:
+ * - brand:      panel titles, account name (magenta/mauve/pink)
+ * - data:       account ID, keybinding keys, upload title (yellow/amber)
+ * - structure:  column headers, labels, profile (cyan/sky/teal)
+ * - location:   region, success messages (green)
+ * - danger:     errors, cancel key (red)
+ * - subtle:     dividers, separators, inactive borders (gray/surface)
+ * - navigationBg: path bar bg, active tab bg (blue/purple)
+ * - navigationFg: text on navigation bg (inverted or light)
  */
 
 export interface HudColor {
@@ -115,6 +109,121 @@ export interface ThemeTokens {
   serviceColors: Record<string, HudColor>;
 }
 
+// ---------------------------------------------------------------------------
+// Palette — compact per-theme definition
+// ---------------------------------------------------------------------------
+
+interface ThemePalette {
+  bg: string;             // terminal background
+  subtle: string;         // dividers, separators, inactive borders
+  rowSelectedBg: string;  // selected table row background
+  navigationBg: string;   // path bar bg, active tab bg
+  navigationFg: string;   // text on path bar / active tab
+  text: string;           // body text
+  brand: string;          // account name, panel titles
+  data: string;           // account ID, keybinding keys, upload title/border
+  structure: string;      // column headers, labels, profile
+  location: string;       // region, success messages
+  danger: string;         // errors, cancel key
+  serviceColors: Record<string, HudColor>;
+  // Optional overrides for themes that deviate from the default derivation:
+  rowSeparator?: string;  // defaults to rowSelectedBg (Monokai uses subtle/gray)
+  dimText?: string;       // placeholder/inactive text (defaults to subtle; Catppuccin uses Overlay0)
+}
+
+function createTheme(p: ThemePalette): ThemeTokens {
+  const rowSep = p.rowSeparator ?? p.rowSelectedBg;
+  const dim = p.dimText ?? p.subtle;
+  return {
+    global: { mainBg: p.bg },
+    table: {
+      tableContainerBg: p.bg,
+      selectedRowBg: p.rowSelectedBg,
+      selectedRowText: p.text,
+      filterMatchText: p.data,
+      filterMatchSelectedText: p.text,
+      columnHeaderText: p.structure,
+      columnHeaderMarker: p.data,
+      rowSeparatorText: rowSep,
+      emptyStateText: p.text,
+      scrollPositionText: p.location,
+    },
+    hud: {
+      accountNameText: p.brand,
+      accountIdText: p.data,
+      regionText: p.location,
+      profileText: p.structure,
+      separatorText: p.subtle,
+      currentIdentityText: p.data,
+      pathBarBg: p.navigationBg,
+      pathBarText: p.navigationFg,
+      loadingSpinnerText: p.structure,
+    },
+    modebar: {
+      modeIconText: p.structure,
+      keybindingKeyText: p.data,
+      keybindingDescText: p.text,
+      keybindingSeparatorText: p.subtle,
+    },
+    panel: {
+      panelTitleText: p.brand,
+      panelDividerText: p.subtle,
+      panelHintText: p.text,
+      panelScrollIndicatorText: p.structure,
+      detailFieldLabelText: p.structure,
+      defaultBorderText: p.subtle,
+      helpPanelBorderText: p.structure,
+      yankPanelBorderText: p.structure,
+      detailPanelBorderText: p.subtle,
+      activeTabBg: p.navigationBg,
+      activeTabText: p.navigationFg,
+      inactiveTabText: dim,
+      keyText: p.data,
+    },
+    diff: {
+      originalHeaderText: p.danger,
+      updatedHeaderText: p.location,
+      diffDividerText: p.subtle,
+    },
+    error: {
+      errorBorderText: p.danger,
+      errorTitleText: p.danger,
+      errorHintText: p.text,
+    },
+    upload: {
+      uploadBorderText: p.data,
+      uploadTitleText: p.data,
+      uploadSubtitleText: p.text,
+      uploadDiffDividerText: p.subtle,
+      uploadConfirmPromptText: p.text,
+      uploadLoadingText: p.structure,
+      uploadConfirmKeyText: p.location,
+      uploadCancelKeyText: p.danger,
+    },
+    feedback: {
+      successText: p.location,
+      promptText: p.structure,
+      confirmText: p.location,
+    },
+    input: {
+      placeholderText: dim,
+      suggestionText: p.structure,
+    },
+    skeleton: {
+      skeletonContextLabelText: p.structure,
+      skeletonHeaderText: p.data,
+      skeletonDividerText: p.subtle,
+      skeletonCellText: p.subtle,
+      skeletonSeparatorText: p.subtle,
+    },
+    serviceColors: p.serviceColors,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Theme definitions
+// ---------------------------------------------------------------------------
+
 export type ThemeName = "monokai" | "catppuccin-mocha" | "nord" | "tokyo-night" | "gruvbox-dark" | "dracula";
 
 export const THEME_LABELS: Record<ThemeName, string> = {
@@ -127,91 +236,21 @@ export const THEME_LABELS: Record<ThemeName, string> = {
 };
 
 // ─── Monokai (named terminal colors) ──────────────────────────────────────────
+// rowSeparator: uses "gray" (subtle) not "blue" (rowSelectedBg)
 
-const MONOKAI_THEME: ThemeTokens = {
-  global: {
-    mainBg: "black",
-  },
-  table: {
-    tableContainerBg: "black",
-    selectedRowBg: "blue",
-    selectedRowText: "white",
-    filterMatchText: "yellow",
-    filterMatchSelectedText: "white",
-    columnHeaderText: "cyan",
-    columnHeaderMarker: "yellow",
-    rowSeparatorText: "gray",
-    emptyStateText: "white",
-    scrollPositionText: "green",
-  },
-  hud: {
-    accountNameText: "magenta",
-    accountIdText: "yellow",
-    regionText: "green",
-    profileText: "cyan",
-    separatorText: "gray",
-    currentIdentityText: "yellow",
-    pathBarBg: "blue",
-    pathBarText: "white",
-    loadingSpinnerText: "cyan",
-  },
-  modebar: {
-    modeIconText: "cyan",
-    keybindingKeyText: "yellow",
-    keybindingDescText: "white",
-    keybindingSeparatorText: "gray",
-  },
-  panel: {
-    panelTitleText: "magenta",
-    panelDividerText: "gray",
-    panelHintText: "white",
-    panelScrollIndicatorText: "cyan",
-    detailFieldLabelText: "cyan",
-    defaultBorderText: "gray",
-    helpPanelBorderText: "cyan",
-    yankPanelBorderText: "cyan",
-    detailPanelBorderText: "gray",
-    activeTabBg: "blue",
-    activeTabText: "white",
-    inactiveTabText: "gray",
-    keyText: "yellow",
-  },
-  diff: {
-    originalHeaderText: "red",
-    updatedHeaderText: "green",
-    diffDividerText: "gray",
-  },
-  error: {
-    errorBorderText: "red",
-    errorTitleText: "red",
-    errorHintText: "white",
-  },
-  upload: {
-    uploadBorderText: "yellow",
-    uploadTitleText: "yellow",
-    uploadSubtitleText: "white",
-    uploadDiffDividerText: "gray",
-    uploadConfirmPromptText: "white",
-    uploadLoadingText: "cyan",
-    uploadConfirmKeyText: "green",
-    uploadCancelKeyText: "red",
-  },
-  feedback: {
-    successText: "green",
-    promptText: "cyan",
-    confirmText: "green",
-  },
-  input: {
-    placeholderText: "gray",
-    suggestionText: "cyan",
-  },
-  skeleton: {
-    skeletonContextLabelText: "cyan",
-    skeletonHeaderText: "yellow",
-    skeletonDividerText: "gray",
-    skeletonCellText: "gray",
-    skeletonSeparatorText: "gray",
-  },
+const MONOKAI_THEME = createTheme({
+  bg: "black",
+  subtle: "gray",
+  rowSelectedBg: "blue",
+  rowSeparator: "gray",
+  navigationBg: "blue",
+  navigationFg: "white",
+  text: "white",
+  brand: "magenta",
+  data: "yellow",
+  structure: "cyan",
+  location: "green",
+  danger: "red",
   serviceColors: {
     s3: { bg: "red", fg: "white" },
     iam: { bg: "blue", fg: "white" },
@@ -219,487 +258,130 @@ const MONOKAI_THEME: ThemeTokens = {
     route53: { bg: "cyan", fg: "black" },
     dynamodb: { bg: "green", fg: "black" },
   },
-};
+});
 
 // ─── Catppuccin Mocha (256-color hex palette) ─────────────────────────────────
 // https://github.com/catppuccin/catppuccin#-palette
+// dimText: Overlay0 (#6c7086) for placeholder/inactive (subtler than Surface1)
 
-const CATPPUCCIN_MOCHA_THEME: ThemeTokens = {
-  global: {
-    mainBg: "#1e1e2e", // Base
-  },
-  table: {
-    tableContainerBg: "#1e1e2e",  // Base
-    selectedRowBg: "#313244",     // Surface0
-    selectedRowText: "#cdd6f4",   // Text
-    filterMatchText: "#f9e2af",   // Yellow
-    filterMatchSelectedText: "#cdd6f4",
-    columnHeaderText: "#89dceb",  // Sky
-    columnHeaderMarker: "#f9e2af",
-    rowSeparatorText: "#313244",  // Surface0
-    emptyStateText: "#cdd6f4",
-    scrollPositionText: "#a6e3a1", // Green
-  },
-  hud: {
-    accountNameText: "#cba6f7",   // Mauve
-    accountIdText: "#f9e2af",     // Yellow
-    regionText: "#a6e3a1",        // Green
-    profileText: "#89dceb",       // Sky
-    separatorText: "#45475a",     // Surface1
-    currentIdentityText: "#f9e2af",
-    pathBarBg: "#89b4fa",         // Blue
-    pathBarText: "#1e1e2e",       // Base
-    loadingSpinnerText: "#89dceb",
-  },
-  modebar: {
-    modeIconText: "#89dceb",      // Sky
-    keybindingKeyText: "#f9e2af", // Yellow
-    keybindingDescText: "#cdd6f4",
-    keybindingSeparatorText: "#45475a",
-  },
-  panel: {
-    panelTitleText: "#cba6f7",    // Mauve
-    panelDividerText: "#45475a",  // Surface1
-    panelHintText: "#cdd6f4",
-    panelScrollIndicatorText: "#89dceb",
-    detailFieldLabelText: "#89dceb",
-    defaultBorderText: "#45475a",
-    helpPanelBorderText: "#89dceb",
-    yankPanelBorderText: "#89dceb",
-    detailPanelBorderText: "#45475a",
-    activeTabBg: "#89b4fa",       // Blue
-    activeTabText: "#1e1e2e",     // Base
-    inactiveTabText: "#6c7086",   // Overlay0
-    keyText: "#f9e2af",
-  },
-  diff: {
-    originalHeaderText: "#f38ba8", // Red
-    updatedHeaderText: "#a6e3a1",  // Green
-    diffDividerText: "#45475a",
-  },
-  error: {
-    errorBorderText: "#f38ba8",
-    errorTitleText: "#f38ba8",
-    errorHintText: "#cdd6f4",
-  },
-  upload: {
-    uploadBorderText: "#f9e2af",
-    uploadTitleText: "#f9e2af",
-    uploadSubtitleText: "#cdd6f4",
-    uploadDiffDividerText: "#45475a",
-    uploadConfirmPromptText: "#cdd6f4",
-    uploadLoadingText: "#89dceb",
-    uploadConfirmKeyText: "#a6e3a1",
-    uploadCancelKeyText: "#f38ba8",
-  },
-  feedback: {
-    successText: "#a6e3a1",
-    promptText: "#89dceb",
-    confirmText: "#a6e3a1",
-  },
-  input: {
-    placeholderText: "#6c7086",   // Overlay0
-    suggestionText: "#89dceb",
-  },
-  skeleton: {
-    skeletonContextLabelText: "#89dceb",
-    skeletonHeaderText: "#f9e2af",
-    skeletonDividerText: "#45475a",
-    skeletonCellText: "#45475a",
-    skeletonSeparatorText: "#45475a",
-  },
+const CATPPUCCIN_MOCHA_THEME = createTheme({
+  bg: "#1e1e2e",           // Base
+  subtle: "#45475a",       // Surface1
+  rowSelectedBg: "#313244", // Surface0
+  navigationBg: "#89b4fa",  // Blue
+  navigationFg: "#1e1e2e",  // Base (dark text on light nav)
+  text: "#cdd6f4",         // Text
+  brand: "#cba6f7",        // Mauve
+  data: "#f9e2af",         // Yellow
+  structure: "#89dceb",    // Sky
+  location: "#a6e3a1",     // Green
+  danger: "#f38ba8",       // Red
+  dimText: "#6c7086",      // Overlay0
   serviceColors: {
-    s3: { bg: "#f38ba8", fg: "#1e1e2e" },           // Red
-    iam: { bg: "#89b4fa", fg: "#1e1e2e" },          // Blue
-    secretsmanager: { bg: "#cba6f7", fg: "#1e1e2e" }, // Mauve
-    route53: { bg: "#89dceb", fg: "#1e1e2e" },      // Sky
-    dynamodb: { bg: "#a6e3a1", fg: "#1e1e2e" },     // Green
+    s3: { bg: "#f38ba8", fg: "#1e1e2e" },
+    iam: { bg: "#89b4fa", fg: "#1e1e2e" },
+    secretsmanager: { bg: "#cba6f7", fg: "#1e1e2e" },
+    route53: { bg: "#89dceb", fg: "#1e1e2e" },
+    dynamodb: { bg: "#a6e3a1", fg: "#1e1e2e" },
   },
-};
+});
 
 // ─── Nord ─────────────────────────────────────────────────────────────────────
 // https://www.nordtheme.com/docs/colors-and-palettes
 
-const NORD_THEME: ThemeTokens = {
-  global: {
-    mainBg: "#2e3440", // Polar Night 0
-  },
-  table: {
-    tableContainerBg: "#2e3440",
-    selectedRowBg: "#3b4252",    // Polar Night 1
-    selectedRowText: "#eceff4",  // Snow Storm 2
-    filterMatchText: "#ebcb8b",  // Aurora Yellow
-    filterMatchSelectedText: "#eceff4",
-    columnHeaderText: "#88c0d0", // Frost Blue
-    columnHeaderMarker: "#ebcb8b",
-    rowSeparatorText: "#3b4252",
-    emptyStateText: "#d8dee9",
-    scrollPositionText: "#a3be8c", // Aurora Green
-  },
-  hud: {
-    accountNameText: "#b48ead",  // Aurora Purple
-    accountIdText: "#ebcb8b",
-    regionText: "#a3be8c",
-    profileText: "#88c0d0",
-    separatorText: "#4c566a",    // Polar Night 3
-    currentIdentityText: "#ebcb8b",
-    pathBarBg: "#5e81ac",        // Frost Dark Blue
-    pathBarText: "#eceff4",
-    loadingSpinnerText: "#88c0d0",
-  },
-  modebar: {
-    modeIconText: "#88c0d0",
-    keybindingKeyText: "#ebcb8b",
-    keybindingDescText: "#d8dee9",
-    keybindingSeparatorText: "#4c566a",
-  },
-  panel: {
-    panelTitleText: "#b48ead",
-    panelDividerText: "#4c566a",
-    panelHintText: "#d8dee9",
-    panelScrollIndicatorText: "#88c0d0",
-    detailFieldLabelText: "#88c0d0",
-    defaultBorderText: "#4c566a",
-    helpPanelBorderText: "#88c0d0",
-    yankPanelBorderText: "#88c0d0",
-    detailPanelBorderText: "#4c566a",
-    activeTabBg: "#5e81ac",
-    activeTabText: "#eceff4",
-    inactiveTabText: "#4c566a",
-    keyText: "#ebcb8b",
-  },
-  diff: {
-    originalHeaderText: "#bf616a", // Aurora Red
-    updatedHeaderText: "#a3be8c",
-    diffDividerText: "#4c566a",
-  },
-  error: {
-    errorBorderText: "#bf616a",
-    errorTitleText: "#bf616a",
-    errorHintText: "#d8dee9",
-  },
-  upload: {
-    uploadBorderText: "#ebcb8b",
-    uploadTitleText: "#ebcb8b",
-    uploadSubtitleText: "#d8dee9",
-    uploadDiffDividerText: "#4c566a",
-    uploadConfirmPromptText: "#d8dee9",
-    uploadLoadingText: "#88c0d0",
-    uploadConfirmKeyText: "#a3be8c",
-    uploadCancelKeyText: "#bf616a",
-  },
-  feedback: {
-    successText: "#a3be8c",
-    promptText: "#88c0d0",
-    confirmText: "#a3be8c",
-  },
-  input: {
-    placeholderText: "#4c566a",
-    suggestionText: "#88c0d0",
-  },
-  skeleton: {
-    skeletonContextLabelText: "#88c0d0",
-    skeletonHeaderText: "#ebcb8b",
-    skeletonDividerText: "#4c566a",
-    skeletonCellText: "#4c566a",
-    skeletonSeparatorText: "#4c566a",
-  },
+const NORD_THEME = createTheme({
+  bg: "#2e3440",           // Polar Night 0
+  subtle: "#4c566a",       // Polar Night 3
+  rowSelectedBg: "#3b4252", // Polar Night 1
+  navigationBg: "#5e81ac",  // Frost Dark Blue
+  navigationFg: "#eceff4",  // Snow Storm 2
+  text: "#eceff4",         // Snow Storm 2
+  brand: "#b48ead",        // Aurora Purple
+  data: "#ebcb8b",         // Aurora Yellow
+  structure: "#88c0d0",    // Frost Blue
+  location: "#a3be8c",     // Aurora Green
+  danger: "#bf616a",       // Aurora Red
   serviceColors: {
-    s3: { bg: "#bf616a", fg: "#eceff4" },           // Aurora Red
-    iam: { bg: "#5e81ac", fg: "#eceff4" },          // Frost Dark Blue
-    secretsmanager: { bg: "#b48ead", fg: "#eceff4" }, // Aurora Purple
-    route53: { bg: "#88c0d0", fg: "#2e3440" },      // Frost Blue
-    dynamodb: { bg: "#a3be8c", fg: "#2e3440" },     // Aurora Green
+    s3: { bg: "#bf616a", fg: "#eceff4" },
+    iam: { bg: "#5e81ac", fg: "#eceff4" },
+    secretsmanager: { bg: "#b48ead", fg: "#eceff4" },
+    route53: { bg: "#88c0d0", fg: "#2e3440" },
+    dynamodb: { bg: "#a3be8c", fg: "#2e3440" },
   },
-};
+});
 
 // ─── Tokyo Night ──────────────────────────────────────────────────────────────
 // https://github.com/folke/tokyonight.nvim
 
-const TOKYO_NIGHT_THEME: ThemeTokens = {
-  global: {
-    mainBg: "#1a1b26",
-  },
-  table: {
-    tableContainerBg: "#1a1b26",
-    selectedRowBg: "#292e42",    // bg_highlight
-    selectedRowText: "#c0caf5",  // fg
-    filterMatchText: "#e0af68",  // yellow
-    filterMatchSelectedText: "#c0caf5",
-    columnHeaderText: "#7dcfff", // cyan
-    columnHeaderMarker: "#e0af68",
-    rowSeparatorText: "#292e42",
-    emptyStateText: "#c0caf5",
-    scrollPositionText: "#9ece6a", // green
-  },
-  hud: {
-    accountNameText: "#bb9af7",  // magenta/purple
-    accountIdText: "#e0af68",
-    regionText: "#9ece6a",
-    profileText: "#7dcfff",
-    separatorText: "#414868",    // terminal_black
-    currentIdentityText: "#e0af68",
-    pathBarBg: "#7aa2f7",        // blue
-    pathBarText: "#1a1b26",
-    loadingSpinnerText: "#7dcfff",
-  },
-  modebar: {
-    modeIconText: "#7dcfff",
-    keybindingKeyText: "#e0af68",
-    keybindingDescText: "#c0caf5",
-    keybindingSeparatorText: "#414868",
-  },
-  panel: {
-    panelTitleText: "#bb9af7",
-    panelDividerText: "#414868",
-    panelHintText: "#c0caf5",
-    panelScrollIndicatorText: "#7dcfff",
-    detailFieldLabelText: "#7dcfff",
-    defaultBorderText: "#414868",
-    helpPanelBorderText: "#7dcfff",
-    yankPanelBorderText: "#7dcfff",
-    detailPanelBorderText: "#414868",
-    activeTabBg: "#7aa2f7",
-    activeTabText: "#1a1b26",
-    inactiveTabText: "#414868",
-    keyText: "#e0af68",
-  },
-  diff: {
-    originalHeaderText: "#f7768e", // red
-    updatedHeaderText: "#9ece6a",
-    diffDividerText: "#414868",
-  },
-  error: {
-    errorBorderText: "#f7768e",
-    errorTitleText: "#f7768e",
-    errorHintText: "#c0caf5",
-  },
-  upload: {
-    uploadBorderText: "#e0af68",
-    uploadTitleText: "#e0af68",
-    uploadSubtitleText: "#c0caf5",
-    uploadDiffDividerText: "#414868",
-    uploadConfirmPromptText: "#c0caf5",
-    uploadLoadingText: "#7dcfff",
-    uploadConfirmKeyText: "#9ece6a",
-    uploadCancelKeyText: "#f7768e",
-  },
-  feedback: {
-    successText: "#9ece6a",
-    promptText: "#7dcfff",
-    confirmText: "#9ece6a",
-  },
-  input: {
-    placeholderText: "#414868",
-    suggestionText: "#7dcfff",
-  },
-  skeleton: {
-    skeletonContextLabelText: "#7dcfff",
-    skeletonHeaderText: "#e0af68",
-    skeletonDividerText: "#414868",
-    skeletonCellText: "#414868",
-    skeletonSeparatorText: "#414868",
-  },
+const TOKYO_NIGHT_THEME = createTheme({
+  bg: "#1a1b26",
+  subtle: "#414868",       // terminal_black
+  rowSelectedBg: "#292e42", // bg_highlight
+  navigationBg: "#7aa2f7",  // blue
+  navigationFg: "#1a1b26",  // bg (dark text on light nav)
+  text: "#c0caf5",         // fg
+  brand: "#bb9af7",        // magenta/purple
+  data: "#e0af68",         // yellow
+  structure: "#7dcfff",    // cyan
+  location: "#9ece6a",     // green
+  danger: "#f7768e",       // red
   serviceColors: {
-    s3: { bg: "#f7768e", fg: "#1a1b26" },           // red
-    iam: { bg: "#7aa2f7", fg: "#1a1b26" },          // blue
-    secretsmanager: { bg: "#bb9af7", fg: "#1a1b26" }, // magenta
-    route53: { bg: "#7dcfff", fg: "#1a1b26" },      // cyan
-    dynamodb: { bg: "#9ece6a", fg: "#1a1b26" },     // green
+    s3: { bg: "#f7768e", fg: "#1a1b26" },
+    iam: { bg: "#7aa2f7", fg: "#1a1b26" },
+    secretsmanager: { bg: "#bb9af7", fg: "#1a1b26" },
+    route53: { bg: "#7dcfff", fg: "#1a1b26" },
+    dynamodb: { bg: "#9ece6a", fg: "#1a1b26" },
   },
-};
+});
 
 // ─── Gruvbox Dark ─────────────────────────────────────────────────────────────
 // https://github.com/morhetz/gruvbox
 
-const GRUVBOX_DARK_THEME: ThemeTokens = {
-  global: {
-    mainBg: "#282828",
-  },
-  table: {
-    tableContainerBg: "#282828",
-    selectedRowBg: "#3c3836",    // bg1
-    selectedRowText: "#ebdbb2",  // fg
-    filterMatchText: "#fabd2f",  // bright yellow
-    filterMatchSelectedText: "#ebdbb2",
-    columnHeaderText: "#83a598", // bright blue
-    columnHeaderMarker: "#fabd2f",
-    rowSeparatorText: "#3c3836",
-    emptyStateText: "#ebdbb2",
-    scrollPositionText: "#b8bb26", // bright green
-  },
-  hud: {
-    accountNameText: "#d3869b",  // bright purple
-    accountIdText: "#fabd2f",
-    regionText: "#b8bb26",
-    profileText: "#83a598",
-    separatorText: "#665c54",    // bg3
-    currentIdentityText: "#fabd2f",
-    pathBarBg: "#458588",        // blue
-    pathBarText: "#ebdbb2",
-    loadingSpinnerText: "#83a598",
-  },
-  modebar: {
-    modeIconText: "#83a598",
-    keybindingKeyText: "#fabd2f",
-    keybindingDescText: "#ebdbb2",
-    keybindingSeparatorText: "#665c54",
-  },
-  panel: {
-    panelTitleText: "#d3869b",
-    panelDividerText: "#665c54",
-    panelHintText: "#ebdbb2",
-    panelScrollIndicatorText: "#83a598",
-    detailFieldLabelText: "#83a598",
-    defaultBorderText: "#665c54",
-    helpPanelBorderText: "#83a598",
-    yankPanelBorderText: "#83a598",
-    detailPanelBorderText: "#665c54",
-    activeTabBg: "#458588",
-    activeTabText: "#ebdbb2",
-    inactiveTabText: "#665c54",
-    keyText: "#fabd2f",
-  },
-  diff: {
-    originalHeaderText: "#fb4934", // bright red
-    updatedHeaderText: "#b8bb26",
-    diffDividerText: "#665c54",
-  },
-  error: {
-    errorBorderText: "#fb4934",
-    errorTitleText: "#fb4934",
-    errorHintText: "#ebdbb2",
-  },
-  upload: {
-    uploadBorderText: "#fabd2f",
-    uploadTitleText: "#fabd2f",
-    uploadSubtitleText: "#ebdbb2",
-    uploadDiffDividerText: "#665c54",
-    uploadConfirmPromptText: "#ebdbb2",
-    uploadLoadingText: "#83a598",
-    uploadConfirmKeyText: "#b8bb26",
-    uploadCancelKeyText: "#fb4934",
-  },
-  feedback: {
-    successText: "#b8bb26",
-    promptText: "#83a598",
-    confirmText: "#b8bb26",
-  },
-  input: {
-    placeholderText: "#665c54",
-    suggestionText: "#83a598",
-  },
-  skeleton: {
-    skeletonContextLabelText: "#83a598",
-    skeletonHeaderText: "#fabd2f",
-    skeletonDividerText: "#665c54",
-    skeletonCellText: "#665c54",
-    skeletonSeparatorText: "#665c54",
-  },
+const GRUVBOX_DARK_THEME = createTheme({
+  bg: "#282828",
+  subtle: "#665c54",       // bg3
+  rowSelectedBg: "#3c3836", // bg1
+  navigationBg: "#458588",  // blue
+  navigationFg: "#ebdbb2",  // fg (light text on teal nav)
+  text: "#ebdbb2",         // fg
+  brand: "#d3869b",        // bright purple
+  data: "#fabd2f",         // bright yellow
+  structure: "#83a598",    // bright blue
+  location: "#b8bb26",     // bright green
+  danger: "#fb4934",       // bright red
   serviceColors: {
-    s3: { bg: "#fb4934", fg: "#282828" },           // bright red
-    iam: { bg: "#83a598", fg: "#282828" },          // bright blue
-    secretsmanager: { bg: "#d3869b", fg: "#282828" }, // bright purple
-    route53: { bg: "#8ec07c", fg: "#282828" },      // bright aqua
-    dynamodb: { bg: "#b8bb26", fg: "#282828" },     // bright green
+    s3: { bg: "#fb4934", fg: "#282828" },
+    iam: { bg: "#83a598", fg: "#282828" },
+    secretsmanager: { bg: "#d3869b", fg: "#282828" },
+    route53: { bg: "#8ec07c", fg: "#282828" },
+    dynamodb: { bg: "#b8bb26", fg: "#282828" },
   },
-};
+});
 
 // ─── Dracula ──────────────────────────────────────────────────────────────────
 // https://draculatheme.com/contribute
+// Note: upload border/title uses data (yellow) rather than Dracula orange (#ffb86c)
 
-const DRACULA_THEME: ThemeTokens = {
-  global: {
-    mainBg: "#282a36",
-  },
-  table: {
-    tableContainerBg: "#282a36",
-    selectedRowBg: "#44475a",    // Current Line
-    selectedRowText: "#f8f8f2",  // Foreground
-    filterMatchText: "#f1fa8c",  // Yellow
-    filterMatchSelectedText: "#f8f8f2",
-    columnHeaderText: "#8be9fd", // Cyan
-    columnHeaderMarker: "#f1fa8c",
-    rowSeparatorText: "#44475a",
-    emptyStateText: "#f8f8f2",
-    scrollPositionText: "#50fa7b", // Green
-  },
-  hud: {
-    accountNameText: "#ff79c6",  // Pink
-    accountIdText: "#f1fa8c",
-    regionText: "#50fa7b",
-    profileText: "#8be9fd",
-    separatorText: "#6272a4",    // Comment
-    currentIdentityText: "#f1fa8c",
-    pathBarBg: "#bd93f9",        // Purple
-    pathBarText: "#282a36",
-    loadingSpinnerText: "#8be9fd",
-  },
-  modebar: {
-    modeIconText: "#8be9fd",
-    keybindingKeyText: "#f1fa8c",
-    keybindingDescText: "#f8f8f2",
-    keybindingSeparatorText: "#6272a4",
-  },
-  panel: {
-    panelTitleText: "#ff79c6",
-    panelDividerText: "#6272a4",
-    panelHintText: "#f8f8f2",
-    panelScrollIndicatorText: "#8be9fd",
-    detailFieldLabelText: "#8be9fd",
-    defaultBorderText: "#6272a4",
-    helpPanelBorderText: "#8be9fd",
-    yankPanelBorderText: "#8be9fd",
-    detailPanelBorderText: "#6272a4",
-    activeTabBg: "#bd93f9",
-    activeTabText: "#282a36",
-    inactiveTabText: "#6272a4",
-    keyText: "#f1fa8c",
-  },
-  diff: {
-    originalHeaderText: "#ff5555", // Red
-    updatedHeaderText: "#50fa7b",
-    diffDividerText: "#6272a4",
-  },
-  error: {
-    errorBorderText: "#ff5555",
-    errorTitleText: "#ff5555",
-    errorHintText: "#f8f8f2",
-  },
-  upload: {
-    uploadBorderText: "#ffb86c",   // Orange
-    uploadTitleText: "#ffb86c",
-    uploadSubtitleText: "#f8f8f2",
-    uploadDiffDividerText: "#6272a4",
-    uploadConfirmPromptText: "#f8f8f2",
-    uploadLoadingText: "#8be9fd",
-    uploadConfirmKeyText: "#50fa7b",
-    uploadCancelKeyText: "#ff5555",
-  },
-  feedback: {
-    successText: "#50fa7b",
-    promptText: "#8be9fd",
-    confirmText: "#50fa7b",
-  },
-  input: {
-    placeholderText: "#6272a4",
-    suggestionText: "#8be9fd",
-  },
-  skeleton: {
-    skeletonContextLabelText: "#8be9fd",
-    skeletonHeaderText: "#f1fa8c",
-    skeletonDividerText: "#6272a4",
-    skeletonCellText: "#6272a4",
-    skeletonSeparatorText: "#6272a4",
-  },
+const DRACULA_THEME = createTheme({
+  bg: "#282a36",
+  subtle: "#6272a4",       // Comment
+  rowSelectedBg: "#44475a", // Current Line
+  navigationBg: "#bd93f9",  // Purple
+  navigationFg: "#282a36",  // bg (dark text on light nav)
+  text: "#f8f8f2",         // Foreground
+  brand: "#ff79c6",        // Pink
+  data: "#f1fa8c",         // Yellow
+  structure: "#8be9fd",    // Cyan
+  location: "#50fa7b",     // Green
+  danger: "#ff5555",       // Red
   serviceColors: {
-    s3: { bg: "#ff5555", fg: "#282a36" },           // Red
-    iam: { bg: "#bd93f9", fg: "#282a36" },          // Purple
-    secretsmanager: { bg: "#ff79c6", fg: "#282a36" }, // Pink
-    route53: { bg: "#8be9fd", fg: "#282a36" },      // Cyan
-    dynamodb: { bg: "#50fa7b", fg: "#282a36" },     // Green
+    s3: { bg: "#ff5555", fg: "#282a36" },
+    iam: { bg: "#bd93f9", fg: "#282a36" },
+    secretsmanager: { bg: "#ff79c6", fg: "#282a36" },
+    route53: { bg: "#8be9fd", fg: "#282a36" },
+    dynamodb: { bg: "#50fa7b", fg: "#282a36" },
   },
-};
+});
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 

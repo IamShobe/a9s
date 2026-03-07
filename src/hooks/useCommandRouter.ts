@@ -52,39 +52,48 @@ interface UseCommandRouterArgs {
   exit: () => void;
 }
 
-export function useCommandRouter(args: UseCommandRouterArgs) {
+export function useCommandRouter({
+  setSelectedRegion,
+  setSelectedProfile,
+  switchAdapter,
+  openProfilePicker,
+  openRegionPicker,
+  openResourcePicker,
+  openThemePicker,
+  exit,
+}: UseCommandRouterArgs) {
   return useCallback(
     (input: string) => {
       const parsed = parseCommand(input);
       switch (parsed.type) {
         case "openProfiles":
-          args.openProfilePicker();
+          openProfilePicker();
           return;
         case "openRegions":
-          args.openRegionPicker();
+          openRegionPicker();
           return;
         case "openResources":
-          args.openResourcePicker();
+          openResourcePicker();
           return;
         case "openThemePicker":
-          args.openThemePicker();
+          openThemePicker();
           return;
         case "setRegion":
-          args.setSelectedRegion(parsed.region);
+          setSelectedRegion(parsed.region);
           return;
         case "setProfile":
-          args.setSelectedProfile(parsed.profile);
+          setSelectedProfile(parsed.profile);
           return;
         case "quit":
-          args.exit();
+          exit();
           return;
         case "switchService":
-          args.switchAdapter(parsed.serviceId);
+          switchAdapter(parsed.serviceId);
           return;
         case "unknown":
           return;
       }
     },
-    [args],
+    [setSelectedRegion, setSelectedProfile, switchAdapter, openProfilePicker, openRegionPicker, openResourcePicker, openThemePicker, exit],
   );
 }

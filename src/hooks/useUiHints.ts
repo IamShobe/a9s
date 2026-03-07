@@ -58,11 +58,11 @@ export function useUiHints({
   const bottomHint = useMemo(() => {
     switch (uiScope) {
       case "help":
-        return buildScopeHint("help", adapterBindings, 8, context);
+        return buildScopeHint("help", { adapterBindings, context });
       case "picker":
         return pickers.activePicker?.pickerMode === "search"
-          ? buildScopeHint("search", adapterBindings, 8, context)
-          : buildScopeHint("picker", adapterBindings, 8, context);
+          ? buildScopeHint("search", { adapterBindings, context })
+          : buildScopeHint("picker", { adapterBindings, context });
       case "adapter-action":
         if (pendingAction?.effect.type === "prompt") {
           return " Enter value  •  Esc cancel";
@@ -72,17 +72,17 @@ export function useUiHints({
         }
         return "";
       case "upload":
-        return buildScopeHint("upload", adapterBindings, 8, context);
+        return buildScopeHint("upload", { adapterBindings, context });
       case "details":
-        return buildScopeHint("details", adapterBindings, 8, context);
+        return buildScopeHint("details", { adapterBindings, context });
       case "yank":
         return ` ${yankHint}`;
       case "search":
-        return buildScopeHint("search", adapterBindings, 8, context);
+        return buildScopeHint("search", { adapterBindings, context });
       case "command":
         return COMMAND_MODE_HINT;
       case "navigate":
-        return buildScopeHint("navigate", adapterBindings, 8, context);
+        return buildScopeHint("navigate", { adapterBindings, context });
       default:
         return "";
     }

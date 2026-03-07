@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { Key } from "ink";
 import {
   applyAdvancedInputEdit,
   decodeAltWordDirection,
@@ -7,28 +6,7 @@ import {
   moveCursorWordRight,
   isAltBackspaceSignal,
 } from "./AdvancedTextInput.js";
-
-function makeKey(patch: Partial<Key> = {}): Key {
-  return {
-    upArrow: false,
-    downArrow: false,
-    leftArrow: false,
-    rightArrow: false,
-    pageDown: false,
-    pageUp: false,
-    home: false,
-    end: false,
-    return: false,
-    escape: false,
-    ctrl: false,
-    shift: false,
-    tab: false,
-    backspace: false,
-    delete: false,
-    meta: false,
-    ...patch,
-  } as Key;
-}
+import { key as makeKey } from "../testing/keyFixtures.js";
 
 describe("AdvancedTextInput helpers", () => {
   it("moves by words left and right across spaces/punctuation", () => {

@@ -11,7 +11,7 @@ interface YankHelpPanelProps {
 }
 
 export function YankHelpPanel({ options, row }: YankHelpPanelProps) {
-  const THEME = useTheme();
+  const theme = useTheme();
   const [resolvedValues, setResolvedValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -57,11 +57,11 @@ export function YankHelpPanel({ options, row }: YankHelpPanelProps) {
   return (
     <Box flexDirection="column" paddingX={1} paddingY={0} flexGrow={1}>
       <Box gap={2}>
-        <Text bold color={THEME.panel.panelTitleText}>Yank</Text>
-        <Text color={THEME.panel.panelDividerText}>Press key to copy · Esc to close</Text>
+        <Text bold color={theme.panel.panelTitleText}>Yank</Text>
+        <Text color={theme.panel.panelDividerText}>Press key to copy · Esc to close</Text>
       </Box>
-      <Text color={THEME.panel.panelDividerText}>{"─".repeat(36)}</Text>
-      {!row && <Text color={THEME.error.errorTitleText}>No row selected</Text>}
+      <Text color={theme.panel.panelDividerText}>{"─".repeat(36)}</Text>
+      {!row && <Text color={theme.error.errorTitleText}>No row selected</Text>}
       {options.map((option) => {
         const id = `${option.label}-${triggerToString(option.trigger)}`;
         const raw = resolvedValues[id];
@@ -74,9 +74,9 @@ export function YankHelpPanel({ options, row }: YankHelpPanelProps) {
           : "(no value)";
         return (
           <Box key={id}>
-            <Text color={THEME.panel.keyText} bold>{triggerToString(option.trigger).padEnd(5)}</Text>
-            <Text color={THEME.panel.panelHintText}>{option.label.padEnd(16)}</Text>
-            <Text color={THEME.panel.panelDividerText}>{"→ "}</Text>
+            <Text color={theme.panel.keyText} bold>{triggerToString(option.trigger).padEnd(5)}</Text>
+            <Text color={theme.panel.panelHintText}>{option.label.padEnd(16)}</Text>
+            <Text color={theme.panel.panelDividerText}>{"→ "}</Text>
             <Text>{displayValue}</Text>
           </Box>
         );

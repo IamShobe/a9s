@@ -3,7 +3,7 @@ import type {
   DetailField,
 } from "../../../adapters/capabilities/DetailCapability.js";
 import type { TableRow } from "../../../types.js";
-import { getCellValue } from "../../../types.js";
+import { getCellLabel } from "../../../types.js";
 import { runAwsJsonAsync } from "../../../utils/aws.js";
 import { safeString, formatDate } from "../utils.js";
 import type { IamLevel, IamRowMeta, AwsRole, AwsManagedPolicy } from "../types.js";
@@ -64,7 +64,7 @@ export function createIamDetailCapability(_getLevel: () => IamLevel): DetailCapa
         {
           label: "Statements",
           value: safeString(
-            (data.PolicyDocument as Record<string, unknown>)?.["Statement"] as unknown,
+            (data.PolicyDocument as Record<string, unknown>)?.["Statement"],
           ),
         },
       ];
@@ -95,7 +95,7 @@ export function createIamDetailCapability(_getLevel: () => IamLevel): DetailCapa
       ];
     }
 
-    const label = getCellValue(row.cells.name) ?? row.id;
+    const label = getCellLabel(row.cells.name) ?? row.id;
     return [
       { label: "Name", value: label },
       { label: "Type", value: safeString(meta?.type ?? "Item") },

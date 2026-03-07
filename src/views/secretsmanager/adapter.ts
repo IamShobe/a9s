@@ -13,13 +13,14 @@ import { createSecretsManagerEditCapability } from "./capabilities/editCapabilit
 import { getSecretValue } from "./client.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
+import { debugLog } from "../../utils/debugLogger.js";
 
 interface SecretNavFrame extends NavFrame {
   level: SecretLevel;
 }
 
-export const secretLevelAtom = atom<SecretLevel>({ kind: "secrets" });
-export const secretBackStackAtom = atom<SecretNavFrame[]>([]);
+export const secretsManagerLevelAtom = atom<SecretLevel>({ kind: "secrets" });
+export const secretsManagerBackStackAtom = atom<SecretNavFrame[]>([]);
 
 function tryParseFields(secretString: string): Record<string, string> | null {
   try {
@@ -41,10 +42,10 @@ export function createSecretsManagerServiceAdapter(
   const regionArgs = buildRegionArgs(region);
 
   // Getters and setters for level/backStack from atoms
-  const getLevel = () => store.get(secretLevelAtom);
-  const setLevel = (level: SecretLevel) => store.set(secretLevelAtom, level);
-  const getBackStack = () => store.get(secretBackStackAtom);
-  const setBackStack = (stack: SecretNavFrame[]) => store.set(secretBackStackAtom, stack);
+  const getLevel = () => store.get(secretsManagerLevelAtom);
+  const setLevel = (level: SecretLevel) => store.set(secretsManagerLevelAtom, level);
+  const getBackStack = () => store.get(secretsManagerBackStackAtom);
+  const setBackStack = (stack: SecretNavFrame[]) => store.set(secretsManagerBackStackAtom, stack);
   const setReveal = (reveal: boolean) => store.set(revealSecretsAtom, reveal);
 
   const getColumns = (): ColumnDef[] => {
@@ -128,7 +129,8 @@ export function createSecretsManagerServiceAdapter(
           secretName,
         } satisfies SecretRowMeta,
       }));
-    } catch {
+    } catch (e) {
+      debugLog("secretsmanager", `getRows (fields) failed for ${level.secretName}`, e);
       return [];
     }
   };

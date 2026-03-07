@@ -27,8 +27,8 @@ export function secretCell(displayName: string): Cell {
 }
 
 /** Helper to get cell displayName from Cell or string */
-export function getCellValue(cell: Cell | string): string {
-  return typeof cell === "string" ? cell : cell.displayName;
+export function getCellLabel(cell: Cell): string {
+  return cell.displayName;
 }
 
 export interface NavFrame {
