@@ -1,7 +1,6 @@
 import type { YankOptionDef } from "../../../adapters/capabilities/YankCapability.js";
 import type { SecretRowMeta, SecretLevel } from "../types.js";
-import { runAwsJsonAsync } from "../../../utils/aws.js";
-import type { AwsSecretValue } from "../types.js";
+import { getSecretValue } from "../client.js";
 
 export interface SecretYankCtx {
   region: string | undefined;
@@ -39,15 +38,8 @@ export const secretYankOptions: YankOptionDef<SecretRowMeta, SecretYankCtx>[] = 
     headerKey: "name",
     isRelevant: isSecret,
     resolve: async (row, ctx) => {
-      const regionArgs = ctx.region ? ["--region", ctx.region] : [];
       try {
-        const secretData = await runAwsJsonAsync<AwsSecretValue>([
-          "secretsmanager",
-          "get-secret-value",
-          "--secret-id",
-          row.meta.arn!,
-          ...regionArgs,
-        ]);
+        const secretData = await getSecretValue(row.meta.arn!, ctx.region);
         return secretData.SecretString || null;
       } catch {
         return null;

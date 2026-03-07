@@ -29,6 +29,9 @@ import { buildHelpTabs, triggerToString } from "./constants/keybindings.js";
 import type { InputRuntimeState } from "./hooks/inputEvents.js";
 import { useTheme } from "./contexts/ThemeContext.js";
 import { saveConfig } from "./utils/config.js";
+import { readFile } from "fs/promises";
+import { runAwsJsonAsync } from "./utils/aws.js";
+import { debugLog } from "./utils/debugLogger.js";
 import {
   currentlySelectedServiceAtom,
   selectedRegionAtom,
@@ -39,6 +42,17 @@ import {
 import type { ThemeName } from "./constants/theme.js";
 
 const INITIAL_AWS_PROFILE = process.env.AWS_PROFILE;
+
+/** Convert a theme color to a hex string for OSC 11. Named colors → hex. */
+function toOscColor(color: string): string {
+  if (color.startsWith('#')) return color;
+  const named: Record<string, string> = {
+    black: '#000000', white: '#ffffff', red: '#cc0000',
+    green: '#00cc00', blue: '#0000cc', cyan: '#00cccc',
+    magenta: '#cc00cc', yellow: '#cccc00', gray: '#808080',
+  };
+  return named[color] ?? '#000000';
+}
 
 interface AppProps {
   initialService: ServiceId;
@@ -56,6 +70,14 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const [themeName, setThemeName] = useAtom(themeNameAtom);
   const THEME = useTheme();
 
+  // Paint the terminal's default background so uncolored cells (border chars, gaps) inherit the theme
+  useEffect(() => {
+    process.stdout.write(`\x1b]11;${toOscColor(THEME.global.mainBg)}\x07`);
+    return () => {
+      process.stdout.write(`\x1b]111\x07`); // restore original background on unmount
+    };
+  }, [THEME.global.mainBg]);
+
   // Live theme preview: refs to restore original when picker is cancelled
   const themeNameRef = useRef(themeName);
   themeNameRef.current = themeName; // always in sync, not a dep
@@ -71,7 +93,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const availableProfiles = useAwsProfiles();
 
   const { reset: resetHierarchy, updateCurrentFilter, pushLevel, popLevel } = useHierarchyState();
-  const { state, actions } = useAppController();
+  const { state, actions, yankFeedbackMessage } = useAppController();
 
   useEffect(() => {
     if (selectedProfile === "$default") {
@@ -383,18 +405,16 @@ export function App({ initialService, endpointUrl }: AppProps) {
       setPanelScrollOffset(0);
       void (async () => {
         try {
-          const { readFile } = await import("fs/promises");
           const newContent = await readFile(state.uploadPending!.filePath, "utf-8");
 
           // Try to get old value from adapter (current value from AWS)
           let oldContent = "";
           const meta = state.uploadPending!.metadata;
+          const regionArgs = selectedRegion ? ["--region", selectedRegion] : [];
 
           // For Secrets Manager fields: fetch the current field value
           if (meta.fieldKey && meta.secretArn) {
             try {
-              const { runAwsJsonAsync } = await import("./utils/aws.js");
-              const regionArgs = selectedRegion ? ["--region", selectedRegion] : [];
               const secretData = await runAwsJsonAsync<{
                 SecretString?: string;
               }>([
@@ -419,15 +439,13 @@ export function App({ initialService, endpointUrl }: AppProps) {
                   // Not JSON - oldContent stays empty
                 }
               }
-            } catch {
-              // Failed to fetch
+            } catch (err) {
+              debugLog("App", "upload preview fetch failed (field)", err);
             }
           }
           // For whole secrets: fetch current secret value
           else if (meta.secretArn && !meta.fieldKey) {
             try {
-              const { runAwsJsonAsync } = await import("./utils/aws.js");
-              const regionArgs = selectedRegion ? ["--region", selectedRegion] : [];
               const secretData = await runAwsJsonAsync<{
                 SecretString?: string;
               }>([
@@ -439,13 +457,14 @@ export function App({ initialService, endpointUrl }: AppProps) {
               ]);
 
               oldContent = secretData.SecretString || "";
-            } catch {
-              // Failed to fetch
+            } catch (err) {
+              debugLog("App", "upload preview fetch failed (secret)", err);
             }
           }
 
           setUploadPreview({ old: oldContent, new: newContent });
-        } catch {
+        } catch (err) {
+          debugLog("App", "upload preview load failed", err);
           setUploadPreview({ old: "", new: "[Unable to load preview]" });
         }
       })();
@@ -611,7 +630,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const activePickerFilter = pickers.activePicker?.filter ?? state.filterText;
 
   return (
-    <FullscreenBox>
+    <FullscreenBox backgroundColor={THEME.global.mainBg}>
       <Box flexDirection="column" width={termCols} height={termRows} backgroundColor={THEME.global.mainBg}>
         <HUD
           serviceLabel={adapter.label}
@@ -625,7 +644,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           terminalWidth={termCols}
           loading={isLoading || Boolean(state.describeState?.loading)}
         />
-        <Box flexDirection="row" width="100%" flexGrow={1}>
+        <Box flexDirection="row" width="100%" flexGrow={1} backgroundColor={THEME.global.mainBg}>
           <AppMainView
             helpPanel={helpPanel}
             helpTabs={helpTabs}
@@ -650,9 +669,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
             {...(yankHeaderMarkers ? { headerMarkers: yankHeaderMarkers } : {})}
           />
         </Box>
-        {!helpPanel.helpOpen && state.yankFeedbackMessage && (
+        {!helpPanel.helpOpen && yankFeedbackMessage && (
           <Box paddingX={1}>
-            <Text color={THEME.feedback.successText}>{state.yankFeedbackMessage}</Text>
+            <Text color={THEME.feedback.successText}>{yankFeedbackMessage}</Text>
           </Box>
         )}
         {state.pendingAction && state.pendingAction.effect.type === "prompt" && (

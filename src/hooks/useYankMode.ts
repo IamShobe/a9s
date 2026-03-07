@@ -1,32 +1,17 @@
-import { useState, useCallback, useEffect } from "react";
-
-export interface YankFeedback {
-  message: string;
-  timer: NodeJS.Timeout;
-}
+import { useState } from "react";
+import { useTimedFeedback } from "./useTimedFeedback.js";
 
 export function useYankMode() {
   const [yankMode, setYankMode] = useState(false);
-  const [yankFeedback, setYankFeedback] = useState<YankFeedback | null>(null);
+  const { feedback, pushFeedback: pushYankFeedback, clearFeedback: clearYankFeedback } = useTimedFeedback(1500);
 
-  useEffect(() => {
-    return () => {
-      if (yankFeedback?.timer) clearTimeout(yankFeedback.timer);
-    };
-  }, [yankFeedback]);
-
-  const pushYankFeedback = useCallback((message: string, durationMs = 1500) => {
-    const timer = setTimeout(() => setYankFeedback(null), durationMs);
-    setYankFeedback({ message, timer });
-  }, []);
-
-  const clearYankFeedback = useCallback(() => setYankFeedback(null), []);
+  // Expose feedback in the same shape callers might expect
+  const yankFeedback = feedback ? { message: feedback } : null;
 
   return {
     yankMode,
     setYankMode,
     yankFeedback,
-    setYankFeedback,
     pushYankFeedback,
     clearYankFeedback,
   };

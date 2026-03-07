@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { useTheme } from "../contexts/ThemeContext.js";
+import { truncateNoPad } from "../utils/textUtils.js";
 
 interface HUDProps {
   serviceLabel: string;
@@ -42,9 +43,6 @@ export function HUD({
     return () => clearInterval(timer);
   }, [loading]);
 
-  const truncate = (value: string, max: number) =>
-    value.length > max ? `${value.slice(0, Math.max(1, max - 1))}…` : value;
-
   const nameMaxLen = Math.max(8, terminalWidth - 44);
   const compactName =
     accountName.length > nameMaxLen ? `${accountName.slice(0, nameMaxLen - 1)}…` : accountName;
@@ -53,7 +51,7 @@ export function HUD({
   const leftTopRaw = `${compactName}${idPart}·${region}·${profilePart}`;
   const spinnerWidth = loading ? 1 : 0;
   const topPadLen = Math.max(0, terminalWidth - leftTopRaw.length - spinnerWidth);
-  const identityLine = truncate(currentIdentity || "-", Math.max(1, terminalWidth));
+  const identityLine = truncateNoPad(currentIdentity || "-", Math.max(1, terminalWidth));
   const identityPadLen = Math.max(0, terminalWidth - identityLine.length);
   const label = ` ${serviceLabel.toUpperCase()} `;
   const pathDisplay = ` ${path} `;

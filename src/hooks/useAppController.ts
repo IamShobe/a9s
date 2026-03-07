@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useMemo, useReducer } from "react";
 import type { SetStateAction } from "react";
 import type { AppMode, TableRow } from "../types.js";
 import type { DetailField } from "../adapters/ServiceAdapter.js";
 import type { PendingAction } from "./usePendingAction.js";
+import { useTimedFeedback } from "./useTimedFeedback.js";
 
 export interface UploadPending {
   filePath: string;
@@ -24,7 +25,6 @@ export interface AppControllerState {
   commandCursorToEndToken: number;
   yankMode: boolean;
   yankHelpOpen: boolean;
-  yankFeedbackMessage: string | null;
   uploadPending: UploadPending | null;
   describeState: DescribeState | null;
   pendingAction: PendingAction | null;
@@ -38,7 +38,6 @@ type AppControllerAction =
   | { type: "bumpCommandCursorToEnd" }
   | { type: "setYankMode"; value: boolean }
   | { type: "setYankHelpOpen"; value: boolean }
-  | { type: "setYankFeedback"; value: string | null }
   | { type: "setUploadPending"; value: UploadPending | null }
   | { type: "setDescribeState"; value: SetStateAction<DescribeState | null> }
   | { type: "setPendingAction"; value: PendingAction | null }
@@ -52,7 +51,6 @@ export const initialAppControllerState: AppControllerState = {
   commandCursorToEndToken: 0,
   yankMode: false,
   yankHelpOpen: false,
-  yankFeedbackMessage: null,
   uploadPending: null,
   describeState: null,
   pendingAction: null,
@@ -80,8 +78,6 @@ export function appControllerReducer(
       return { ...state, yankMode: action.value };
     case "setYankHelpOpen":
       return { ...state, yankHelpOpen: action.value };
-    case "setYankFeedback":
-      return { ...state, yankFeedbackMessage: action.value };
     case "setUploadPending":
       return { ...state, uploadPending: action.value };
     case "setDescribeState":
@@ -109,20 +105,7 @@ export function appControllerReducer(
 
 export function useAppController() {
   const [state, dispatch] = useReducer(appControllerReducer, initialAppControllerState);
-  const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const clearFeedbackTimer = useCallback(() => {
-    if (feedbackTimerRef.current) {
-      clearTimeout(feedbackTimerRef.current);
-      feedbackTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      clearFeedbackTimer();
-    };
-  }, [clearFeedbackTimer]);
+  const { feedback: yankFeedbackMessage, pushFeedback, clearFeedback } = useTimedFeedback(1500);
 
   const actions = useMemo(
     () => ({
@@ -141,24 +124,15 @@ export function useAppController() {
       setPendingAction: (value: PendingAction | null) =>
         dispatch({ type: "setPendingAction", value }),
       setPendingInputValue: (value: string) => dispatch({ type: "setPendingInputValue", value }),
-      clearFeedback: () => {
-        clearFeedbackTimer();
-        dispatch({ type: "setYankFeedback", value: null });
-      },
-      pushFeedback: (message: string, durationMs = 1500) => {
-        clearFeedbackTimer();
-        dispatch({ type: "setYankFeedback", value: message });
-        feedbackTimerRef.current = setTimeout(() => {
-          dispatch({ type: "setYankFeedback", value: null });
-          feedbackTimerRef.current = null;
-        }, durationMs);
-      },
+      clearFeedback,
+      pushFeedback,
     }),
-    [clearFeedbackTimer],
+    [clearFeedback, pushFeedback],
   );
 
   return {
     state,
     actions,
+    yankFeedbackMessage,
   };
 }

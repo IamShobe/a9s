@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { useTheme } from "../contexts/ThemeContext.js";
+import { clampScrollOffset, scrollIndicators } from "../utils/scrollUtils.js";
 
 interface DiffViewerProps {
   oldValue: string;
@@ -15,15 +16,10 @@ export function DiffViewer({ oldValue, newValue, scrollOffset, visibleLines }: D
   const newLines = newValue.split("\n");
   const maxLines = Math.max(oldLines.length, newLines.length);
 
-  // Clamp scrollOffset to valid range
-  const clampedOffset = Math.max(0, Math.min(scrollOffset, Math.max(0, maxLines - visibleLines)));
-
-  // Show visible lines only
+  const clampedOffset = clampScrollOffset(scrollOffset, maxLines, visibleLines);
   const oldDisplay = oldLines.slice(clampedOffset, clampedOffset + visibleLines).join("\n");
   const newDisplay = newLines.slice(clampedOffset, clampedOffset + visibleLines).join("\n");
-
-  const hasMoreAbove = clampedOffset > 0;
-  const hasMoreBelow = clampedOffset + visibleLines < maxLines;
+  const { hasMoreAbove, hasMoreBelow } = scrollIndicators(clampedOffset, maxLines, visibleLines);
 
   // Calculate column width
   const colWidth = 35;

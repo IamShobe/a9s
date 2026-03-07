@@ -6,6 +6,7 @@ import { useServiceView } from "./useServiceView.js";
 import { useNavigation } from "./useNavigation.js";
 import { usePickerManager } from "./usePickerManager.js";
 import { debugLog } from "../utils/debugLogger.js";
+import { filterRowsByText } from "../utils/rowUtils.js";
 import type { AwsRegionOption } from "./useAwsRegions.js";
 import type { AwsProfileOption } from "./useAwsProfiles.js";
 
@@ -44,16 +45,7 @@ export function useAppData({
     });
   }, [rows.length, isLoading, adapter.id]);
 
-  const filteredRows = useMemo(() => {
-    if (!filterText) return rows;
-    const lowerFilter = filterText.toLowerCase();
-    return rows.filter((row) =>
-      Object.values(row.cells).some((cell) => {
-        const value = typeof cell === "string" ? cell : cell.displayName;
-        return value.toLowerCase().includes(lowerFilter);
-      }),
-    );
-  }, [filterText, rows]);
+  const filteredRows = useMemo(() => filterRowsByText(rows, filterText), [filterText, rows]);
 
   const navigation = useNavigation(filteredRows.length, tableHeight);
   const selectedRow = filteredRows[navigation.selectedIndex] ?? null;

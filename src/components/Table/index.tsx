@@ -4,6 +4,7 @@ import type { ColumnDef, TableRow } from "../../types.js";
 import { computeColumnWidths } from "./widths.js";
 import { useTheme } from "../../contexts/ThemeContext.js";
 import type { ThemeTokens } from "../../constants/theme.js";
+import { truncate, truncateNoPad } from "../../utils/textUtils.js";
 
 interface TableProps {
   columns: ColumnDef[];
@@ -17,17 +18,6 @@ interface TableProps {
   headerMarkers?: Record<string, string[]>;
 }
 
-function truncate(str: string, maxLen: number): string {
-  if (str.length <= maxLen) return str.padEnd(maxLen);
-  return str.slice(0, maxLen - 1) + "…";
-}
-
-function truncateNoPad(str: string, maxLen: number): string {
-  if (maxLen <= 0) return "";
-  if (str.length <= maxLen) return str;
-  if (maxLen === 1) return "…";
-  return str.slice(0, maxLen - 1) + "…";
-}
 
 function highlightMatch(
   text: string,

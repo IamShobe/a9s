@@ -3,6 +3,11 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+/** Build optional --region args for AWS CLI calls. */
+export function buildRegionArgs(region?: string): string[] {
+  return region ? ["--region", region] : [];
+}
+
 /**
  * Run an AWS CLI command asynchronously. Returns stdout or null on error/timeout.
  */

@@ -1,15 +1,17 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell, secretCell } from "../../types.js";
-import { runAwsJsonAsync } from "../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
 import { atom } from "jotai";
 import { getDefaultStore } from "jotai";
-import type { AwsSecret, AwsSecretValue, SecretRowMeta, SecretLevel } from "./types.js";
+import type { AwsSecret, SecretRowMeta, SecretLevel } from "./types.js";
 import { revealSecretsAtom } from "../../state/atoms.js";
 import { createSecretsManagerDetailCapability } from "./capabilities/detailCapability.js";
 import { createSecretsManagerYankCapability } from "./capabilities/yankCapability.js";
 import { createSecretsManagerActionCapability } from "./capabilities/actionCapability.js";
 import { createSecretsManagerEditCapability } from "./capabilities/editCapability.js";
+import { getSecretValue } from "./client.js";
+import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
 
 interface SecretNavFrame extends NavFrame {
@@ -36,7 +38,7 @@ export function createSecretsManagerServiceAdapter(
   region?: string,
 ): ServiceAdapter {
   const store = getDefaultStore();
-  const regionArgs = region ? ["--region", region] : [];
+  const regionArgs = buildRegionArgs(region);
 
   // Getters and setters for level/backStack from atoms
   const getLevel = () => store.get(secretLevelAtom);
@@ -95,13 +97,7 @@ export function createSecretsManagerServiceAdapter(
     // secret-fields level
     const { secretArn, secretName } = level;
     try {
-      const secretData = await runAwsJsonAsync<AwsSecretValue>([
-        "secretsmanager",
-        "get-secret-value",
-        "--secret-id",
-        secretArn,
-        ...regionArgs,
-      ]);
+      const secretData = await getSecretValue(secretArn, region);
 
       const secretString = secretData.SecretString || "";
       const fields: Array<{ key: string; value: string }> = [];
@@ -164,17 +160,7 @@ export function createSecretsManagerServiceAdapter(
     return { action: "none" };
   };
 
-  const canGoBack = (): boolean => getBackStack().length > 0;
-
-  const goBack = (): void => {
-    const backStack = getBackStack();
-    if (backStack.length > 0) {
-      const newStack = backStack.slice(0, -1);
-      const frame = backStack[backStack.length - 1];
-      setBackStack(newStack);
-      setLevel(frame.level);
-    }
-  };
+  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
 
   const getPath = (): string => {
     const level = getLevel();
