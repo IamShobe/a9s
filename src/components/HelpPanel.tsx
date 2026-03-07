@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { useTheme } from "../contexts/ThemeContext.js";
+import { truncateNoPad } from "../utils/textUtils.js";
 
 export interface HelpItem {
   key: string;
@@ -22,11 +23,6 @@ interface HelpPanelProps {
   scrollOffset: number;
 }
 
-function truncate(text: string, maxLen: number): string {
-  if (text.length <= maxLen) return text;
-  if (maxLen <= 1) return "…";
-  return `${text.slice(0, maxLen - 1)}…`;
-}
 
 export function HelpPanel({
   title,
@@ -45,7 +41,7 @@ export function HelpPanel({
   const tabRow: Array<{ idx: number; label: string }> = [];
   let rowWidth = 0;
   for (let idx = 0; idx < tabs.length; idx += 1) {
-    const shortTitle = truncate(tabs[idx]?.title ?? "Tab", 10);
+    const shortTitle = truncateNoPad(tabs[idx]?.title ?? "Tab", 10);
     const label = ` ${idx + 1}:${shortTitle} `;
     if (rowWidth + label.length > maxTabRowWidth) break;
     tabRow.push({ idx, label });
@@ -81,9 +77,9 @@ export function HelpPanel({
         {visibleItems.map((item, idx) => (
           <Box key={`${item.key}-${scrollOffset + idx}`}>
             <Text color={THEME.panel.keyText} bold>
-              {truncate(item.key, keyColWidth).padEnd(keyColWidth)}
+              {truncateNoPad(item.key, keyColWidth).padEnd(keyColWidth)}
             </Text>
-            <Text>{truncate(item.description, descColWidth)}</Text>
+            <Text>{truncateNoPad(item.description, descColWidth)}</Text>
           </Box>
         ))}
       </Box>

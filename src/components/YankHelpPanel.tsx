@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text } from "ink";
-import { Alert, Badge, StatusMessage, UnorderedList } from "@inkjs/ui";
 import type { YankOption } from "../adapters/capabilities/YankCapability.js";
 import { triggerToString } from "../constants/keybindings.js";
 import type { TableRow } from "../types.js";
@@ -53,30 +52,35 @@ export function YankHelpPanel({ options, row }: YankHelpPanelProps) {
     };
   }, [options, row]);
 
+  const MAX_VALUE_LEN = 45;
+
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Alert variant="info" title="Yank Options">
-        Press key to copy, Esc or ? to close
-      </Alert>
-      <Box height={1} />
-      {!row && <StatusMessage variant="warning">No row selected</StatusMessage>}
-      <UnorderedList>
-        {options.map((option) => (
-          <UnorderedList.Item key={`${option.label}-${triggerToString(option.trigger)}`}>
-            <Box flexDirection="column">
-              <Box>
-                <Badge color={THEME.panel.keyText}>{triggerToString(option.trigger)}</Badge>
-                <Text> {option.label}</Text>
-              </Box>
-              <Text color={THEME.panel.panelHintText}>
-                {row
-                  ? `  -> ${resolvedValues[`${option.label}-${triggerToString(option.trigger)}`] ?? "(loading...)"}`
-                  : "  -> (no value)"}
-              </Text>
-            </Box>
-          </UnorderedList.Item>
-        ))}
-      </UnorderedList>
+    <Box flexDirection="column" paddingX={1} paddingY={0} flexGrow={1}>
+      <Box gap={2}>
+        <Text bold color={THEME.panel.panelTitleText}>Yank</Text>
+        <Text color={THEME.panel.panelDividerText}>Press key to copy · Esc to close</Text>
+      </Box>
+      <Text color={THEME.panel.panelDividerText}>{"─".repeat(36)}</Text>
+      {!row && <Text color={THEME.error.errorTitleText}>No row selected</Text>}
+      {options.map((option) => {
+        const id = `${option.label}-${triggerToString(option.trigger)}`;
+        const raw = resolvedValues[id];
+        const displayValue = row
+          ? raw != null
+            ? raw.length > MAX_VALUE_LEN
+              ? raw.slice(0, MAX_VALUE_LEN - 1) + "…"
+              : raw
+            : "(loading…)"
+          : "(no value)";
+        return (
+          <Box key={id}>
+            <Text color={THEME.panel.keyText} bold>{triggerToString(option.trigger).padEnd(5)}</Text>
+            <Text color={THEME.panel.panelHintText}>{option.label.padEnd(16)}</Text>
+            <Text color={THEME.panel.panelDividerText}>{"→ "}</Text>
+            <Text>{displayValue}</Text>
+          </Box>
+        );
+      })}
     </Box>
   );
 }

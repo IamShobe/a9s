@@ -1,17 +1,15 @@
 import type { EditCapability } from "../../../adapters/capabilities/EditCapability.js";
 import type { TableRow, SelectResult } from "../../../types.js";
-import { runAwsJsonAsync } from "../../../utils/aws.js";
 import { readFile, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import type { AwsSecretValue, SecretRowMeta, SecretLevel } from "../types.js";
+import { getSecretValue, putSecretValue } from "../client.js";
+import type { SecretRowMeta, SecretLevel } from "../types.js";
 
 export function createSecretsManagerEditCapability(
   region?: string,
   getLevel?: () => SecretLevel,
 ): EditCapability {
-  const regionArgs = region ? ["--region", region] : [];
-
   const onEdit = async (row: TableRow): Promise<SelectResult> => {
     const level = getLevel?.();
     const meta = row.meta as SecretRowMeta | undefined;
@@ -22,14 +20,7 @@ export function createSecretsManagerEditCapability(
 
     // Level 1: open secret in editor (both JSON and non-JSON)
     if (level?.kind === "secrets" && meta.type === "secret") {
-      // Fetch secret value
-      const secretData = await runAwsJsonAsync<AwsSecretValue>([
-        "secretsmanager",
-        "get-secret-value",
-        "--secret-id",
-        meta.arn!,
-        ...regionArgs,
-      ]);
+      const secretData = await getSecretValue(meta.arn!, region);
 
       const secretString = secretData.SecretString || "";
       const safeName = meta.name!.replace(/[^a-z0-9_-]/gi, "_");
@@ -76,15 +67,7 @@ export function createSecretsManagerEditCapability(
       if (fieldKey && secretArn) {
         const newContent = await readFile(filePath, "utf-8");
 
-        // Fetch entire secret
-        const secretData = await runAwsJsonAsync<AwsSecretValue>([
-          "secretsmanager",
-          "get-secret-value",
-          "--secret-id",
-          secretArn,
-          ...regionArgs,
-        ]);
-
+        const secretData = await getSecretValue(secretArn, region);
         const secretString = secretData.SecretString || "";
         let parsed: Record<string, unknown>;
 
@@ -94,36 +77,15 @@ export function createSecretsManagerEditCapability(
           throw new Error("Failed to parse secret JSON");
         }
 
-        // Update field
         parsed[fieldKey] = newContent;
-
-        // Put secret back
-        const updatedSecretString = JSON.stringify(parsed);
-        await runAwsJsonAsync([
-          "secretsmanager",
-          "put-secret-value",
-          "--secret-id",
-          secretArn,
-          "--secret-string",
-          updatedSecretString,
-          ...regionArgs,
-        ]);
+        await putSecretValue(secretArn, JSON.stringify(parsed), region);
         return;
       }
 
       // Level 1: Update entire secret (JSON or non-JSON)
       if (secretArn && !fieldKey) {
         const newContent = await readFile(filePath, "utf-8");
-
-        await runAwsJsonAsync([
-          "secretsmanager",
-          "put-secret-value",
-          "--secret-id",
-          secretArn,
-          "--secret-string",
-          newContent,
-          ...regionArgs,
-        ]);
+        await putSecretValue(secretArn, newContent, region);
         return;
       }
     } catch (err) {

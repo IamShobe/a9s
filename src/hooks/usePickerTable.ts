@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { TableRow } from "../types.js";
 import { useNavigation } from "./useNavigation.js";
+import { filterRowsByText } from "../utils/rowUtils.js";
 
 interface UsePickerTableArgs {
   rows: TableRow[];
@@ -9,16 +10,7 @@ interface UsePickerTableArgs {
 }
 
 export function usePickerTable({ rows, filterText, maxHeight }: UsePickerTableArgs) {
-  const filteredRows = useMemo(() => {
-    if (!filterText) return rows;
-    const lower = filterText.toLowerCase();
-    return rows.filter((row) =>
-      Object.values(row.cells).some((cell) => {
-        const value = typeof cell === "string" ? cell : cell.displayName;
-        return value.toLowerCase().includes(lower);
-      }),
-    );
-  }, [filterText, rows]);
+  const filteredRows = useMemo(() => filterRowsByText(rows, filterText), [filterText, rows]);
 
   const nav = useNavigation(filteredRows.length, maxHeight);
   const selectedRow = filteredRows[nav.selectedIndex] ?? null;

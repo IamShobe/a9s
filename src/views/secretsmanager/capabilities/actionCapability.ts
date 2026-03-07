@@ -4,31 +4,16 @@ import type {
   ActionContext,
   ActionEffect,
 } from "../../../adapters/capabilities/ActionCapability.js";
-import { runAwsJsonAsync } from "../../../utils/aws.js";
+import { toErrorMessage, hasCode } from "../../../utils/errorHelpers.js";
+import { getSecretValue } from "../client.js";
 import { writeFile, stat, mkdir } from "fs/promises";
 import { resolve, join } from "path";
-import type { AwsSecretValue, SecretRowMeta, SecretLevel } from "../types.js";
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
-
-function hasCode(error: unknown, code: string): boolean {
-  return Boolean(
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === code,
-  );
-}
+import type { SecretRowMeta, SecretLevel } from "../types.js";
 
 export function createSecretsManagerActionCapability(
   region?: string,
   getLevel?: () => SecretLevel,
 ): ActionCapability {
-  const regionArgs = region ? ["--region", region] : [];
-
   const getKeybindings = (): AdapterKeyBinding[] => [
     {
       trigger: { type: "key", char: "f" },
@@ -83,15 +68,7 @@ export function createSecretsManagerActionCapability(
 
       try {
         if (level?.kind === "secrets" && meta.type === "secret") {
-          // Fetch secret value
-          const secretData = await runAwsJsonAsync<AwsSecretValue>([
-            "secretsmanager",
-            "get-secret-value",
-            "--secret-id",
-            meta.arn!,
-            ...regionArgs,
-          ]);
-
+          const secretData = await getSecretValue(meta.arn!, region);
           content =
             secretData.SecretString ||
             (secretData.SecretBinary
@@ -99,7 +76,6 @@ export function createSecretsManagerActionCapability(
               : "");
           defaultFileName = `${meta.name}.txt`;
         } else if (level?.kind === "secret-fields" && meta.type === "secret-field") {
-          // Use field value directly
           content = meta.value || "";
           defaultFileName = `${meta.key!}.txt`;
         } else {
@@ -108,7 +84,6 @@ export function createSecretsManagerActionCapability(
 
         const destinationPath = context.data.path as string;
 
-        // Handle destination path
         const rawTarget = destinationPath.trim();
         const absTarget = resolve(rawTarget);
         const endsWithSlash = rawTarget.endsWith("/") || rawTarget.endsWith("\\");
@@ -127,7 +102,6 @@ export function createSecretsManagerActionCapability(
           }
         }
 
-        // Ensure parent directory exists
         await mkdir(resolve(finalPath, ".."), { recursive: true });
         await writeFile(finalPath, content, { mode: 0o600 });
 
@@ -136,7 +110,6 @@ export function createSecretsManagerActionCapability(
           message: `Saved to ${finalPath}`,
         };
       } catch (err) {
-        // Check for file exists error
         if (hasCode(err, "EEXIST")) {
           const destinationPath = context.data.path as string;
           return {
@@ -163,7 +136,6 @@ export function createSecretsManagerActionCapability(
     }
 
     if (actionId === "fetch:overwrite") {
-      // User confirmed overwrite
       if (!context.row || !context.data?.path) {
         return { type: "error", message: "Invalid path" };
       }
@@ -179,22 +151,13 @@ export function createSecretsManagerActionCapability(
         let content = "";
 
         if (level?.kind === "secrets" && meta.type === "secret") {
-          // Fetch secret value
-          const secretData = await runAwsJsonAsync<AwsSecretValue>([
-            "secretsmanager",
-            "get-secret-value",
-            "--secret-id",
-            meta.arn!,
-            ...regionArgs,
-          ]);
-
+          const secretData = await getSecretValue(meta.arn!, region);
           content =
             secretData.SecretString ||
             (secretData.SecretBinary
               ? Buffer.from(secretData.SecretBinary, "base64").toString()
               : "");
         } else if (level?.kind === "secret-fields" && meta.type === "secret-field") {
-          // Use field value directly
           content = meta.value || "";
         } else {
           return { type: "error", message: "Invalid item type" };

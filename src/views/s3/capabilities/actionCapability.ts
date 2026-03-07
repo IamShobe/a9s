@@ -9,20 +9,7 @@ import type {
 import { downloadObjectToPath } from "../fetcher.js";
 import { toParentPrefix } from "../utils.js";
 import type { S3Level } from "../adapter.js";
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
-
-function hasCode(error: unknown, code: string): boolean {
-  return Boolean(
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === code,
-  );
-}
+import { toErrorMessage, hasCode } from "../../../utils/errorHelpers.js";
 
 export function createS3ActionCapability(
   client: S3Client,

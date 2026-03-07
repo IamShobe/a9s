@@ -1,7 +1,8 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
-import { runAwsJsonAsync } from "../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
+import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom } from "jotai";
 import { getDefaultStore } from "jotai";
 import type {
@@ -41,7 +42,7 @@ export function createDynamoDBServiceAdapter(
   region?: string,
 ): ServiceAdapter {
   const store = getDefaultStore();
-  const regionArgs = region ? ["--region", region] : [];
+  const regionArgs = buildRegionArgs(region);
 
   const getLevel = () => store.get(dynamoDBLevelAtom);
   const setLevel = (level: DynamoDBLevel) => store.set(dynamoDBLevelAtom, level);
@@ -338,17 +339,7 @@ export function createDynamoDBServiceAdapter(
     return { action: "none" };
   };
 
-  const canGoBack = (): boolean => getBackStack().length > 0;
-
-  const goBack = (): void => {
-    const backStack = getBackStack();
-    if (backStack.length > 0) {
-      const newStack = backStack.slice(0, -1);
-      const frame = backStack[backStack.length - 1];
-      setBackStack(newStack);
-      setLevel(frame.level);
-    }
-  };
+  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
 
   const getPath = (): string => {
     const level = getLevel();
@@ -366,7 +357,7 @@ export function createDynamoDBServiceAdapter(
 
   // Compose capabilities
   const detailCapability = createDynamoDBDetailCapability(region, getLevel);
-  const yankCapability = createDynamoDBYankCapability(region, getLevel);
+  const yankCapability = createDynamoDBYankCapability();
 
   return {
     id: "dynamodb",

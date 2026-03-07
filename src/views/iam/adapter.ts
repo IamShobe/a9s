@@ -2,6 +2,8 @@ import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import { runAwsJsonAsync } from "../../utils/aws.js";
 import type { ColumnDef, TableRow, SelectResult } from "../../types.js";
 import { textCell } from "../../types.js";
+import { atom } from "jotai";
+import { getDefaultStore } from "jotai";
 import type {
   IamLevel,
   IamNavFrame,
@@ -15,25 +17,25 @@ import { createIamEditCapability } from "./capabilities/editCapability.js";
 import { createIamDetailCapability } from "./capabilities/detailCapability.js";
 import { createIamYankCapability } from "./capabilities/yankCapability.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
+import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
+
+export const iamLevelAtom = atom<IamLevel>({ kind: "root" });
+export const iamBackStackAtom = atom<IamNavFrame[]>([]);
 
 function getIamMeta(row: TableRow): IamRowMeta | undefined {
   return row.meta as IamRowMeta | undefined;
 }
 
 export function createIamServiceAdapter(): ServiceAdapter {
-  let level: IamLevel = { kind: "root" };
-  let backStack: IamNavFrame[] = [];
+  const store = getDefaultStore();
 
-  const getLevel = () => level;
-  const setLevel = (newLevel: IamLevel) => {
-    level = newLevel;
-  };
-  const getBackStack = () => backStack;
-  const setBackStack = (newStack: IamNavFrame[]) => {
-    backStack = newStack;
-  };
+  const getLevel = () => store.get(iamLevelAtom);
+  const setLevel = (newLevel: IamLevel) => store.set(iamLevelAtom, newLevel);
+  const getBackStack = () => store.get(iamBackStackAtom);
+  const setBackStack = (newStack: IamNavFrame[]) => store.set(iamBackStackAtom, newStack);
 
   const getColumns = (): ColumnDef[] => {
+    const level = getLevel();
     switch (level.kind) {
       case "root":
       case "role-menu":
@@ -59,6 +61,7 @@ export function createIamServiceAdapter(): ServiceAdapter {
   };
 
   const getRows = async (): Promise<TableRow[]> => {
+    const level = getLevel();
     switch (level.kind) {
       case "root":
         return [
@@ -85,19 +88,20 @@ export function createIamServiceAdapter(): ServiceAdapter {
           meta: { type: "role", roleName: role.RoleName, arn: role.Arn },
         }));
       }
-      case "role-menu":
+      case "role-menu": {
+        const { roleName } = level;
         return [
           {
-            id: `${level.roleName}::inline`,
+            id: `${roleName}::inline`,
             cells: { name: textCell("Inline Policies"), type: textCell("Role Inline Policies") },
             meta: {
               type: "menu",
               kind: "role-inline-policies",
-              roleName: level.roleName,
+              roleName,
             },
           },
           {
-            id: `${level.roleName}::attached`,
+            id: `${roleName}::attached`,
             cells: {
               name: textCell("Attached Policies"),
               type: textCell("Role Attached Policies"),
@@ -105,10 +109,11 @@ export function createIamServiceAdapter(): ServiceAdapter {
             meta: {
               type: "menu",
               kind: "role-attached-policies",
-              roleName: level.roleName,
+              roleName,
             },
           },
         ];
+      }
       case "role-inline-policies": {
         const { roleName } = level;
         const data = await runAwsJsonAsync<{ PolicyNames?: string[] }>([
@@ -178,6 +183,8 @@ export function createIamServiceAdapter(): ServiceAdapter {
   };
 
   const onSelect = async (row: TableRow): Promise<SelectResult> => {
+    const level = getLevel();
+    const backStack = getBackStack();
     const nextBackStack = [...backStack, { level, selectedIndex: 0 }];
     const meta = getIamMeta(row);
 
@@ -221,16 +228,10 @@ export function createIamServiceAdapter(): ServiceAdapter {
     return { action: "none" };
   };
 
-  const canGoBack = (): boolean => getBackStack().length > 0;
-
-  const goBack = (): void => {
-    const frame = getBackStack()[getBackStack().length - 1];
-    if (!frame) return;
-    setBackStack(getBackStack().slice(0, -1));
-    setLevel(frame.level);
-  };
+  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
 
   const getPath = (): string => {
+    const level = getLevel();
     switch (level.kind) {
       case "root":
         return "iam://";
@@ -248,6 +249,7 @@ export function createIamServiceAdapter(): ServiceAdapter {
   };
 
   const getContextLabel = (): string => {
+    const level = getLevel();
     switch (level.kind) {
       case "root":
         return "🔐 IAM Resources";
@@ -280,6 +282,10 @@ export function createIamServiceAdapter(): ServiceAdapter {
     goBack,
     getPath,
     getContextLabel,
+    reset() {
+      setLevel({ kind: "root" });
+      setBackStack([]);
+    },
     capabilities: {
       edit: editCapability,
       detail: detailCapability,

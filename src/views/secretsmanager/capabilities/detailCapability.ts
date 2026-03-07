@@ -3,15 +3,13 @@ import type {
   DetailField,
 } from "../../../adapters/capabilities/DetailCapability.js";
 import type { TableRow } from "../../../types.js";
-import { runAwsJsonAsync } from "../../../utils/aws.js";
-import type { AwsSecret, SecretRowMeta, SecretLevel } from "../types.js";
+import { describeSecret } from "../client.js";
+import type { SecretRowMeta, SecretLevel } from "../types.js";
 
 export function createSecretsManagerDetailCapability(
   region?: string,
   getLevel?: () => SecretLevel,
 ): DetailCapability {
-  const regionArgs = region ? ["--region", region] : [];
-
   const getDetails = async (row: TableRow): Promise<DetailField[]> => {
     const meta = row.meta as SecretRowMeta | undefined;
     if (!meta) {
@@ -22,13 +20,7 @@ export function createSecretsManagerDetailCapability(
 
     // Level 1: Secret details
     if (level?.kind === "secrets" && meta.type === "secret") {
-      const data = await runAwsJsonAsync<AwsSecret>([
-        "secretsmanager",
-        "describe-secret",
-        "--secret-id",
-        meta.arn!,
-        ...regionArgs,
-      ]);
+      const data = await describeSecret(meta.arn!, region);
 
       const fields: DetailField[] = [
         { label: "Name", value: String(data.Name ?? "-") },

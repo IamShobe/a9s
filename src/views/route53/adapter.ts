@@ -1,7 +1,8 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
-import { runAwsJsonAsync } from "../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
+import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom } from "jotai";
 import { getDefaultStore } from "jotai";
 import type {
@@ -26,7 +27,7 @@ export function createRoute53ServiceAdapter(
   region?: string,
 ): ServiceAdapter {
   const store = getDefaultStore();
-  const regionArgs = region ? ["--region", region] : [];
+  const regionArgs = buildRegionArgs(region);
 
   const getLevel = () => store.get(route53LevelAtom);
   const setLevel = (level: Route53Level) => store.set(route53LevelAtom, level);
@@ -162,17 +163,7 @@ export function createRoute53ServiceAdapter(
     return { action: "none" };
   };
 
-  const canGoBack = (): boolean => getBackStack().length > 0;
-
-  const goBack = (): void => {
-    const backStack = getBackStack();
-    if (backStack.length > 0) {
-      const newStack = backStack.slice(0, -1);
-      const frame = backStack[backStack.length - 1];
-      setBackStack(newStack);
-      setLevel(frame.level);
-    }
-  };
+  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
 
   const getPath = (): string => {
     const level = getLevel();
@@ -188,7 +179,7 @@ export function createRoute53ServiceAdapter(
 
   // Compose capabilities
   const detailCapability = createRoute53DetailCapability(region, getLevel);
-  const yankCapability = createRoute53YankCapability(region, getLevel);
+  const yankCapability = createRoute53YankCapability();
 
   return {
     id: "route53",

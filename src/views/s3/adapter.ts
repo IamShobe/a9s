@@ -6,6 +6,7 @@ import { fetchBuckets, fetchObjects, downloadObject } from "./fetcher.js";
 import type { S3Client } from "@aws-sdk/client-s3";
 import { atom } from "jotai";
 import { getDefaultStore } from "jotai";
+import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { formatSize } from "./utils.js";
 import { createS3EditCapability } from "./capabilities/editCapability.js";
 import { createS3DetailCapability } from "./capabilities/detailCapability.js";
@@ -122,17 +123,7 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
     return { action: "none" };
   };
 
-  const canGoBack = (): boolean => getBackStack().length > 0;
-
-  const goBack = (): void => {
-    const backStack = getBackStack();
-    if (backStack.length > 0) {
-      const newStack = backStack.slice(0, -1);
-      const frame = backStack[backStack.length - 1];
-      setBackStack(newStack);
-      setLevel(frame.level);
-    }
-  };
+  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
 
   const getPath = (): string => {
     const level = getLevel();

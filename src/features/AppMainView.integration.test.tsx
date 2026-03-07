@@ -162,7 +162,7 @@ describe("AppMainView integration", () => {
       />,
     );
 
-    expect(lastFrame()).toContain("Yank Options");
+    expect(lastFrame()).toContain("Yank");
     expect(lastFrame()).toContain("copy name");
   });
 });

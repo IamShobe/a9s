@@ -131,7 +131,7 @@ export function AppMainView({
 
   if (helpPanel.helpOpen) {
     return (
-      <Box width="100%" borderStyle="round" borderColor={THEME.panel.helpPanelBorderText}>
+      <Box width="100%" borderStyle="round" borderColor={THEME.panel.helpPanelBorderText} backgroundColor={THEME.global.mainBg}>
         <HelpPanel
           title="Keyboard Help"
           scopeLabel="All modes reference"
@@ -164,7 +164,7 @@ export function AppMainView({
 
   if (yankHelpOpen) {
     return (
-      <Box width="100%" borderStyle="round" borderColor={THEME.panel.yankPanelBorderText}>
+      <Box width="100%" borderStyle="round" borderColor={THEME.panel.yankPanelBorderText} backgroundColor={THEME.global.mainBg}>
         <YankHelpPanel options={yankOptions} row={yankHelpRow} />
       </Box>
     );
@@ -174,7 +174,7 @@ export function AppMainView({
     // Overhead: border 2 + header 4 + separators 2 + DiffViewer header+divider 2 = 10
     const diffVisibleLines = Math.max(1, tableHeight - 10);
     return (
-      <Box width="100%" borderStyle="round" borderColor={THEME.upload.uploadBorderText} flexDirection="column">
+      <Box width="100%" borderStyle="round" borderColor={THEME.upload.uploadBorderText} backgroundColor={THEME.global.mainBg} flexDirection="column">
         <Box paddingX={1} paddingY={1} flexDirection="column">
           <Text bold color={THEME.upload.uploadTitleText}>
             ⚠ Overwrite Secret on AWS?
@@ -214,7 +214,7 @@ export function AppMainView({
     // Overhead: border 2 + title 1 + separator 1 + footer 2 = 6
     const detailVisibleLines = Math.max(1, tableHeight - 6);
     return (
-      <Box width="100%" borderStyle="round" borderColor={THEME.panel.detailPanelBorderText}>
+      <Box width="100%" borderStyle="round" borderColor={THEME.panel.detailPanelBorderText} backgroundColor={THEME.global.mainBg}>
         <DetailPanel
           title={getCellValue(describeState.row.cells.name) ?? describeState.row.id}
           fields={describeState.fields ?? []}

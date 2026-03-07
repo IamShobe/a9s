@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text } from "ink";
 import type { DetailField } from "../adapters/ServiceAdapter.js";
 import { useTheme } from "../contexts/ThemeContext.js";
+import { clampScrollOffset, scrollIndicators } from "../utils/scrollUtils.js";
 
 interface DetailPanelProps {
   title: string;
@@ -21,16 +22,9 @@ export function DetailPanel({
   const THEME = useTheme();
   const labelWidth = Math.max(...fields.map((f) => f.label.length), 12);
 
-  // Clamp scrollOffset to valid range
-  const clampedOffset = Math.max(
-    0,
-    Math.min(scrollOffset, Math.max(0, fields.length - visibleLines)),
-  );
-
-  // Show visible fields only
+  const clampedOffset = clampScrollOffset(scrollOffset, fields.length, visibleLines);
   const visibleFields = fields.slice(clampedOffset, clampedOffset + visibleLines);
-  const hasMoreAbove = clampedOffset > 0;
-  const hasMoreBelow = clampedOffset + visibleLines < fields.length;
+  const { hasMoreAbove, hasMoreBelow } = scrollIndicators(clampedOffset, fields.length, visibleLines);
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>

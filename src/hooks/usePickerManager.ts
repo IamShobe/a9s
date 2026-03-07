@@ -190,15 +190,8 @@ export function usePickerManager({
     ...themeTable,
   };
 
-  const activePicker = regionEntry.open
-    ? regionEntry
-    : profileEntry.open
-      ? profileEntry
-      : resourceEntry.open
-        ? resourceEntry
-        : themeEntry.open
-          ? themeEntry
-          : null;
+  const activePicker =
+    [regionEntry, profileEntry, resourceEntry, themeEntry].find((e) => e.open) ?? null;
 
   const getEntry = (id: PickerEntry["id"]): PickerEntry => {
     switch (id) {

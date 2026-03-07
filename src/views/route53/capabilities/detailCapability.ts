@@ -1,13 +1,13 @@
 import type { DetailCapability, DetailField } from "../../../adapters/capabilities/DetailCapability.js";
 import type { TableRow } from "../../../types.js";
-import { runAwsJsonAsync } from "../../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs } from "../../../utils/aws.js";
 import type { AwsHostedZone, Route53Level, Route53RowMeta } from "../types.js";
 
 export function createRoute53DetailCapability(
   region?: string,
   getLevel?: () => Route53Level,
 ): DetailCapability {
-  const regionArgs = region ? ["--region", region] : [];
+  const regionArgs = buildRegionArgs(region);
 
   const getDetails = async (row: TableRow): Promise<DetailField[]> => {
     const meta = row.meta as Route53RowMeta | undefined;

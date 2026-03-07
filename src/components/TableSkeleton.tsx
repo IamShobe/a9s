@@ -3,6 +3,7 @@ import { Box, Text } from "ink";
 import type { ColumnDef } from "../types.js";
 import { computeColumnWidths } from "./Table/widths.js";
 import { useTheme } from "../contexts/ThemeContext.js";
+import { truncate } from "../utils/textUtils.js";
 
 interface TableSkeletonProps {
   columns: ColumnDef[];
@@ -15,10 +16,6 @@ function fill(len: number, ch = "░"): string {
   return ch.repeat(Math.max(1, len));
 }
 
-function truncate(str: string, maxLen: number): string {
-  if (str.length <= maxLen) return str.padEnd(maxLen);
-  return str.slice(0, Math.max(1, maxLen - 1)) + "…";
-}
 
 export function TableSkeleton({
   columns,

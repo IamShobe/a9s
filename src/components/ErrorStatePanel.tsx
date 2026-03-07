@@ -11,7 +11,7 @@ interface ErrorStatePanelProps {
 export function ErrorStatePanel({ title, message, hint }: ErrorStatePanelProps) {
   const THEME = useTheme();
   return (
-    <Box width="100%" borderStyle="round" borderColor={THEME.error.errorBorderText}>
+    <Box width="100%" borderStyle="round" borderColor={THEME.error.errorBorderText} backgroundColor={THEME.global.mainBg}>
       <Box flexDirection="column" paddingX={1}>
         <Text bold color={THEME.error.errorTitleText}>
           {title}
