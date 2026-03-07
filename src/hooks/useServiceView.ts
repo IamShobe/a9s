@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useReducer } from "react";
 import { useAtomValue } from "jotai";
 import open from "open";
 import { extname } from "path";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { stat } from "fs/promises";
 import type { ServiceAdapter } from "../adapters/ServiceAdapter.js";
 import type { TableRow, ColumnDef, SelectResult, ServiceViewResult } from "../types.js";
@@ -37,7 +37,6 @@ const TEXT_EXTENSIONS = new Set([
   ".markdown",
   ".rst",
   ".sql",
-  ".sql",
   ".toml",
   ".ini",
   ".env",
@@ -64,12 +63,12 @@ async function openFile(filePath: string): Promise<void> {
       const editor = process.env["EDITOR"] || "vim";
       // execSync blocks and lets editor take full control of terminal
       // Ink will automatically suspend and resume when this completes
-      execSync(`${editor} "${filePath}"`, { stdio: "inherit" });
+      execFileSync(editor, [filePath], { stdio: "inherit" });
     } else {
       await open(filePath);
     }
   } catch (err) {
-    console.error("Failed to open file:", (err as Error).message);
+    debugLog("useServiceView", "Failed to open file:", err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -155,42 +154,30 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
     [beginLoading, endLoading],
   );
 
+  const performFetch = useCallback(async () => {
+    debugLog(adapterId, "fetching rows...");
+    const columns = adapter.getColumns();
+    dispatch({ type: "SET_ERROR", error: null });
+    try {
+      const r = await adapter.getRows();
+      debugLog(adapterId, `got ${r.length} rows from adapter`);
+      dispatch({ type: "SET_DATA", rows: r, columns });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      debugLog(adapterId, "fetch error", message);
+      dispatch({ type: "SET_ERROR", error: message });
+    }
+  }, [adapter, adapterId]);
+
   const refresh = useCallback(async () => {
     debugLog(adapterId, "refresh() called");
-    return runWithLoading(async () => {
-      debugLog(adapterId, "fetching rows...");
-      const columns = adapter.getColumns();
-      dispatch({ type: "SET_ERROR", error: null });
-      try {
-        const r = await adapter.getRows();
-        debugLog(adapterId, `got ${r.length} rows from adapter`);
-        dispatch({ type: "SET_DATA", rows: r, columns });
-      } catch (e) {
-        debugLog(adapterId, "fetch error", (e as Error).message);
-        dispatch({ type: "SET_ERROR", error: (e as Error).message });
-      }
-    }, true);
-  }, [adapter, runWithLoading, adapterId]);
+    return runWithLoading(performFetch);
+  }, [performFetch, runWithLoading, adapterId]);
 
   useEffect(() => {
     debugLog(adapterId, "useEffect: adapter changed, fetching data");
-    void (async () => {
-      dispatch({ type: "BEGIN_LOADING" });
-      dispatch({ type: "SET_ERROR", error: null });
-      debugLog(adapterId, "fetching rows...");
-      const columns = adapter.getColumns();
-      try {
-        const r = await adapter.getRows();
-        debugLog(adapterId, `got ${r.length} rows from adapter`);
-        dispatch({ type: "SET_DATA", rows: r, columns });
-      } catch (e) {
-        debugLog(adapterId, "fetch error", (e as Error).message);
-        dispatch({ type: "SET_ERROR", error: (e as Error).message });
-      } finally {
-        dispatch({ type: "END_LOADING" });
-      }
-    })();
-  }, [adapter, navKey, adapterId]);
+    void runWithLoading(performFetch);
+  }, [adapter, navKey, performFetch, runWithLoading]);
 
   const processResult = useCallback(
     async (result: SelectResult): Promise<ServiceViewResult> => {

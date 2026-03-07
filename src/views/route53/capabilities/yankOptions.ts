@@ -13,7 +13,8 @@ export const Route53YankOptions: YankOptionDef<
     feedback: "Copied zone name",
     isRelevant: (row) => row.meta.type === "zone",
     resolve: async (row) => {
-      return row.meta.zoneName ?? null;
+      if (row.meta.type !== "zone") return null;
+      return row.meta.zoneName;
     },
   },
   {
@@ -22,7 +23,8 @@ export const Route53YankOptions: YankOptionDef<
     feedback: "Copied zone ID",
     isRelevant: (row) => row.meta.type === "zone",
     resolve: async (row) => {
-      return row.meta.zoneId ?? null;
+      if (row.meta.type !== "zone") return null;
+      return row.meta.zoneId;
     },
   },
 
@@ -33,7 +35,8 @@ export const Route53YankOptions: YankOptionDef<
     feedback: "Copied record name",
     isRelevant: (row) => row.meta.type === "record",
     resolve: async (row) => {
-      return row.meta.recordName ?? null;
+      if (row.meta.type !== "record") return null;
+      return row.meta.recordName;
     },
   },
   {
@@ -41,10 +44,11 @@ export const Route53YankOptions: YankOptionDef<
     label: "Copy first value",
     feedback: "Copied first value",
     isRelevant: (row) => {
-      return row.meta.type === "record" && (row.meta.recordValues?.length ?? 0) > 0;
+      return row.meta.type === "record" && row.meta.recordValues.length > 0;
     },
     resolve: async (row) => {
-      return row.meta.recordValues?.[0] ?? null;
+      if (row.meta.type !== "record") return null;
+      return row.meta.recordValues[0] ?? null;
     },
   },
   {
@@ -53,16 +57,12 @@ export const Route53YankOptions: YankOptionDef<
     feedback: "Copied BIND format",
     isRelevant: (row) => row.meta.type === "record",
     resolve: async (row) => {
-      const name = row.meta.recordName ?? "";
-      const type = row.meta.recordType ?? "";
-      const ttl = row.meta.recordTtl ?? 3600;
-      const value = row.meta.recordValues?.[0] ?? "";
-
-      if (row.meta.recordAliasTarget) {
-        return `${name} ALIAS ${row.meta.recordAliasTarget.DNSName}`;
+      if (row.meta.type !== "record") return null;
+      const { recordName, recordType, recordTtl, recordValues, recordAliasTarget } = row.meta;
+      if (recordAliasTarget) {
+        return `${recordName} ALIAS ${recordAliasTarget.DNSName}`;
       }
-
-      return `${name} ${ttl} IN ${type} ${value}`;
+      return `${recordName} ${recordTtl ?? 3600} IN ${recordType} ${recordValues[0] ?? ""}`;
     },
   },
 ];

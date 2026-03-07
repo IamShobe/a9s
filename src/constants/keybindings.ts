@@ -86,7 +86,7 @@ export interface KeyBinding {
   scope: KeyScope;
   label: string; // help panel (long description)
   shortLabel: string; // hint bar (concise)
-  priority?: number; // higher = more prominent in hints; undefined = normal (100)
+  priority?: number; // lower number = more prominent in hints (default 100)
   showIf?: (context: KeyBindingContext) => boolean; // conditional visibility in hints
 }
 
@@ -473,14 +473,17 @@ const SCOPE_ORDER: KeyScope[] = [
 /**
  * Build HelpPanel tabs from KEYBINDINGS and adapter-specific bindings.
  * Display key is automatically derived from each binding's trigger.
+ * Pass `context` to apply the same `showIf` filtering as the hint bar.
  */
 export function buildHelpTabs(
   adapterId?: string,
   adapterBindings?: AdapterKeyBinding[],
+  context: KeyBindingContext = { hasHiddenSecrets: false },
 ): HelpTab[] {
   const groups = new Map<KeyScope, HelpItem[]>();
 
   for (const kb of KEYBINDINGS) {
+    if (kb.showIf && !kb.showIf(context)) continue;
     if (!groups.has(kb.scope)) groups.set(kb.scope, []);
     groups.get(kb.scope)!.push({
       key: triggerToString(kb.trigger),
@@ -491,6 +494,7 @@ export function buildHelpTabs(
   // Add adapter-specific bindings
   if (adapterBindings) {
     for (const ab of adapterBindings) {
+      if (ab.showIf && !ab.showIf(context)) continue;
       const scope = ab.scope || "navigate";
       if (!groups.has(scope)) groups.set(scope, []);
       groups.get(scope)!.push({
@@ -521,25 +525,18 @@ export function buildHelpTabs(
   }));
 }
 
-/** Derive the navigate mode hint string from KEYBINDINGS */
-export function buildNavigateHint(): string {
-  const navigateKeys = KEYBINDINGS.filter((kb) => kb.scope === "navigate");
-  return (
-    " " +
-    navigateKeys
-      .slice(0, 6)
-      .map((kb) => `${triggerToString(kb.trigger)} ${kb.shortLabel}`)
-      .join("  •  ")
-  );
-}
-
 /** Generic bottom-hint builder for a given scope, derived from KEYBINDINGS and adapter bindings. */
 export function buildScopeHint(
   scope: KeyScope,
-  adapterBindings?: AdapterKeyBinding[],
-  maxItems = 8,
-  context: KeyBindingContext = { hasHiddenSecrets: false },
+  opts?: {
+    adapterBindings?: AdapterKeyBinding[];
+    maxItems?: number;
+    context?: KeyBindingContext;
+  },
 ): string {
+  const adapterBindings = opts?.adapterBindings;
+  const maxItems = opts?.maxItems ?? 8;
+  const context: KeyBindingContext = opts?.context ?? { hasHiddenSecrets: false };
   const filtered = KEYBINDINGS.filter((kb) => kb.scope === scope);
 
   const seen = new Set<string>();

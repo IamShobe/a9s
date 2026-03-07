@@ -19,7 +19,7 @@ export function DetailPanel({
   scrollOffset,
   visibleLines,
 }: DetailPanelProps) {
-  const THEME = useTheme();
+  const theme = useTheme();
   const labelWidth = Math.max(...fields.map((f) => f.label.length), 12);
 
   const clampedOffset = clampScrollOffset(scrollOffset, fields.length, visibleLines);
@@ -28,34 +28,34 @@ export function DetailPanel({
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <Text bold color={THEME.panel.panelTitleText}>
+      <Text bold color={theme.panel.panelTitleText}>
         {title}
       </Text>
-      <Text color={THEME.panel.panelDividerText}>{"─".repeat(40)}</Text>
+      <Text color={theme.panel.panelDividerText}>{"─".repeat(40)}</Text>
       {isLoading ? (
-        <Text color={THEME.panel.panelHintText}>Loading...</Text>
+        <Text color={theme.panel.panelHintText}>Loading...</Text>
       ) : (
         <>
           {hasMoreAbove && (
-            <Text color={THEME.panel.panelHintText} dimColor>
+            <Text color={theme.panel.panelHintText} dimColor>
               ↑ {clampedOffset} more above
             </Text>
           )}
           {visibleFields.map((f) => (
             <Box key={f.label}>
-              <Text color={THEME.panel.detailFieldLabelText}>{f.label.padEnd(labelWidth + 2)}</Text>
+              <Text color={theme.panel.detailFieldLabelText}>{f.label.padEnd(labelWidth + 2)}</Text>
               <Text>{f.value}</Text>
             </Box>
           ))}
           {hasMoreBelow && (
-            <Text color={THEME.panel.panelHintText} dimColor>
+            <Text color={theme.panel.panelHintText} dimColor>
               ↓ {fields.length - clampedOffset - visibleLines} more below
             </Text>
           )}
         </>
       )}
-      <Text color={THEME.panel.panelDividerText}>{"─".repeat(40)}</Text>
-      <Text color={THEME.panel.panelHintText}>j/k scroll • Esc close</Text>
+      <Text color={theme.panel.panelDividerText}>{"─".repeat(40)}</Text>
+      <Text color={theme.panel.panelHintText}>j/k scroll • Esc close</Text>
     </Box>
   );
 }

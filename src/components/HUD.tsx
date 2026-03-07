@@ -3,33 +3,34 @@ import { Box, Text } from "ink";
 import { useTheme } from "../contexts/ThemeContext.js";
 import { truncateNoPad } from "../utils/textUtils.js";
 
-interface HUDProps {
-  serviceLabel: string;
-  hudColor: { bg: string; fg: string };
-  path: string;
+interface AwsContextInfo {
   accountName: string;
   accountId: string;
   awsProfile: string;
   currentIdentity: string;
   region: string;
+}
+
+interface HUDProps {
+  serviceLabel: string;
+  hudColor: { bg: string; fg: string };
+  path: string;
+  context: AwsContextInfo;
   terminalWidth: number;
   loading?: boolean;
 }
+
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 export function HUD({
   serviceLabel,
   hudColor,
   path,
-  accountName,
-  accountId,
-  awsProfile,
-  currentIdentity,
-  region,
+  context: { accountName, accountId, awsProfile, currentIdentity, region },
   terminalWidth,
   loading = false,
 }: HUDProps) {
-  const THEME = useTheme();
-  const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  const theme = useTheme();
   const [spinnerIndex, setSpinnerIndex] = React.useState(0);
 
   React.useEffect(() => {
@@ -60,32 +61,32 @@ export function HUD({
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color={THEME.hud.accountNameText} bold>
+        <Text color={theme.hud.accountNameText} bold>
           {compactName}
         </Text>
-        <Text color={THEME.hud.accountIdText} bold>
+        <Text color={theme.hud.accountIdText} bold>
           {idPart}
         </Text>
-        <Text color={THEME.hud.separatorText} bold>
+        <Text color={theme.hud.separatorText} bold>
           ·
         </Text>
-        <Text color={THEME.hud.regionText} bold>
+        <Text color={theme.hud.regionText} bold>
           {region}
         </Text>
-        <Text color={THEME.hud.separatorText} bold>
+        <Text color={theme.hud.separatorText} bold>
           ·
         </Text>
-        <Text color={THEME.hud.profileText} bold>
+        <Text color={theme.hud.profileText} bold>
           {profilePart}
         </Text>
         <Text>{" ".repeat(topPadLen)}</Text>
         {loading ? (
-          <Text color={THEME.hud.loadingSpinnerText} bold>
+          <Text color={theme.hud.loadingSpinnerText} bold>
             {SPINNER_FRAMES[spinnerIndex]}
           </Text>
         ) : null}
       </Box>
-      <Text color={THEME.hud.currentIdentityText} wrap="truncate-end">
+      <Text color={theme.hud.currentIdentityText} wrap="truncate-end">
         {identityLine}
         {" ".repeat(identityPadLen)}
       </Text>
@@ -93,7 +94,7 @@ export function HUD({
         <Text backgroundColor={hudColor.bg} color={hudColor.fg} bold>
           {label}
         </Text>
-        <Text backgroundColor={THEME.hud.pathBarBg} color={THEME.hud.pathBarText}>
+        <Text backgroundColor={theme.hud.pathBarBg} color={theme.hud.pathBarText}>
           {pathDisplay}
           {" ".repeat(padLen)}
         </Text>

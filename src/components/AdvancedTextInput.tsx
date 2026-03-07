@@ -196,7 +196,7 @@ export function AdvancedTextInput({
   focus = true,
   cursorToEndToken,
 }: AdvancedTextInputProps) {
-  const THEME = useTheme();
+  const theme = useTheme();
   const [cursor, setCursor] = useState(value.length);
 
   useEffect(() => {
@@ -248,7 +248,7 @@ export function AdvancedTextInput({
   }, [cursor, placeholder, value]);
 
   if (rendered.isPlaceholder) {
-    return <Text color={THEME.input.placeholderText}>{rendered.text}</Text>;
+    return <Text color={theme.input.placeholderText}>{rendered.text}</Text>;
   }
 
   return (

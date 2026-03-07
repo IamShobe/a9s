@@ -7,6 +7,7 @@ import type {
   DynamoDBRowMeta,
 } from "../types.js";
 import { formatBillingMode, formatKeySchema, unwrapDynamoValue } from "../utils.js";
+import { debugLog } from "../../../utils/debugLogger.js";
 
 export function createDynamoDBDetailCapability(
   region?: string,
@@ -69,7 +70,8 @@ export function createDynamoDBDetailCapability(
         }
 
         return fields;
-      } catch {
+      } catch (e) {
+        debugLog("dynamodb", `getDetails (table) failed for ${meta.tableName!}`, e);
         return [];
       }
     }
@@ -95,7 +97,8 @@ export function createDynamoDBDetailCapability(
         }
 
         return fields;
-      } catch {
+      } catch (e) {
+        debugLog("dynamodb", "getDetails (item) failed", e);
         return [];
       }
     }

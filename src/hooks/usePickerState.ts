@@ -44,12 +44,9 @@ export function usePickerState(): PickerState {
   }, [filter]);
 
   const cancelSearch = useCallback(() => {
-    setFilter((current) => {
-      const restored = searchEntry !== null && current !== "" ? searchEntry : current;
-      setSearchEntry(null);
-      setPickerMode("navigate");
-      return restored;
-    });
+    setFilter(searchEntry !== null ? searchEntry : "");
+    setSearchEntry(null);
+    setPickerMode("navigate");
   }, [searchEntry]);
 
   const confirmSearch = useCallback(() => {

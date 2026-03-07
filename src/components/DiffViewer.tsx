@@ -11,7 +11,7 @@ interface DiffViewerProps {
 }
 
 export function DiffViewer({ oldValue, newValue, scrollOffset, visibleLines }: DiffViewerProps) {
-  const THEME = useTheme();
+  const theme = useTheme();
   const oldLines = oldValue.split("\n");
   const newLines = newValue.split("\n");
   const maxLines = Math.max(oldLines.length, newLines.length);
@@ -29,12 +29,12 @@ export function DiffViewer({ oldValue, newValue, scrollOffset, visibleLines }: D
       {/* Header */}
       <Box gap={2}>
         <Box width={colWidth}>
-          <Text color={THEME.diff.originalHeaderText} bold>
+          <Text color={theme.diff.originalHeaderText} bold>
             Original
           </Text>
         </Box>
         <Box>
-          <Text color={THEME.diff.updatedHeaderText} bold>
+          <Text color={theme.diff.updatedHeaderText} bold>
             Updated
           </Text>
         </Box>
@@ -43,9 +43,9 @@ export function DiffViewer({ oldValue, newValue, scrollOffset, visibleLines }: D
       {/* Divider */}
       <Box gap={2}>
         <Box width={colWidth}>
-          <Text color={THEME.diff.diffDividerText}>{"-".repeat(30)}</Text>
+          <Text color={theme.diff.diffDividerText}>{"-".repeat(30)}</Text>
         </Box>
-        <Text color={THEME.diff.diffDividerText}>{"-".repeat(30)}</Text>
+        <Text color={theme.diff.diffDividerText}>{"-".repeat(30)}</Text>
       </Box>
 
       {/* Content */}
@@ -53,11 +53,11 @@ export function DiffViewer({ oldValue, newValue, scrollOffset, visibleLines }: D
         {hasMoreAbove && (
           <Box gap={2}>
             <Box width={colWidth}>
-              <Text color={THEME.diff.diffDividerText} dimColor>
+              <Text color={theme.diff.diffDividerText} dimColor>
                 ↑ {clampedOffset} lines above
               </Text>
             </Box>
-            <Text color={THEME.diff.diffDividerText} dimColor>
+            <Text color={theme.diff.diffDividerText} dimColor>
               ↑ {clampedOffset} lines above
             </Text>
           </Box>
@@ -75,11 +75,11 @@ export function DiffViewer({ oldValue, newValue, scrollOffset, visibleLines }: D
         {hasMoreBelow && (
           <Box gap={2}>
             <Box width={colWidth}>
-              <Text color={THEME.diff.diffDividerText} dimColor>
+              <Text color={theme.diff.diffDividerText} dimColor>
                 ↓ {maxLines - clampedOffset - visibleLines} more lines
               </Text>
             </Box>
-            <Text color={THEME.diff.diffDividerText} dimColor>
+            <Text color={theme.diff.diffDividerText} dimColor>
               ↓ {maxLines - clampedOffset - visibleLines} more lines
             </Text>
           </Box>

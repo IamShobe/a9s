@@ -22,10 +22,6 @@ import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 export const iamLevelAtom = atom<IamLevel>({ kind: "root" });
 export const iamBackStackAtom = atom<IamNavFrame[]>([]);
 
-function getIamMeta(row: TableRow): IamRowMeta | undefined {
-  return row.meta as IamRowMeta | undefined;
-}
-
 export function createIamServiceAdapter(): ServiceAdapter {
   const store = getDefaultStore();
 
@@ -186,7 +182,7 @@ export function createIamServiceAdapter(): ServiceAdapter {
     const level = getLevel();
     const backStack = getBackStack();
     const nextBackStack = [...backStack, { level, selectedIndex: 0 }];
-    const meta = getIamMeta(row);
+    const meta = row.meta as IamRowMeta | undefined;
 
     if (level.kind === "root" && meta?.type === "menu" && meta.kind === "roles") {
       setBackStack(nextBackStack);

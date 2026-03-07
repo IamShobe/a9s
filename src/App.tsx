@@ -68,15 +68,15 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const [currentService, setCurrentService] = useAtom(currentlySelectedServiceAtom);
   const [revealSecrets, setRevealSecrets] = useAtom(revealSecretsAtom);
   const [themeName, setThemeName] = useAtom(themeNameAtom);
-  const THEME = useTheme();
+  const theme = useTheme();
 
   // Paint the terminal's default background so uncolored cells (border chars, gaps) inherit the theme
   useEffect(() => {
-    process.stdout.write(`\x1b]11;${toOscColor(THEME.global.mainBg)}\x07`);
+    process.stdout.write(`\x1b]11;${toOscColor(theme.global.mainBg)}\x07`);
     return () => {
       process.stdout.write(`\x1b]111\x07`); // restore original background on unmount
     };
-  }, [THEME.global.mainBg]);
+  }, [theme.global.mainBg]);
 
   // Live theme preview: refs to restore original when picker is cancelled
   const themeNameRef = useRef(themeName);
@@ -193,7 +193,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   const navigateIntoSelection = useCallback(() => {
     if (!selectedRow) return;
-    if ((selectedRow.meta?.type as string) === "object") return;
+    if (selectedRow.meta?.type === "object") return;
     void select(selectedRow).then((result: ServiceViewResult) => {
       if (result?.action === "navigate") {
         actions.setSearchEntryFilter(null);
@@ -263,9 +263,20 @@ export function App({ initialService, endpointUrl }: AppProps) {
     () => adapter.capabilities?.actions?.getKeybindings() ?? [],
     [adapter],
   );
+
+  // Compute context for keybinding hints (must precede helpTabs and useUiHints)
+  const uiHintsContext = useMemo(() => {
+    // Check if any visible row contains secret cells
+    const hasSecretData = filteredRows.some((row) =>
+      Object.values(row.cells).some((cell) => typeof cell === "object" && cell?.type === "secret"),
+    );
+    // Only show reveal toggle if there are secrets AND they're currently hidden
+    return { hasHiddenSecrets: hasSecretData && !revealSecrets };
+  }, [filteredRows, revealSecrets]);
+
   const helpTabs = useMemo(
-    () => buildHelpTabs(adapter.id, adapterBindings),
-    [adapter.id, adapterBindings],
+    () => buildHelpTabs(adapter.id, adapterBindings, uiHintsContext),
+    [adapter.id, adapterBindings, uiHintsContext],
   );
   const helpContainerHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES);
   const helpPanel = useHelpPanel(helpTabs, helpContainerHeight);
@@ -301,16 +312,6 @@ export function App({ initialService, endpointUrl }: AppProps) {
     () => deriveYankHeaderMarkers(state.yankMode, yankOptions),
     [state.yankMode, yankOptions],
   );
-
-  // Compute context for keybinding hints
-  const uiHintsContext = useMemo(() => {
-    // Check if any visible row contains secret cells
-    const hasSecretData = filteredRows.some((row) =>
-      Object.values(row.cells).some((cell) => typeof cell === "object" && cell?.type === "secret"),
-    );
-    // Only show reveal toggle if there are secrets AND they're currently hidden
-    return { hasHiddenSecrets: hasSecretData && !revealSecrets };
-  }, [filteredRows, revealSecrets]);
 
   const { bottomHint } = useUiHints({
     mode: state.mode,
@@ -401,74 +402,75 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   // Load preview when uploadPending changes
   useEffect(() => {
-    if (state.uploadPending) {
-      setPanelScrollOffset(0);
-      void (async () => {
-        try {
-          const newContent = await readFile(state.uploadPending!.filePath, "utf-8");
+    if (!state.uploadPending) return;
+    let cancelled = false;
+    setPanelScrollOffset(0);
+    void (async () => {
+      try {
+        const newContent = await readFile(state.uploadPending!.filePath, "utf-8");
 
-          // Try to get old value from adapter (current value from AWS)
-          let oldContent = "";
-          const meta = state.uploadPending!.metadata;
-          const regionArgs = selectedRegion ? ["--region", selectedRegion] : [];
+        // Try to get old value from adapter (current value from AWS)
+        let oldContent = "";
+        const meta = state.uploadPending!.metadata;
+        const regionArgs = selectedRegion ? ["--region", selectedRegion] : [];
 
-          // For Secrets Manager fields: fetch the current field value
-          if (meta.fieldKey && meta.secretArn) {
-            try {
-              const secretData = await runAwsJsonAsync<{
-                SecretString?: string;
-              }>([
-                "secretsmanager",
-                "get-secret-value",
-                "--secret-id",
-                meta.secretArn as string,
-                ...regionArgs,
-              ]);
+        // For Secrets Manager fields: fetch the current field value
+        if (meta.fieldKey && meta.secretArn) {
+          try {
+            const secretData = await runAwsJsonAsync<{
+              SecretString?: string;
+            }>([
+              "secretsmanager",
+              "get-secret-value",
+              "--secret-id",
+              meta.secretArn as string,
+              ...regionArgs,
+            ]);
 
-              const secretString = secretData.SecretString || "";
+            const secretString = secretData.SecretString || "";
 
-              // $RAW field is the whole secret value, not a JSON field
-              if (meta.fieldKey === "$RAW") {
-                oldContent = secretString;
-              } else {
-                // Regular JSON field - parse and extract
-                try {
-                  const parsed = JSON.parse(secretString);
-                  oldContent = parsed[meta.fieldKey as string] || "";
-                } catch {
-                  // Not JSON - oldContent stays empty
-                }
+            // $RAW field is the whole secret value, not a JSON field
+            if (meta.fieldKey === "$RAW") {
+              oldContent = secretString;
+            } else {
+              // Regular JSON field - parse and extract
+              try {
+                const parsed = JSON.parse(secretString);
+                oldContent = parsed[meta.fieldKey as string] || "";
+              } catch {
+                // Not JSON - oldContent stays empty
               }
-            } catch (err) {
-              debugLog("App", "upload preview fetch failed (field)", err);
             }
+          } catch (err) {
+            debugLog("App", "upload preview fetch failed (field)", err);
           }
-          // For whole secrets: fetch current secret value
-          else if (meta.secretArn && !meta.fieldKey) {
-            try {
-              const secretData = await runAwsJsonAsync<{
-                SecretString?: string;
-              }>([
-                "secretsmanager",
-                "get-secret-value",
-                "--secret-id",
-                meta.secretArn as string,
-                ...regionArgs,
-              ]);
-
-              oldContent = secretData.SecretString || "";
-            } catch (err) {
-              debugLog("App", "upload preview fetch failed (secret)", err);
-            }
-          }
-
-          setUploadPreview({ old: oldContent, new: newContent });
-        } catch (err) {
-          debugLog("App", "upload preview load failed", err);
-          setUploadPreview({ old: "", new: "[Unable to load preview]" });
         }
-      })();
-    }
+        // For whole secrets: fetch current secret value
+        else if (meta.secretArn && !meta.fieldKey) {
+          try {
+            const secretData = await runAwsJsonAsync<{
+              SecretString?: string;
+            }>([
+              "secretsmanager",
+              "get-secret-value",
+              "--secret-id",
+              meta.secretArn as string,
+              ...regionArgs,
+            ]);
+
+            oldContent = secretData.SecretString || "";
+          } catch (err) {
+            debugLog("App", "upload preview fetch failed (secret)", err);
+          }
+        }
+
+        if (!cancelled) setUploadPreview({ old: oldContent, new: newContent });
+      } catch (err) {
+        debugLog("App", "upload preview load failed", err);
+        if (!cancelled) setUploadPreview({ old: "", new: "[Unable to load preview]" });
+      }
+    })();
+    return () => { cancelled = true; };
   }, [state.uploadPending, selectedRegion]);
 
   const commandAutocomplete = useCallback(() => {
@@ -630,21 +632,17 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const activePickerFilter = pickers.activePicker?.filter ?? state.filterText;
 
   return (
-    <FullscreenBox backgroundColor={THEME.global.mainBg}>
-      <Box flexDirection="column" width={termCols} height={termRows} backgroundColor={THEME.global.mainBg}>
+    <FullscreenBox backgroundColor={theme.global.mainBg}>
+      <Box flexDirection="column" width={termCols} height={termRows} backgroundColor={theme.global.mainBg}>
         <HUD
           serviceLabel={adapter.label}
-          hudColor={THEME.serviceColors[adapter.id] ?? adapter.hudColor}
+          hudColor={theme.serviceColors[adapter.id] ?? adapter.hudColor}
           path={path}
-          accountName={accountName}
-          accountId={accountId}
-          awsProfile={awsProfile}
-          currentIdentity={currentIdentity}
-          region={region}
+          context={{ accountName, accountId, awsProfile, currentIdentity, region }}
           terminalWidth={termCols}
           loading={isLoading || Boolean(state.describeState?.loading)}
         />
-        <Box flexDirection="row" width="100%" flexGrow={1} backgroundColor={THEME.global.mainBg}>
+        <Box flexDirection="row" width="100%" flexGrow={1} backgroundColor={theme.global.mainBg}>
           <AppMainView
             helpPanel={helpPanel}
             helpTabs={helpTabs}
@@ -671,12 +669,12 @@ export function App({ initialService, endpointUrl }: AppProps) {
         </Box>
         {!helpPanel.helpOpen && yankFeedbackMessage && (
           <Box paddingX={1}>
-            <Text color={THEME.feedback.successText}>{yankFeedbackMessage}</Text>
+            <Text color={theme.feedback.successText}>{yankFeedbackMessage}</Text>
           </Box>
         )}
         {state.pendingAction && state.pendingAction.effect.type === "prompt" && (
           <Box paddingX={1}>
-            <Text color={THEME.feedback.promptText}>{state.pendingAction.effect.label} </Text>
+            <Text color={theme.feedback.promptText}>{state.pendingAction.effect.label} </Text>
             <AdvancedTextInput
               value={state.pendingAction.inputValue}
               onChange={(value) => actions.setPendingInputValue(value)}
@@ -687,7 +685,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
         )}
         {state.pendingAction && state.pendingAction.effect.type === "confirm" && (
           <Box paddingX={1}>
-            <Text color={THEME.feedback.confirmText}>{state.pendingAction.effect.message} (y/n)</Text>
+            <Text color={theme.feedback.confirmText}>{state.pendingAction.effect.message} (y/n)</Text>
           </Box>
         )}
         <ModeBar

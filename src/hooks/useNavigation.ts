@@ -1,5 +1,9 @@
 import { useState, useCallback } from "react";
 
+function clampIndex(index: number, rowCount: number): number {
+  return Math.max(0, Math.min(Math.max(0, rowCount - 1), index));
+}
+
 interface NavState {
   selectedIndex: number;
   scrollOffset: number;
@@ -32,7 +36,7 @@ export function useNavigation(rowCount: number, maxVisible: number) {
   const setIndex = useCallback(
     (index: number) => {
       setState(() => {
-        const next = Math.max(0, Math.min(Math.max(0, rowCount - 1), index));
+        const next = clampIndex(index, rowCount);
         const off = Math.max(0, next - Math.max(0, maxVisible - 1));
         return { selectedIndex: next, scrollOffset: off };
       });
@@ -50,7 +54,7 @@ export function useNavigation(rowCount: number, maxVisible: number) {
     setState({ selectedIndex: lastIndex, scrollOffset: bottomOffset });
   }, [rowCount, maxVisible]);
 
-  const clampedIndex = Math.min(state.selectedIndex, Math.max(0, rowCount - 1));
+  const clampedIndex = clampIndex(state.selectedIndex, rowCount);
   return {
     selectedIndex: clampedIndex,
     scrollOffset: state.scrollOffset,

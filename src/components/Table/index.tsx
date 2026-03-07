@@ -64,12 +64,12 @@ interface RowProps {
 }
 
 const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filterText }: RowProps) {
-  const THEME = useTheme();
+  const theme = useTheme();
   const parts: React.ReactNode[] = [];
   columns.forEach((col, i) => {
     if (i > 0)
       parts.push(
-        <Text key={`sep-${i}`} color={THEME.table.rowSeparatorText}>
+        <Text key={`sep-${i}`} color={theme.table.rowSeparatorText}>
           {" "}
           │{" "}
         </Text>,
@@ -79,11 +79,11 @@ const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filte
     const cellValue = typeof cellData === "string" ? cellData : cellData.displayName;
     const truncated = truncate(cellValue, colWidths[i]!);
     const highlighted =
-      filterText && truncated ? highlightMatch(truncated, filterText, isSelected, THEME) : [truncated];
+      filterText && truncated ? highlightMatch(truncated, filterText, isSelected, theme) : [truncated];
 
     if (isSelected) {
       parts.push(
-        <Text key={`cell-${i}`} color={THEME.table.selectedRowText} bold>
+        <Text key={`cell-${i}`} color={theme.table.selectedRowText} bold>
           {highlighted}
         </Text>,
       );
@@ -92,7 +92,7 @@ const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filte
     }
   });
 
-  return isSelected ? <Box backgroundColor={THEME.table.selectedRowBg}>{parts}</Box> : <Box>{parts}</Box>;
+  return isSelected ? <Box backgroundColor={theme.table.selectedRowBg}>{parts}</Box> : <Box>{parts}</Box>;
 });
 
 export const Table = React.memo(function Table({
@@ -106,7 +106,7 @@ export const Table = React.memo(function Table({
   contextLabel,
   headerMarkers,
 }: TableProps) {
-  const THEME = useTheme();
+  const theme = useTheme();
   // Memoize column widths computation
   const colWidths = useMemo(
     () => computeColumnWidths(columns, terminalWidth),
@@ -122,7 +122,7 @@ export const Table = React.memo(function Table({
     columns.forEach((col, i) => {
       if (i > 0)
         parts.push(
-          <Text key={`sep-${i}`} color={THEME.table.rowSeparatorText}>
+          <Text key={`sep-${i}`} color={theme.table.rowSeparatorText}>
             {" "}
             │{" "}
           </Text>,
@@ -133,7 +133,7 @@ export const Table = React.memo(function Table({
 
       if (!markerText) {
         parts.push(
-          <Text key={col.key} bold color={THEME.table.columnHeaderText}>
+          <Text key={col.key} bold color={theme.table.columnHeaderText}>
             {truncate(col.label, width)}
           </Text>,
         );
@@ -143,7 +143,7 @@ export const Table = React.memo(function Table({
       if (markerText.length >= width) {
         const markerDisplay = truncate(markerText, width);
         parts.push(
-          <Text key={`${col.key}-markers-only`} color={THEME.table.columnHeaderMarker}>
+          <Text key={`${col.key}-markers-only`} color={theme.table.columnHeaderMarker}>
             {markerDisplay}
           </Text>,
         );
@@ -155,18 +155,18 @@ export const Table = React.memo(function Table({
       const trailingPadLen = Math.max(0, width - (labelDisplay.length + markerText.length));
 
       parts.push(
-        <Text key={`${col.key}-label`} bold color={THEME.table.columnHeaderText}>
+        <Text key={`${col.key}-label`} bold color={theme.table.columnHeaderText}>
           {labelDisplay}
         </Text>,
       );
       parts.push(
-        <Text key={`${col.key}-markers`} color={THEME.table.columnHeaderMarker}>
+        <Text key={`${col.key}-markers`} color={theme.table.columnHeaderMarker}>
           {markerText}
         </Text>,
       );
       if (trailingPadLen > 0) {
         parts.push(
-          <Text key={`${col.key}-pad`} color={THEME.table.columnHeaderText}>
+          <Text key={`${col.key}-pad`} color={theme.table.columnHeaderText}>
             {" ".repeat(trailingPadLen)}
           </Text>,
         );
@@ -176,13 +176,13 @@ export const Table = React.memo(function Table({
   };
 
   const renderDivider = () => (
-    <Text color={THEME.table.rowSeparatorText}>
+    <Text color={theme.table.rowSeparatorText}>
       {columns.map((col, i) => "─".repeat(colWidths[i]!)).join("─┼─")}
     </Text>
   );
 
   const renderEmpty = () => (
-    <Text color={THEME.table.emptyStateText}>
+    <Text color={theme.table.emptyStateText}>
       {filterText ? `No results for "${filterText}"` : "No items"}
     </Text>
   );
@@ -191,7 +191,7 @@ export const Table = React.memo(function Table({
     return (
       <Box flexDirection="column">
         {contextLabel && (
-          <Text bold color={THEME.table.columnHeaderText}>
+          <Text bold color={theme.table.columnHeaderText}>
             {contextLabel}
           </Text>
         )}
@@ -207,7 +207,7 @@ export const Table = React.memo(function Table({
     <Box flexDirection="column" flexGrow={1}>
       {contextLabel && (
         <>
-          <Text bold color={THEME.table.columnHeaderText}>
+          <Text bold color={theme.table.columnHeaderText}>
             {contextLabel}
           </Text>
           <Box height={1} />
@@ -229,7 +229,7 @@ export const Table = React.memo(function Table({
       </Box>
       {rows.length > maxHeight && (
         <Box paddingTop={1}>
-          <Text color={THEME.table.scrollPositionText}>
+          <Text color={theme.table.scrollPositionText}>
             {scrollOffset + visibleRows.length} / {rows.length} items
           </Text>
         </Box>

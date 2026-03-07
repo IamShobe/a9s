@@ -35,8 +35,23 @@ const STATIC_FALLBACK_REGIONS = [
   "il-central-1",
 ] as const;
 
-let cachedRegions: string[] | null = null;
-let pendingRegionsPromise: Promise<string[]> | null = null;
+function createCache<T>(fetchFn: () => Promise<T>) {
+  let cached: T | null = null;
+  let pending: Promise<T> | null = null;
+  return {
+    peek: (): T | null => cached,
+    get: async (): Promise<T> => {
+      if (cached !== null) return cached;
+      if (!pending) pending = fetchFn().then((r) => { cached = r; return r; });
+      return pending;
+    },
+    clear: () => { cached = null; pending = null; },
+  };
+}
+
+const regionsCache = createCache(() =>
+  fetchRegions(process.env.AWS_PROFILE, process.env.AWS_REGION),
+);
 
 export interface AwsRegionOption {
   name: string;
@@ -89,42 +104,26 @@ export function useAwsRegions(
       name,
       description: isLocal ? "Local endpoint / emulated" : "AWS commercial region",
     }));
-  const [regionOptions, setRegionOptions] = useState<AwsRegionOption[]>(
-    toOptions(cachedRegions ?? [...STATIC_FALLBACK_REGIONS]),
+  const [regionOptions, setRegionOptions] = useState<AwsRegionOption[]>(() =>
+    toOptions(regionsCache.peek() ?? [...STATIC_FALLBACK_REGIONS]),
   );
-
-  const explicitProfile =
-    selectedProfile && selectedProfile !== "$default" ? selectedProfile : undefined;
 
   useEffect(() => {
     let alive = true;
 
-    if (cachedRegions) {
-      setRegionOptions(toOptions(cachedRegions));
-      return () => {
-        alive = false;
-      };
+    const immediate = regionsCache.peek();
+    if (immediate) {
+      setRegionOptions(toOptions(immediate));
+      return () => { alive = false; };
     }
 
-    if (!pendingRegionsPromise) {
-      pendingRegionsPromise = fetchRegions(
-        explicitProfile ?? process.env.AWS_PROFILE,
-        selectedRegion ?? process.env.AWS_REGION,
-      ).then((result) => {
-        cachedRegions = result;
-        return result;
-      });
-    }
-
-    void pendingRegionsPromise.then((result) => {
+    void regionsCache.get().then((result) => {
       if (!alive) return;
       setRegionOptions(toOptions(result));
     });
 
-    return () => {
-      alive = false;
-    };
-  }, [explicitProfile, selectedRegion]);
+    return () => { alive = false; };
+  }, []);
 
   return regionOptions;
 }

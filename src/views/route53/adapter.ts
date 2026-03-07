@@ -14,6 +14,7 @@ import type {
 import { createRoute53DetailCapability } from "./capabilities/detailCapability.js";
 import { createRoute53YankCapability } from "./capabilities/yankCapability.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
+import { debugLog } from "../../utils/debugLogger.js";
 
 interface Route53NavFrame extends NavFrame {
   level: Route53Level;
@@ -115,7 +116,9 @@ export function createRoute53ServiceAdapter(
         }
 
         return {
-          id: `${record.Name}-${record.Type}`,
+          id: record.SetIdentifier
+            ? `${record.Name}-${record.Type}-${record.SetIdentifier}`
+            : `${record.Name}-${record.Type}`,
           cells: {
             name: textCell(record.Name),
             type: textCell(record.Type),
@@ -134,7 +137,8 @@ export function createRoute53ServiceAdapter(
           } satisfies Route53RowMeta,
         };
       });
-    } catch {
+    } catch (e) {
+      debugLog("route53", "getRows (records) failed", e);
       return [];
     }
   };

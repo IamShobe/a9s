@@ -9,15 +9,15 @@ interface ErrorStatePanelProps {
 }
 
 export function ErrorStatePanel({ title, message, hint }: ErrorStatePanelProps) {
-  const THEME = useTheme();
+  const theme = useTheme();
   return (
-    <Box width="100%" borderStyle="round" borderColor={THEME.error.errorBorderText} backgroundColor={THEME.global.mainBg}>
+    <Box width="100%" borderStyle="round" borderColor={theme.error.errorBorderText} backgroundColor={theme.global.mainBg}>
       <Box flexDirection="column" paddingX={1}>
-        <Text bold color={THEME.error.errorTitleText}>
+        <Text bold color={theme.error.errorTitleText}>
           {title}
         </Text>
         <Text>{message}</Text>
-        {hint ? <Text color={THEME.error.errorHintText}>{hint}</Text> : null}
+        {hint ? <Text color={theme.error.errorHintText}>{hint}</Text> : null}
       </Box>
     </Box>
   );

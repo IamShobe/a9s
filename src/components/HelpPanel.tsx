@@ -33,7 +33,7 @@ export function HelpPanel({
   maxRows,
   scrollOffset,
 }: HelpPanelProps) {
-  const THEME = useTheme();
+  const theme = useTheme();
   const currentTab = tabs[activeTab] ?? tabs[0];
   const keyColWidth = 12;
   const descColWidth = Math.max(16, terminalWidth - keyColWidth - 8);
@@ -53,10 +53,10 @@ export function HelpPanel({
 
   return (
     <Box flexDirection="column" paddingX={1} flexGrow={1}>
-      <Text bold color={THEME.panel.panelTitleText}>
+      <Text bold color={theme.panel.panelTitleText}>
         {title}
       </Text>
-      <Text color={THEME.panel.panelHintText}>{scopeLabel}</Text>
+      <Text color={theme.panel.panelHintText}>{scopeLabel}</Text>
       <Box>
         {tabRow.map((chip) => {
           const isActive = chip.idx === activeTab;
@@ -64,8 +64,8 @@ export function HelpPanel({
             <Text
               key={`chip-${chip.idx}`}
               {...(isActive
-                ? { backgroundColor: THEME.panel.activeTabBg, color: THEME.panel.activeTabText }
-                : { color: THEME.panel.inactiveTabText })}
+                ? { backgroundColor: theme.panel.activeTabBg, color: theme.panel.activeTabText }
+                : { color: theme.panel.inactiveTabText })}
               bold={isActive}
             >
               {chip.label}
@@ -76,7 +76,7 @@ export function HelpPanel({
       <Box flexDirection="column" flexGrow={1}>
         {visibleItems.map((item, idx) => (
           <Box key={`${item.key}-${scrollOffset + idx}`}>
-            <Text color={THEME.panel.keyText} bold>
+            <Text color={theme.panel.keyText} bold>
               {truncateNoPad(item.key, keyColWidth).padEnd(keyColWidth)}
             </Text>
             <Text>{truncateNoPad(item.description, descColWidth)}</Text>

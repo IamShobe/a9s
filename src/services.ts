@@ -6,6 +6,7 @@ import { createSecretsManagerServiceAdapter } from "./views/secretsmanager/adapt
 
 export const SERVICE_REGISTRY = {
   s3: (endpointUrl?: string, region?: string) => createS3ServiceAdapter(endpointUrl, region),
+  // Note: Route53 and DynamoDB don't yet support LocalStack; endpointUrl is intentionally ignored.
   route53: (_endpointUrl?: string, region?: string) => createRoute53ServiceAdapter(undefined, region),
   dynamodb: (_endpointUrl?: string, region?: string) => createDynamoDBServiceAdapter(undefined, region),
   iam: (_endpointUrl?: string, _region?: string) => createIamServiceAdapter(),
