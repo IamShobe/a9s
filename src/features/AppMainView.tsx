@@ -218,7 +218,7 @@ export function AppMainView({
     return (
       <Box width="100%" borderStyle="round" borderColor={theme.panel.detailPanelBorderText} backgroundColor={theme.global.mainBg}>
         <DetailPanel
-          title={describeState.row.cells.name ? getCellLabel(describeState.row.cells.name) : describeState.row.id}
+          title={getCellLabel(describeState.row.cells.name) ?? describeState.row.id}
           fields={describeState.fields ?? []}
           isLoading={describeState.loading}
           scrollOffset={panelScrollOffset}
