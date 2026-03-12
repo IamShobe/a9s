@@ -1,4 +1,4 @@
-import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
+import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
 import { createS3Client } from "./client.js";
@@ -158,6 +158,18 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
     setLevel,
   );
 
+  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+    const level = getLevel();
+    if (level.kind === "buckets") {
+      const bucketName = row.id;
+      return [
+        { serviceId: "cloudwatch", label: `CloudWatch metrics for ${bucketName}`, filterHint: bucketName },
+        { serviceId: "eventbridge", label: `EventBridge rules for ${bucketName}` },
+      ];
+    }
+    return [];
+  };
+
   const getBrowserUrl = (row: TableRow): string | null => {
     const level = getLevel();
     const r = resolveRegion(region);
@@ -178,6 +190,7 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
     goBack,
     getPath,
     getContextLabel,
+    getRelatedResources,
     getBrowserUrl,
     reset() {
       setLevel({ kind: "buckets" });

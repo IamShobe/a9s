@@ -1,4 +1,4 @@
-import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
+import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
@@ -22,6 +22,8 @@ import type {
   ActionEffect,
 } from "../../adapters/capabilities/ActionCapability.js";
 import { toErrorMessage } from "../../utils/errorHelpers.js";
+import { createEventBridgeDetailCapability } from "./capabilities/detailCapability.js";
+import { createEventBridgeYankCapability } from "./capabilities/yankCapability.js";
 
 export const eventBridgeLevelAtom = atom<EventBridgeLevel>({ kind: "buses" });
 export const eventBridgeBackStackAtom = atom<EventBridgeNavFrame[]>([]);
@@ -151,6 +153,8 @@ export function createEventBridgeServiceAdapter(
   };
 
   const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
+  const detailCapability = createEventBridgeDetailCapability(region, getLevel);
+  const yankCapability = createEventBridgeYankCapability();
 
   const getPath = (): string => {
     const level = getLevel();
@@ -293,6 +297,20 @@ export function createEventBridgeServiceAdapter(
     },
   };
 
+  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+    const level = getLevel();
+    if (level.kind !== "rules") return [];
+    const meta = row.meta as EventBridgeRowMeta | undefined;
+    if (!meta) return [];
+    const name = meta.ruleName ?? row.id;
+    return [
+      { serviceId: "lambda", label: `Lambda targets for ${name}` },
+      { serviceId: "sqs", label: `SQS targets for ${name}` },
+      { serviceId: "sns", label: `SNS targets for ${name}` },
+      { serviceId: "cloudwatch", label: `CloudWatch for ${name}` },
+    ];
+  };
+
   return {
     id: "eventbridge",
     label: "EventBridge",
@@ -304,6 +322,7 @@ export function createEventBridgeServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getRelatedResources,
     reset() {
       setLevel({ kind: "buses" });
       setBackStack([]);
@@ -321,6 +340,8 @@ export function createEventBridgeServiceAdapter(
     },
     capabilities: {
       actions: actionsCapability,
+      detail: detailCapability,
+      yank: yankCapability,
     },
   };
 }

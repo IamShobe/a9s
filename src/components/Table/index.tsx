@@ -17,6 +17,9 @@ interface TableProps {
   contextLabel?: string;
   headerMarkers?: Record<string, string[]>;
   sortState?: { colKey: string; dir: "asc" | "desc" } | null;
+  footerContent?: React.ReactNode;
+  multiSelectedIds?: Set<string>;
+  bookmarkedIds?: Set<string>;
 }
 
 
@@ -62,9 +65,11 @@ interface RowProps {
   columns: ColumnDef[];
   colWidths: number[];
   filterText: string;
+  isMultiSelected?: boolean;
+  isBookmarked?: boolean;
 }
 
-const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filterText }: RowProps) {
+const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filterText, isMultiSelected, isBookmarked }: RowProps) {
   const theme = useTheme();
   const parts: React.ReactNode[] = [];
   columns.forEach((col, i) => {
@@ -79,7 +84,9 @@ const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filte
     const cellData = row.cells[col.key] ?? "";
     const cellValue = typeof cellData === "string" ? cellData : cellData.displayName;
     const cellColor = !isSelected && typeof cellData === "object" ? cellData.color : undefined;
-    const truncated = truncate(cellValue, colWidths[i]!);
+    // Add prefix for first cell: bookmarked takes priority over multi-selected
+    const prefix = i === 0 ? (isBookmarked ? "★ " : isMultiSelected ? "► " : "") : "";
+    const truncated = truncate(prefix + cellValue, colWidths[i]!);
     const highlighted =
       filterText && truncated ? highlightMatch(truncated, filterText, isSelected, theme) : [truncated];
 
@@ -90,7 +97,8 @@ const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filte
         </Text>,
       );
     } else {
-      parts.push(<Text key={`cell-${i}`} {...(cellColor ? { color: cellColor } : {})}>{highlighted}</Text>);
+      const effectiveColor = cellColor ?? row.rowColor;
+      parts.push(<Text key={`cell-${i}`} {...(effectiveColor ? { color: effectiveColor } : {})}>{highlighted}</Text>);
     }
   });
 
@@ -108,6 +116,9 @@ export const Table = React.memo(function Table({
   contextLabel,
   headerMarkers,
   sortState,
+  footerContent,
+  multiSelectedIds,
+  bookmarkedIds,
 }: TableProps) {
   const theme = useTheme();
   // Memoize column widths computation
@@ -230,9 +241,21 @@ export const Table = React.memo(function Table({
             columns={columns}
             colWidths={colWidths}
             filterText={filterText}
+            isMultiSelected={multiSelectedIds?.has(row.id) ?? false}
+            isBookmarked={bookmarkedIds?.has(row.id) ?? false}
           />
         ))}
       </Box>
+      {footerContent && (
+        <>
+          <Text color={theme.table.rowSeparatorText}>
+            {columns.map((col, i) => "─".repeat(colWidths[i]!)).join("─┴─")}
+          </Text>
+          <Box paddingTop={0}>
+            {footerContent}
+          </Box>
+        </>
+      )}
       {rows.length > maxHeight && (
         <Box paddingTop={1}>
           <Text color={theme.table.scrollPositionText}>

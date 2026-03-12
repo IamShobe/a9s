@@ -7,6 +7,7 @@ export type ParsedCommand =
   | { type: "openRegions" }
   | { type: "openResources" }
   | { type: "openThemePicker" }
+  | { type: "openBookmarks" }
   | { type: "setRegion"; region: string }
   | { type: "setProfile"; profile: string }
   | { type: "setWatch"; seconds: number }
@@ -23,6 +24,7 @@ export function parseCommand(input: string): ParsedCommand {
   if (command === "regions") return { type: "openRegions" };
   if (command === "resources") return { type: "openResources" };
   if (command === "theme") return { type: "openThemePicker" };
+  if (command === "b") return { type: "openBookmarks" };
 
   if (command === "unwatch") return { type: "clearWatch" };
 
@@ -68,6 +70,7 @@ interface UseCommandRouterArgs {
   openRegionPicker: () => void;
   openResourcePicker: () => void;
   openThemePicker: () => void;
+  openBookmarksPicker: () => void;
   setWatch: (seconds: number) => void;
   clearWatch: () => void;
   setTagFilter: (key: string, value: string) => void;
@@ -83,6 +86,7 @@ export function useCommandRouter({
   openRegionPicker,
   openResourcePicker,
   openThemePicker,
+  openBookmarksPicker,
   setWatch,
   clearWatch,
   setTagFilter,
@@ -104,6 +108,9 @@ export function useCommandRouter({
           return;
         case "openThemePicker":
           openThemePicker();
+          return;
+        case "openBookmarks":
+          openBookmarksPicker();
           return;
         case "setRegion":
           setSelectedRegion(parsed.region);
@@ -133,6 +140,6 @@ export function useCommandRouter({
           return;
       }
     },
-    [setSelectedRegion, setSelectedProfile, switchAdapter, openProfilePicker, openRegionPicker, openResourcePicker, openThemePicker, setWatch, clearWatch, setTagFilter, clearTagFilter, exit],
+    [setSelectedRegion, setSelectedProfile, switchAdapter, openProfilePicker, openRegionPicker, openResourcePicker, openThemePicker, openBookmarksPicker, setWatch, clearWatch, setTagFilter, clearTagFilter, exit],
   );
 }

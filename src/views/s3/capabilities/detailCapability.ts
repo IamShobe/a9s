@@ -28,11 +28,11 @@ export function createS3DetailCapability(
     const type = row.meta?.type as string;
 
     if (type === "bucket") {
-      const bucket = cells.name.displayName ?? row.id;
+      const bucket = cells.name?.displayName ?? row.id;
       const fields: DetailField[] = [
-        { label: "Name", value: cells.name.displayName ?? "-" },
+        { label: "Name", value: cells.name?.displayName ?? "-" },
         { label: "Type", value: "Bucket" },
-        { label: "Created", value: cells.creationDate.displayName ?? "-" },
+        { label: "Created", value: cells.creationDate?.displayName ?? "-" },
       ];
 
       const [
@@ -162,7 +162,7 @@ export function createS3DetailCapability(
 
     if (type === "folder") {
       return [
-        { label: "Name", value: row.cells.name.displayName ?? "-" },
+        { label: "Name", value: row.cells.name?.displayName ?? "-" },
         { label: "Type", value: "Folder" },
         { label: "Key", value: (row.meta?.key as string) ?? "-" },
       ];
@@ -174,9 +174,9 @@ export function createS3DetailCapability(
     const meta = await headObject(client, level.bucket, key);
 
     const fields: DetailField[] = [
-      { label: "Name", value: row.cells.name.displayName ?? "-" },
+      { label: "Name", value: row.cells.name?.displayName ?? "-" },
       { label: "Key", value: key },
-      { label: "Size", value: row.cells.size.displayName ?? "-" },
+      { label: "Size", value: row.cells.size?.displayName ?? "-" },
       { label: "Content-Type", value: meta.contentType ?? "-" },
       { label: "ETag", value: meta.etag ?? "-" },
       { label: "Last Modified", value: meta.lastModified ?? "-" },

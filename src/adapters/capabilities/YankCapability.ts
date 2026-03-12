@@ -5,7 +5,7 @@ import type { KeyTrigger } from "../../constants/keybindings.js";
 /** TableRow with strongly-typed meta from adapter's Zod schema */
 export interface ParsedRow<TMeta> {
   id: string;
-  cells: Record<string, Cell>;
+  cells: Record<string, Cell | undefined>;
   meta: TMeta;
 }
 

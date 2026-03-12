@@ -22,6 +22,7 @@ const baseRuntime: InputRuntimeState = {
   describeOpen: false,
   uploadPending: false,
   pendingActionType: null,
+  histogramOpen: false,
 };
 
 describe("translateRawInputEvent", () => {
@@ -174,6 +175,12 @@ describe("applyInputEvent", () => {
         jumpToRelated: vi.fn(),
         openInBrowser: vi.fn(),
         sortColumn: vi.fn(),
+        heatmapToggle: vi.fn(),
+        multiSelectToggle: vi.fn(),
+        multiSelectRange: vi.fn(),
+        multiSelectAll: vi.fn(),
+        bookmarkToggle: vi.fn(),
+        showHistogram: vi.fn(),
       },
       scroll: {
         up: vi.fn(),
@@ -187,6 +194,7 @@ describe("applyInputEvent", () => {
       },
       details: {
         close: vi.fn(),
+        closeHistogram: vi.fn(),
       },
       pending: {
         cancelPrompt: vi.fn(),

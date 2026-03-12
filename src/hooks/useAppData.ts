@@ -7,6 +7,7 @@ import { useNavigation } from "./useNavigation.js";
 import { usePickerManager } from "./usePickerManager.js";
 import { debugLog } from "../utils/debugLogger.js";
 import { filterRowsByText } from "../utils/rowUtils.js";
+import { computeHeatmapColors, isNumericColumn } from "../utils/heatmap.js";
 import type { AwsRegionOption } from "./useAwsRegions.js";
 import type { AwsProfileOption } from "./useAwsProfiles.js";
 
@@ -21,6 +22,8 @@ interface UseAppDataArgs {
   relatedResources?: RelatedResource[];
   tagFilter?: { key: string; value: string } | null;
   sortState?: { colKey: string; dir: "asc" | "desc" } | null;
+  heatmapEnabled?: boolean;
+  bookmarkedIds?: Set<string>;
 }
 
 export function useAppData({
@@ -34,6 +37,8 @@ export function useAppData({
   relatedResources,
   tagFilter,
   sortState,
+  heatmapEnabled,
+  bookmarkedIds,
 }: UseAppDataArgs) {
   const adapter = useMemo<ServiceAdapter>(() => {
     debugLog(currentService, `useAppData: adapter created`);
@@ -60,23 +65,52 @@ export function useAppData({
         })
       : rows;
 
-    if (!sortState) return tagFiltered;
-    const { colKey, dir } = sortState;
-    return [...tagFiltered].sort((a, b) => {
-      const aCell = a.cells[colKey];
-      const bCell = b.cells[colKey];
-      const aVal = typeof aCell === "string" ? aCell : (aCell?.displayName ?? "");
-      const bVal = typeof bCell === "string" ? bCell : (bCell?.displayName ?? "");
-      const cmp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: "base" });
-      return dir === "asc" ? cmp : -cmp;
-    });
-  }, [rows, tagFilter, sortState]);
+    const sorted = !sortState
+      ? tagFiltered
+      : [...tagFiltered].sort((a, b) => {
+          const aCell = a.cells[sortState.colKey];
+          const bCell = b.cells[sortState.colKey];
+          const aVal = typeof aCell === "string" ? aCell : (aCell?.displayName ?? "");
+          const bVal = typeof bCell === "string" ? bCell : (bCell?.displayName ?? "");
+          const cmp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: "base" });
+          return sortState.dir === "asc" ? cmp : -cmp;
+        });
+
+    // Float bookmarked rows to top
+    if (!bookmarkedIds || bookmarkedIds.size === 0) return sorted;
+    const bookmarked = sorted.filter((r) => bookmarkedIds.has(r.id));
+    const rest = sorted.filter((r) => !bookmarkedIds.has(r.id));
+    return [...bookmarked, ...rest];
+  }, [rows, tagFilter, sortState, bookmarkedIds]);
 
   // Text filter: re-runs on every keystroke but is a cheap O(n) scan.
-  const filteredRows = useMemo(
+  const textFilteredRows = useMemo(
     () => filterRowsByText(tagSortedRows, filterText),
     [tagSortedRows, filterText],
   );
+
+  // Heatmap: apply per-cell color to first numeric column when enabled
+  const filteredRows = useMemo(() => {
+    if (!heatmapEnabled) return textFilteredRows;
+    const numericCol = columns.find((c) => isNumericColumn(textFilteredRows, c.key));
+    if (!numericCol) return textFilteredRows;
+    const colorMap = computeHeatmapColors(textFilteredRows, numericCol.key);
+    if (colorMap.size === 0) return textFilteredRows;
+    return textFilteredRows.map((row) => {
+      const color = colorMap.get(row.id);
+      if (!color) return row;
+      return {
+        ...row,
+        cells: {
+          ...row.cells,
+          [numericCol.key]: {
+            ...(row.cells[numericCol.key] ?? { displayName: "", type: "text" as const }),
+            color,
+          },
+        },
+      };
+    });
+  }, [textFilteredRows, heatmapEnabled, columns]);
 
   const navigation = useNavigation(filteredRows.length, tableHeight);
   const selectedRow = filteredRows[navigation.selectedIndex] ?? null;

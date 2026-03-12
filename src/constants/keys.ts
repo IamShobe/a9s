@@ -23,6 +23,12 @@ export const KB = {
   RELATED_RESOURCES: "related_resources", // chord: g r
   OPEN_IN_BROWSER: "open_in_browser", // o
   SORT_COLUMN: "sort_column", // S
+  HEATMAP_TOGGLE: "heatmap_toggle", // H
+  MULTI_SELECT_TOGGLE: "multi_select_toggle", // Space
+  MULTI_SELECT_ALL: "multi_select_all", // Ctrl+A
+  MULTI_SELECT_RANGE: "multi_select_range", // V
+  BOOKMARK_TOGGLE: "bookmark_toggle", // m
+  HISTOGRAM: "histogram", // i
 
   // Picker
   PICKER_UP: "picker_up",

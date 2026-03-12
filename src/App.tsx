@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useApp } from "ink";
 import { useAtom } from "jotai";
 import clipboardy from "clipboardy";
@@ -34,6 +34,12 @@ import { readFile } from "fs/promises";
 import { openConsoleUrl } from "./utils/consoleUrl.js";
 import { runAwsJsonAsync } from "./utils/aws.js";
 import { debugLog } from "./utils/debugLogger.js";
+import { summarizeRowStatuses } from "./utils/rowUtils.js";
+import { loadSearchHistory, saveSearchEntry } from "./utils/searchHistory.js";
+import { loadBookmarks, toggleBookmark } from "./utils/bookmarks.js";
+import { buildHistogram } from "./utils/histogram.js";
+import { isNumericColumn } from "./utils/heatmap.js";
+import type { HistogramBar } from "./utils/histogram.js";
 import {
   currentlySelectedServiceAtom,
   selectedRegionAtom,
@@ -127,6 +133,27 @@ export function App({ initialService, endpointUrl }: AppProps) {
   // Sort state — null = no sort; S cycles through columns and directions
   const [sortState, setSortState] = useState<{ colKey: string; dir: "asc" | "desc" } | null>(null);
 
+  // Heatmap state
+  const [heatmapEnabled, setHeatmapEnabled] = useState(false);
+
+  // Multi-select state
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const lastToggledIndexRef = useRef<number>(-1);
+
+  // Bookmark state
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(() => {
+    const entries = loadBookmarks();
+    return new Set(entries.filter((e) => e.serviceId === initialService).map((e) => e.rowId));
+  });
+
+  // Search history state
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [searchHistoryIndex, setSearchHistoryIndex] = useState(-1);
+  const [showSearchHistory, setShowSearchHistory] = useState(false);
+
+  // Histogram state
+  const [histogramState, setHistogramState] = useState<{ columnKey: string; columnLabel: string; bars: HistogramBar[] | null } | null>(null);
+
   const {
     adapter,
     columns,
@@ -152,6 +179,8 @@ export function App({ initialService, endpointUrl }: AppProps) {
     relatedResources,
     tagFilter,
     sortState,
+    heatmapEnabled,
+    bookmarkedIds,
   });
 
   const [didOpenInitialResources, setDidOpenInitialResources] = useState(false);
@@ -160,6 +189,21 @@ export function App({ initialService, endpointUrl }: AppProps) {
     pickers.openPicker("resource");
     setDidOpenInitialResources(true);
   }, [didOpenInitialResources, pickers]);
+
+  // Refresh bookmarked IDs when service changes
+  useEffect(() => {
+    const entries = loadBookmarks();
+    setBookmarkedIds(new Set(
+      entries.filter((e) => e.serviceId === currentService).map((e) => e.rowId)
+    ));
+  }, [currentService]);
+
+  // Load search history on service switch
+  useEffect(() => {
+    setSearchHistory(loadSearchHistory(currentService));
+    setSearchHistoryIndex(-1);
+    setShowSearchHistory(false);
+  }, [currentService]);
 
   // Save original theme when theme picker opens; restore it if picker is cancelled
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -213,6 +257,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
       setWatchInterval(null);
       setTagFilterState(null);
       setSortState(null);
+      setSelectedRowIds(new Set());
+      lastToggledIndexRef.current = -1;
+      setHistogramState(null);
       resetHierarchy();
       navigation.reset();
     },
@@ -373,6 +420,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
     openRegionPicker: () => pickers.openPicker("region"),
     openResourcePicker: () => pickers.openPicker("resource"),
     openThemePicker: () => pickers.openPicker("theme"),
+    openBookmarksPicker: () => pickers.openPicker("bookmarks"),
     setWatch: setWatchInterval,
     clearWatch: () => setWatchInterval(null),
     setTagFilter: (key, value) => setTagFilterState({ key, value }),
@@ -386,10 +434,13 @@ export function App({ initialService, endpointUrl }: AppProps) {
         pickers.activePicker.setFilter(value);
         return;
       }
+      if (value !== "" && showSearchHistory) setShowSearchHistory(false);
+      setSearchHistoryIndex(-1);
+      setSelectedRowIds(new Set());
       actions.setFilterText(value);
       updateCurrentFilter(value);
     },
-    [actions, pickers, updateCurrentFilter],
+    [actions, pickers, updateCurrentFilter, showSearchHistory],
   );
 
   const handleFilterSubmit = useCallback(() => {
@@ -397,9 +448,14 @@ export function App({ initialService, endpointUrl }: AppProps) {
       pickers.activePicker.confirmSearch();
       return;
     }
+    if (state.filterText.trim()) {
+      saveSearchEntry(currentService, state.filterText.trim());
+      setSearchHistory(loadSearchHistory(currentService));
+    }
+    setShowSearchHistory(false);
     actions.setSearchEntryFilter(null);
     actions.setMode("navigate");
-  }, [actions, pickers]);
+  }, [actions, pickers, state.filterText, currentService]);
 
   const handleCommandSubmit = useCallback(() => {
     const command = state.commandText.trim();
@@ -575,6 +631,21 @@ export function App({ initialService, endpointUrl }: AppProps) {
     actions.bumpCommandCursorToEnd();
   }, [actions, state.commandText]);
 
+  const statusSummary = useMemo(() => summarizeRowStatuses(filteredRows), [filteredRows]);
+
+  const footerContent = useMemo(() => {
+    if (statusSummary.byColor.length === 0) return null;
+    const parts: React.ReactNode[] = [
+      <Text key="total" color={theme.table.columnHeaderText}> Total: {statusSummary.total}</Text>,
+    ];
+    for (const { color, count, label } of statusSummary.byColor) {
+      parts.push(
+        <Text key={color} color={color}> ● {label}: {count}</Text>
+      );
+    }
+    return <Box flexDirection="row">{parts}</Box>;
+  }, [statusSummary, theme.table.columnHeaderText]);
+
   const inputRuntime = useMemo<InputRuntimeState>(
     () => ({
       mode: state.mode,
@@ -589,8 +660,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
       describeOpen: Boolean(state.describeState),
       uploadPending: Boolean(state.uploadPending),
       pendingActionType: state.pendingAction?.effect.type ?? null,
+      histogramOpen: Boolean(histogramState),
     }),
-    [helpPanel.helpOpen, pickers.activePicker?.pickerMode, selectedRow, state],
+    [helpPanel.helpOpen, pickers.activePicker?.pickerMode, selectedRow, state, histogramState],
   );
 
   const inputDispatch = useInputEventProcessor({
@@ -632,6 +704,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
               if (filterHint) actions.setFilterText(filterHint);
               setRelatedResources([]);
             },
+            onSelectBookmark: (entry) => {
+              switchAdapter(entry.serviceId as ServiceId);
+            },
           }),
       },
       mode: {
@@ -641,10 +716,15 @@ export function App({ initialService, endpointUrl }: AppProps) {
               handleFilterChange(state.searchEntryFilter);
             }
             actions.setSearchEntryFilter(null);
+            setShowSearchHistory(false);
           }
           actions.setMode("navigate");
         },
         clearFilterOrNavigateBack: () => {
+          if (selectedRowIds.size > 0) {
+            setSelectedRowIds(new Set());
+            return;
+          }
           if (state.filterText !== "") {
             handleFilterChange("");
           } else {
@@ -654,6 +734,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
         startSearch: () => {
           actions.setSearchEntryFilter(state.filterText);
           actions.setMode("search");
+          setShowSearchHistory(true);
         },
         startCommand: () => {
           commandHistoryIndexRef.current = -1;
@@ -665,6 +746,68 @@ export function App({ initialService, endpointUrl }: AppProps) {
         historyNext: commandHistoryNext,
       },
       navigation: {
+        heatmapToggle: () => setHeatmapEnabled((v) => !v),
+        multiSelectToggle: () => {
+          if (!selectedRow) return;
+          setSelectedRowIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(selectedRow.id)) {
+              next.delete(selectedRow.id);
+            } else {
+              next.add(selectedRow.id);
+            }
+            lastToggledIndexRef.current = navigation.selectedIndex;
+            return next;
+          });
+        },
+        multiSelectRange: () => {
+          if (!selectedRow) return;
+          const anchor = lastToggledIndexRef.current;
+          const current = navigation.selectedIndex;
+          if (anchor === -1) {
+            setSelectedRowIds((prev) => {
+              const next = new Set(prev);
+              next.add(selectedRow.id);
+              return next;
+            });
+            lastToggledIndexRef.current = current;
+            return;
+          }
+          const lo = Math.min(anchor, current);
+          const hi = Math.max(anchor, current);
+          setSelectedRowIds((prev) => {
+            const next = new Set(prev);
+            filteredRows.slice(lo, hi + 1).forEach((r) => next.add(r.id));
+            return next;
+          });
+        },
+        multiSelectAll: () => {
+          setSelectedRowIds(new Set(filteredRows.map((r) => r.id)));
+        },
+        bookmarkToggle: () => {
+          if (!selectedRow) return;
+          const nameCell = selectedRow.cells.name;
+          const label = typeof nameCell === "object" ? (nameCell?.displayName ?? selectedRow.id) : (nameCell ?? selectedRow.id);
+          const added = toggleBookmark({
+            serviceId: currentService,
+            rowId: selectedRow.id,
+            rowLabel: label,
+            savedAt: new Date().toISOString(),
+          });
+          setBookmarkedIds((prev) => {
+            const next = new Set(prev);
+            if (added) next.add(selectedRow.id); else next.delete(selectedRow.id);
+            return next;
+          });
+          actions.pushFeedback(added ? `★ Bookmarked` : `Removed bookmark`, 1500);
+        },
+        showHistogram: () => {
+          const numericCol = columns.find((c) => isNumericColumn(filteredRows, c.key)) ?? columns[1];
+          if (!numericCol) return;
+          const values = filteredRows.map((r) => r.cells[numericCol.key]?.displayName ?? "");
+          const bars = buildHistogram(values);
+          setHistogramState({ columnKey: numericCol.key, columnLabel: numericCol.label, bars });
+        },
         sortColumn: handleSortColumn,
         openInBrowser: () => {
           if (!selectedRow) return;
@@ -742,6 +885,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       },
       details: {
         close: closeDetails,
+        closeHistogram: () => setHistogramState(null),
       },
       pending: {
         cancelPrompt: () => actions.setPendingAction(null),
@@ -801,6 +945,13 @@ export function App({ initialService, endpointUrl }: AppProps) {
             uploadPending={state.uploadPending}
             uploadPreview={uploadPreview}
             panelScrollOffset={panelScrollOffset}
+            footerContent={footerContent}
+            selectedRowIds={selectedRowIds}
+            bookmarkedIds={bookmarkedIds}
+            searchHistory={searchHistory}
+            searchHistoryIndex={searchHistoryIndex}
+            showSearchHistory={showSearchHistory}
+            histogramState={histogramState}
             {...(yankHeaderMarkers ? { headerMarkers: yankHeaderMarkers } : {})}
             {...(sortState ? { sortState } : {})}
           />

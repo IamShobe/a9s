@@ -83,6 +83,12 @@ export type NavigateScopeAction =
   | { type: "relatedResources" }
   | { type: "openInBrowser" }
   | { type: "sortColumn" }
+  | { type: "heatmapToggle" }
+  | { type: "multiSelectToggle" }
+  | { type: "multiSelectRange" }
+  | { type: "multiSelectAll" }
+  | { type: "bookmarkToggle" }
+  | { type: "showHistogram" }
   | { type: "none" };
 
 export function resolveNavigateScopeAction(action: KeyAction | null): NavigateScopeAction {
@@ -115,6 +121,18 @@ export function resolveNavigateScopeAction(action: KeyAction | null): NavigateSc
       return { type: "openInBrowser" };
     case KB.SORT_COLUMN:
       return { type: "sortColumn" };
+    case KB.HEATMAP_TOGGLE:
+      return { type: "heatmapToggle" };
+    case KB.MULTI_SELECT_TOGGLE:
+      return { type: "multiSelectToggle" };
+    case KB.MULTI_SELECT_RANGE:
+      return { type: "multiSelectRange" };
+    case KB.MULTI_SELECT_ALL:
+      return { type: "multiSelectAll" };
+    case KB.BOOKMARK_TOGGLE:
+      return { type: "bookmarkToggle" };
+    case KB.HISTOGRAM:
+      return { type: "showHistogram" };
     default:
       return { type: "none" };
   }
