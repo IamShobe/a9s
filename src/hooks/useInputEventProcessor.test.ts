@@ -160,6 +160,8 @@ describe("applyInputEvent", () => {
         startSearch: vi.fn(),
         startCommand: vi.fn(),
         commandAutocomplete: vi.fn(),
+        historyPrev: vi.fn(),
+        historyNext: vi.fn(),
       },
       navigation: {
         refresh: vi.fn(),
@@ -170,6 +172,8 @@ describe("applyInputEvent", () => {
         bottom: vi.fn(),
         enter: vi.fn(),
         jumpToRelated: vi.fn(),
+        openInBrowser: vi.fn(),
+        sortColumn: vi.fn(),
       },
       scroll: {
         up: vi.fn(),

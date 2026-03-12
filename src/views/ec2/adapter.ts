@@ -196,6 +196,19 @@ export function createEC2ServiceAdapter(
     return [];
   };
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as EC2RowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "instance") {
+      return `https://${r}.console.aws.amazon.com/ec2/v2/home?region=${r}#Instances:instanceId=${meta.instanceId}`;
+    }
+    if (meta.type === "volume") {
+      return `https://${r}.console.aws.amazon.com/ec2/v2/home?region=${r}#Volumes:volumeId=${meta.volumeId}`;
+    }
+    return null;
+  };
+
   return {
     id: "ec2",
     label: "EC2",
@@ -208,6 +221,7 @@ export function createEC2ServiceAdapter(
     getPath,
     getContextLabel,
     getRelatedResources,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "instances" });
       setBackStack([]);

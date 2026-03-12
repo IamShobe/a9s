@@ -16,6 +16,7 @@ interface TableProps {
   scrollOffset: number;
   contextLabel?: string;
   headerMarkers?: Record<string, string[]>;
+  sortState?: { colKey: string; dir: "asc" | "desc" } | null;
 }
 
 
@@ -77,6 +78,7 @@ const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filte
 
     const cellData = row.cells[col.key] ?? "";
     const cellValue = typeof cellData === "string" ? cellData : cellData.displayName;
+    const cellColor = !isSelected && typeof cellData === "object" ? cellData.color : undefined;
     const truncated = truncate(cellValue, colWidths[i]!);
     const highlighted =
       filterText && truncated ? highlightMatch(truncated, filterText, isSelected, theme) : [truncated];
@@ -88,7 +90,7 @@ const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filte
         </Text>,
       );
     } else {
-      parts.push(<Text key={`cell-${i}`}>{highlighted}</Text>);
+      parts.push(<Text key={`cell-${i}`} {...(cellColor ? { color: cellColor } : {})}>{highlighted}</Text>);
     }
   });
 
@@ -105,6 +107,7 @@ export const Table = React.memo(function Table({
   scrollOffset,
   contextLabel,
   headerMarkers,
+  sortState,
 }: TableProps) {
   const theme = useTheme();
   // Memoize column widths computation
@@ -129,7 +132,10 @@ export const Table = React.memo(function Table({
         );
       const width = colWidths[i]!;
       const markers = headerMarkers?.[col.key] ?? [];
-      const markerText = markers.length > 0 ? ` [${markers.join(",")}]` : "";
+      const sortIndicator =
+        sortState?.colKey === col.key ? (sortState.dir === "asc" ? " ▲" : " ▼") : "";
+      const markerText =
+        markers.length > 0 ? ` [${markers.join(",")}]${sortIndicator}` : sortIndicator;
 
       if (!markerText) {
         parts.push(

@@ -276,6 +276,19 @@ export function createVPCServiceAdapter(
   const detailCapability = createVPCDetailCapability(region, getLevel);
   const yankCapability = createVPCYankCapability();
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as VPCRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "vpc") {
+      return `https://${r}.console.aws.amazon.com/vpc/home?region=${r}#vpcs:vpcId=${meta.vpcId}`;
+    }
+    if (meta.type === "security-group") {
+      return `https://${r}.console.aws.amazon.com/vpc/home?region=${r}#SecurityGroups:group-id=${meta.sgId}`;
+    }
+    return null;
+  };
+
   return {
     id: "vpc",
     label: "VPC",
@@ -287,6 +300,7 @@ export function createVPCServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "vpcs" });
       setBackStack([]);

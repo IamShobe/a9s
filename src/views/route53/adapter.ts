@@ -185,6 +185,16 @@ export function createRoute53ServiceAdapter(
   const detailCapability = createRoute53DetailCapability(region, getLevel);
   const yankCapability = createRoute53YankCapability();
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const meta = row.meta as Route53RowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "zone") {
+      const zoneIdClean = meta.zoneId?.replace("/hostedzone/", "") ?? meta.zoneId;
+      return `https://us-east-1.console.aws.amazon.com/route53/v2/hostedzones#ListRecordSets/${zoneIdClean}`;
+    }
+    return null;
+  };
+
   return {
     id: "route53",
     label: "Route53",
@@ -196,6 +206,7 @@ export function createRoute53ServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "zones" });
       setBackStack([]);

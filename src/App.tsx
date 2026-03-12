@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useApp } from "ink";
 import { useAtom } from "jotai";
 import clipboardy from "clipboardy";
@@ -31,6 +31,7 @@ import type { InputRuntimeState } from "./hooks/inputEvents.js";
 import { useTheme } from "./contexts/ThemeContext.js";
 import { saveConfig } from "./utils/config.js";
 import { readFile } from "fs/promises";
+import { openConsoleUrl } from "./utils/consoleUrl.js";
 import { runAwsJsonAsync } from "./utils/aws.js";
 import { debugLog } from "./utils/debugLogger.js";
 import {
@@ -123,6 +124,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
   // Tag filter state — set via :tag Key=Value command
   const [tagFilter, setTagFilterState] = useState<{ key: string; value: string } | null>(null);
 
+  // Sort state — null = no sort; S cycles through columns and directions
+  const [sortState, setSortState] = useState<{ colKey: string; dir: "asc" | "desc" } | null>(null);
+
   const {
     adapter,
     columns,
@@ -147,6 +151,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
     availableProfiles,
     relatedResources,
     tagFilter,
+    sortState,
   });
 
   const [didOpenInitialResources, setDidOpenInitialResources] = useState(false);
@@ -207,6 +212,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       actions.setPendingAction(null);
       setWatchInterval(null);
       setTagFilterState(null);
+      setSortState(null);
       resetHierarchy();
       navigation.reset();
     },
@@ -397,10 +403,18 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   const handleCommandSubmit = useCallback(() => {
     const command = state.commandText.trim();
+    if (command) {
+      setCommandHistory((prev) => [...prev.filter((h) => h !== command), command]);
+    }
+    commandHistoryIndexRef.current = -1;
     actions.setCommandText("");
     actions.setMode("navigate");
     commandRouter(command);
   }, [actions, commandRouter, state.commandText]);
+
+  // Command history for ↑/↓ navigation in command mode
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const commandHistoryIndexRef = useRef(-1);
 
   const [uploadPreview, setUploadPreview] = useState<{
     old: string;
@@ -510,6 +524,45 @@ export function App({ initialService, endpointUrl }: AppProps) {
     return () => { cancelled = true; };
   }, [state.uploadPending, selectedRegion]);
 
+  const handleSortColumn = useCallback(() => {
+    if (columns.length === 0) return;
+    setSortState((prev) => {
+      if (!prev) {
+        return { colKey: columns[0]!.key, dir: "asc" };
+      }
+      if (prev.dir === "asc") {
+        return { colKey: prev.colKey, dir: "desc" };
+      }
+      // desc → advance to next column, or clear if last
+      const currentIdx = columns.findIndex((c) => c.key === prev.colKey);
+      const nextIdx = currentIdx + 1;
+      if (nextIdx < columns.length) {
+        return { colKey: columns[nextIdx]!.key, dir: "asc" };
+      }
+      return null;
+    });
+  }, [columns]);
+
+  const commandHistoryPrev = useCallback(() => {
+    if (commandHistory.length === 0) return;
+    const newIndex = Math.min(commandHistoryIndexRef.current + 1, commandHistory.length - 1);
+    commandHistoryIndexRef.current = newIndex;
+    actions.setCommandText(commandHistory[commandHistory.length - 1 - newIndex] ?? "");
+    actions.bumpCommandCursorToEnd();
+  }, [actions, commandHistory]);
+
+  const commandHistoryNext = useCallback(() => {
+    if (commandHistoryIndexRef.current <= 0) {
+      commandHistoryIndexRef.current = -1;
+      actions.setCommandText("");
+      return;
+    }
+    const newIndex = commandHistoryIndexRef.current - 1;
+    commandHistoryIndexRef.current = newIndex;
+    actions.setCommandText(commandHistory[commandHistory.length - 1 - newIndex] ?? "");
+    actions.bumpCommandCursorToEnd();
+  }, [actions, commandHistory]);
+
   const commandAutocomplete = useCallback(() => {
     const match = AVAILABLE_COMMANDS.find((cmd) =>
       cmd.toLowerCase().startsWith(state.commandText.toLowerCase()),
@@ -600,12 +653,27 @@ export function App({ initialService, endpointUrl }: AppProps) {
           actions.setMode("search");
         },
         startCommand: () => {
+          commandHistoryIndexRef.current = -1;
           actions.setCommandText("");
           actions.setMode("command");
         },
         commandAutocomplete,
+        historyPrev: commandHistoryPrev,
+        historyNext: commandHistoryNext,
       },
       navigation: {
+        sortColumn: handleSortColumn,
+        openInBrowser: () => {
+          if (!selectedRow) return;
+          const url = adapter.getBrowserUrl?.(selectedRow) ?? null;
+          if (!url) {
+            actions.pushFeedback("No console URL for this resource", 2000);
+            return;
+          }
+          void openConsoleUrl(url, selectedProfile).then(() => {
+            actions.pushFeedback("Opened in browser", 2000);
+          });
+        },
         refresh: () => {
           void refresh();
         },
@@ -731,6 +799,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
             uploadPreview={uploadPreview}
             panelScrollOffset={panelScrollOffset}
             {...(yankHeaderMarkers ? { headerMarkers: yankHeaderMarkers } : {})}
+            {...(sortState ? { sortState } : {})}
           />
         </Box>
         {!helpPanel.helpOpen && yankFeedbackMessage && (

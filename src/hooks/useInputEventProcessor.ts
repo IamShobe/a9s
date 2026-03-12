@@ -42,6 +42,8 @@ export interface InputEventActions {
     startSearch: () => void;
     startCommand: () => void;
     commandAutocomplete: () => void;
+    historyPrev: () => void;
+    historyNext: () => void;
   };
   navigation: {
     refresh: () => void;
@@ -52,6 +54,8 @@ export interface InputEventActions {
     bottom: () => void;
     enter: () => void;
     jumpToRelated: () => void;
+    openInBrowser: () => void;
+    sortColumn: () => void;
   };
   scroll: {
     up: () => void;
@@ -249,7 +253,13 @@ export function translateRawInputEvent(
     };
   }
 
-  if (runtime.mode === "search" || runtime.mode === "command") {
+  if (runtime.mode === "command") {
+    if (key.upArrow) return { event: { scope: "mode", type: "commandHistoryPrev" }, resetChord: true };
+    if (key.downArrow) return { event: { scope: "mode", type: "commandHistoryNext" }, resetChord: true };
+    return { event: null, resetChord: false };
+  }
+
+  if (runtime.mode === "search") {
     return { event: null, resetChord: false };
   }
 
@@ -288,6 +298,10 @@ export function translateRawInputEvent(
       return { event: { scope: "navigation", type: "enter" }, resetChord: false };
     case "relatedResources":
       return { event: { scope: "navigation", type: "relatedResources" }, resetChord: true };
+    case "openInBrowser":
+      return { event: { scope: "navigation", type: "openInBrowser" }, resetChord: false };
+    case "sortColumn":
+      return { event: { scope: "navigation", type: "sortColumn" }, resetChord: false };
     case "none":
       return { event: null, resetChord: false };
   }
@@ -449,6 +463,12 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
         case "commandAutocomplete":
           actions.mode.commandAutocomplete();
           return;
+        case "commandHistoryPrev":
+          actions.mode.historyPrev();
+          return;
+        case "commandHistoryNext":
+          actions.mode.historyNext();
+          return;
       }
       return;
     case "navigation":
@@ -482,6 +502,12 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
           return;
         case "relatedResources":
           actions.navigation.jumpToRelated();
+          return;
+        case "openInBrowser":
+          actions.navigation.openInBrowser();
+          return;
+        case "sortColumn":
+          actions.navigation.sortColumn();
           return;
       }
       return;

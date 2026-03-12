@@ -198,6 +198,16 @@ export function createECRServiceAdapter(
   const yankCapability = createECRYankCapability();
   const actionCapability = createECRActionCapability(region, getLevel);
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as ECRRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "repository") {
+      return `https://${r}.console.aws.amazon.com/ecr/repositories/private/${meta.repositoryName}/?region=${r}`;
+    }
+    return null;
+  };
+
   return {
     id: "ecr",
     label: "ECR",
@@ -209,6 +219,7 @@ export function createECRServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "repositories" });
       setBackStack([]);

@@ -157,6 +157,15 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
     setLevel,
   );
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const level = getLevel();
+    const r = region ?? "us-east-1";
+    if (level.kind === "buckets") {
+      return `https://s3.console.aws.amazon.com/s3/buckets/${row.id}?region=${r}`;
+    }
+    return `https://s3.console.aws.amazon.com/s3/object/${level.bucket}?region=${r}&prefix=${encodeURIComponent(row.id)}`;
+  };
+
   return {
     id: "s3",
     label: "S3",
@@ -168,6 +177,7 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "buckets" });
       setBackStack([]);

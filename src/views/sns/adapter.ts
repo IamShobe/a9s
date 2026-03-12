@@ -188,6 +188,16 @@ export function createSNSServiceAdapter(
   const yankCapability = createSNSYankCapability();
   const actionCapability = createSNSActionCapability(region, getLevel);
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as SNSRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "topic") {
+      return `https://${r}.console.aws.amazon.com/sns/v3/home?region=${r}#/topic/${encodeURIComponent(meta.topicArn)}`;
+    }
+    return null;
+  };
+
   return {
     id: "sns",
     label: "SNS",
@@ -199,6 +209,7 @@ export function createSNSServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "topics" });
       setBackStack([]);

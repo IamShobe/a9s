@@ -1,6 +1,7 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
@@ -80,7 +81,7 @@ export function createEBSServiceAdapter(
             cells: {
               volumeId: textCell(vol.VolumeId),
               size: textCell(formatBytes(vol.Size)),
-              state: textCell(vol.State ?? "-"),
+              state: statusCell(vol.State ?? "-"),
               type: textCell(vol.VolumeType ?? "-"),
               az: textCell(vol.AvailabilityZone ?? "-"),
               attachment: textCell(attachDisplay),
@@ -116,7 +117,7 @@ export function createEBSServiceAdapter(
         id: snap.SnapshotId,
         cells: {
           snapshotId: textCell(snap.SnapshotId),
-          state: textCell(snap.State),
+          state: statusCell(snap.State),
           progress: textCell(snap.Progress ?? "-"),
           startTime: textCell(snap.StartTime ? snap.StartTime.slice(0, 19).replace("T", " ") : "-"),
           description: textCell(snap.Description || "-"),
@@ -175,6 +176,19 @@ export function createEBSServiceAdapter(
   const editCapability = createEBSEditCapability(region, getLevel);
   const actionCapability = createEBSActionCapability(region, getLevel);
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as EBSRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "volume") {
+      return `https://${r}.console.aws.amazon.com/ec2/v2/home?region=${r}#Volumes:volumeId=${meta.volumeId}`;
+    }
+    if (meta.type === "snapshot") {
+      return `https://${r}.console.aws.amazon.com/ec2/v2/home?region=${r}#Snapshots:snapshotId=${meta.snapshotId}`;
+    }
+    return null;
+  };
+
   return {
     id: "ebs",
     label: "EBS",
@@ -186,6 +200,7 @@ export function createEBSServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "volumes" });
       setBackStack([]);

@@ -1375,6 +1375,445 @@ async function seedCloudFormation() {
   }
 }
 
+async function seedSNS() {
+  console.log("\nSeeding SNS:");
+
+  const topics = [
+    { name: "app-notifications", displayName: "App Notifications" },
+    { name: "order-events", displayName: "Order Events" },
+    { name: "alerts", displayName: "Monitoring Alerts" },
+  ];
+
+  for (const topic of topics) {
+    let topicArn = "";
+    try {
+      const out = await runAws(
+        [
+          "sns",
+          "create-topic",
+          "--name",
+          topic.name,
+          "--attributes",
+          `DisplayName=${topic.displayName}`,
+          "--output",
+          "json",
+        ],
+        10000,
+      );
+      topicArn = (JSON.parse(out) as { TopicArn: string }).TopicArn;
+      console.log(`  Created topic: ${topic.name} (${topicArn})`);
+    } catch (e: unknown) {
+      // SNS create-topic is idempotent, but get ARN anyway
+      try {
+        const listOut = await runAws(
+          ["sns", "list-topics", "--output", "json"],
+          10000,
+        );
+        const parsed = JSON.parse(listOut) as { Topics: Array<{ TopicArn: string }> };
+        topicArn = parsed.Topics.find((t) => t.TopicArn.endsWith(`:${topic.name}`))?.TopicArn ?? "";
+        if (topicArn) console.log(`  Topic already exists: ${topic.name}`);
+        else console.log(`  Warning with topic ${topic.name}: ${(e as Error).message}`);
+      } catch {
+        console.log(`  Warning with topic ${topic.name}: ${(e as Error).message}`);
+      }
+    }
+
+    // Subscribe an SQS queue (email subs won't confirm in LocalStack, use sqs)
+    if (topicArn && topic.name === "app-notifications") {
+      try {
+        const queueOut = await runAws(
+          ["sqs", "get-queue-url", "--queue-name", "app-jobs", "--output", "json"],
+          10000,
+        ).catch(() => "");
+        if (queueOut) {
+          const queueUrl = (JSON.parse(queueOut) as { QueueUrl: string }).QueueUrl;
+          // Get queue ARN
+          const attrOut = await runAws(
+            [
+              "sqs",
+              "get-queue-attributes",
+              "--queue-url",
+              queueUrl,
+              "--attribute-names",
+              "QueueArn",
+              "--output",
+              "json",
+            ],
+            10000,
+          );
+          const queueArn = (JSON.parse(attrOut) as { Attributes: { QueueArn: string } }).Attributes.QueueArn;
+          await runAws(
+            ["sns", "subscribe", "--topic-arn", topicArn, "--protocol", "sqs", "--notification-endpoint", queueArn, "--output", "json"],
+            10000,
+          );
+          console.log(`    Subscribed app-jobs SQS queue to ${topic.name}`);
+        }
+      } catch {
+        // ignore subscription errors
+      }
+    }
+  }
+}
+
+async function seedSSM() {
+  console.log("\nSeeding SSM Parameter Store:");
+
+  const parameters = [
+    { name: "/app/config/log-level", value: "info", type: "String", description: "Application log level" },
+    { name: "/app/config/max-connections", value: "100", type: "String", description: "Max DB connections" },
+    { name: "/app/config/feature-flags", value: "dark-mode,beta-api", type: "StringList", description: "Feature flags" },
+    { name: "/app/secrets/db-password", value: "localstack-db-pass-123", type: "SecureString", description: "Database password" },
+    { name: "/app/secrets/api-key", value: "sk-local-test-key-abc123", type: "SecureString", description: "External API key" },
+    { name: "/infra/vpc/id", value: "vpc-local-001", type: "String", description: "Main VPC ID" },
+    { name: "/infra/ecs/cluster-name", value: "local-cluster", type: "String", description: "ECS cluster name" },
+  ];
+
+  for (const param of parameters) {
+    try {
+      await runAws(
+        [
+          "ssm",
+          "put-parameter",
+          "--name",
+          param.name,
+          "--value",
+          param.value,
+          "--type",
+          param.type,
+          "--description",
+          param.description,
+          "--overwrite",
+          "--output",
+          "json",
+        ],
+        10000,
+      );
+      console.log(`  Put parameter: ${param.name} (${param.type})`);
+    } catch (e: unknown) {
+      console.log(`  Warning with parameter ${param.name}: ${(e as Error).message}`);
+    }
+  }
+}
+
+async function seedECR() {
+  console.log("\nSeeding ECR:");
+
+  const repositories = [
+    { name: "api-handler", description: "Main API service image" },
+    { name: "data-processor", description: "Batch data processor image" },
+    { name: "frontend", description: "React frontend image" },
+    { name: "base-node", description: "Base Node.js image" },
+  ];
+
+  for (const repo of repositories) {
+    try {
+      const out = await runAws(
+        [
+          "ecr",
+          "create-repository",
+          "--repository-name",
+          repo.name,
+          "--output",
+          "json",
+        ],
+        10000,
+      );
+      const result = JSON.parse(out) as { repository: { repositoryUri: string } };
+      console.log(`  Created repository: ${repo.name} (${result.repository.repositoryUri})`);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      if (err.message?.includes("already exists") || err.message?.includes("RepositoryAlreadyExistsException")) {
+        console.log(`  Repository already exists: ${repo.name}`);
+      } else {
+        console.log(`  Warning creating repository ${repo.name}: ${err.message ?? String(e)}`);
+      }
+    }
+  }
+}
+
+async function seedStepFunctions() {
+  console.log("\nSeeding Step Functions:");
+
+  const lambdaRole = "arn:aws:iam::000000000000:role/sfn-role";
+
+  // Ensure a role exists for Step Functions
+  const sfnTrustPolicy = {
+    Version: "2012-10-17",
+    Statement: [
+      {
+        Effect: "Allow",
+        Principal: { Service: "states.amazonaws.com" },
+        Action: "sts:AssumeRole",
+      },
+    ],
+  };
+  await ensureRole("sfn-role", sfnTrustPolicy).catch(() => {});
+
+  const stateMachines = [
+    {
+      name: "order-processing",
+      definition: {
+        Comment: "Process customer orders",
+        StartAt: "ValidateOrder",
+        States: {
+          ValidateOrder: { Type: "Pass", Next: "ProcessPayment" },
+          ProcessPayment: { Type: "Pass", Next: "SendConfirmation" },
+          SendConfirmation: { Type: "Pass", End: true },
+        },
+      },
+    },
+    {
+      name: "data-pipeline",
+      definition: {
+        Comment: "ETL data pipeline",
+        StartAt: "Extract",
+        States: {
+          Extract: { Type: "Pass", Next: "Transform" },
+          Transform: { Type: "Pass", Next: "Load" },
+          Load: { Type: "Pass", End: true },
+        },
+      },
+    },
+    {
+      name: "image-resizer",
+      definition: {
+        Comment: "Resize uploaded images to multiple sizes",
+        StartAt: "DownloadImage",
+        States: {
+          DownloadImage: { Type: "Pass", Next: "Resize" },
+          Resize: { Type: "Pass", End: true },
+        },
+      },
+    },
+  ];
+
+  const createdArns: Record<string, string> = {};
+
+  for (const sm of stateMachines) {
+    try {
+      // Check if already exists
+      const listOut = await runAws(
+        ["stepfunctions", "list-state-machines", "--output", "json"],
+        10000,
+      );
+      const existing = (JSON.parse(listOut) as { stateMachines: Array<{ name: string; stateMachineArn: string }> })
+        .stateMachines.find((m) => m.name === sm.name);
+
+      if (existing) {
+        console.log(`  State machine already exists: ${sm.name}`);
+        createdArns[sm.name] = existing.stateMachineArn;
+        continue;
+      }
+
+      const out = await runAws(
+        [
+          "stepfunctions",
+          "create-state-machine",
+          "--name",
+          sm.name,
+          "--definition",
+          JSON.stringify(sm.definition),
+          "--role-arn",
+          lambdaRole,
+          "--output",
+          "json",
+        ],
+        15000,
+      );
+      const result = JSON.parse(out) as { stateMachineArn: string };
+      createdArns[sm.name] = result.stateMachineArn;
+      console.log(`  Created state machine: ${sm.name} (${result.stateMachineArn})`);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      if (err.message?.includes("already exists") || err.message?.includes("StateMachineAlreadyExists")) {
+        console.log(`  State machine already exists: ${sm.name}`);
+      } else {
+        console.log(`  Warning creating state machine ${sm.name}: ${err.message ?? String(e)}`);
+      }
+    }
+  }
+
+  // Start a few executions on each state machine
+  for (const [smName, smArn] of Object.entries(createdArns)) {
+    const executions = [
+      { name: `exec-${smName}-001`, input: '{"run":1}' },
+      { name: `exec-${smName}-002`, input: '{"run":2}' },
+    ];
+    for (const exec of executions) {
+      try {
+        await runAws(
+          [
+            "stepfunctions",
+            "start-execution",
+            "--state-machine-arn",
+            smArn,
+            "--name",
+            exec.name,
+            "--input",
+            exec.input,
+            "--output",
+            "json",
+          ],
+          10000,
+        );
+        console.log(`    Started execution: ${exec.name}`);
+      } catch (e: unknown) {
+        const err = e as { message?: string };
+        if (err.message?.includes("already exists") || err.message?.includes("ExecutionAlreadyExists")) {
+          console.log(`    Execution already exists: ${exec.name}`);
+        } else {
+          console.log(`    Warning starting execution ${exec.name}: ${err.message ?? String(e)}`);
+        }
+      }
+    }
+  }
+}
+
+async function seedVPC() {
+  console.log("\nSeeding VPC:");
+
+  // Create a custom VPC (default VPC already exists in LocalStack)
+  let vpcId = "";
+  try {
+    const out = await runAws(
+      [
+        "ec2",
+        "create-vpc",
+        "--cidr-block",
+        "10.1.0.0/16",
+        "--tag-specifications",
+        JSON.stringify([{
+          ResourceType: "vpc",
+          Tags: [{ Key: "Name", Value: "prod-vpc" }, { Key: "Env", Value: "prod" }],
+        }]),
+        "--output",
+        "json",
+      ],
+      10000,
+    );
+    vpcId = (JSON.parse(out) as { Vpc: { VpcId: string } }).Vpc.VpcId;
+    console.log(`  Created VPC: prod-vpc (${vpcId})`);
+  } catch (e: unknown) {
+    console.log(`  Warning creating VPC: ${(e as Error).message}`);
+  }
+
+  if (!vpcId) return;
+
+  // Create subnets in the VPC
+  const subnets = [
+    { cidr: "10.1.1.0/24", az: "us-east-1a", name: "prod-public-1a" },
+    { cidr: "10.1.2.0/24", az: "us-east-1b", name: "prod-public-1b" },
+    { cidr: "10.1.10.0/24", az: "us-east-1a", name: "prod-private-1a" },
+    { cidr: "10.1.11.0/24", az: "us-east-1b", name: "prod-private-1b" },
+  ];
+
+  for (const subnet of subnets) {
+    try {
+      await runAws(
+        [
+          "ec2",
+          "create-subnet",
+          "--vpc-id",
+          vpcId,
+          "--cidr-block",
+          subnet.cidr,
+          "--availability-zone",
+          subnet.az,
+          "--tag-specifications",
+          JSON.stringify([{
+            ResourceType: "subnet",
+            Tags: [{ Key: "Name", Value: subnet.name }],
+          }]),
+          "--output",
+          "json",
+        ],
+        10000,
+      );
+      console.log(`  Created subnet: ${subnet.name} (${subnet.cidr})`);
+    } catch (e: unknown) {
+      console.log(`  Warning creating subnet ${subnet.name}: ${(e as Error).message}`);
+    }
+  }
+
+  // Create security groups
+  const securityGroups = [
+    {
+      name: "prod-web-sg",
+      description: "Web tier security group",
+      rules: [
+        { protocol: "tcp", port: 80, cidr: "0.0.0.0/0" },
+        { protocol: "tcp", port: 443, cidr: "0.0.0.0/0" },
+      ],
+    },
+    {
+      name: "prod-app-sg",
+      description: "Application tier security group",
+      rules: [
+        { protocol: "tcp", port: 8080, cidr: "10.1.0.0/16" },
+      ],
+    },
+    {
+      name: "prod-db-sg",
+      description: "Database tier security group",
+      rules: [
+        { protocol: "tcp", port: 5432, cidr: "10.1.0.0/16" },
+      ],
+    },
+  ];
+
+  for (const sg of securityGroups) {
+    try {
+      const out = await runAws(
+        [
+          "ec2",
+          "create-security-group",
+          "--group-name",
+          sg.name,
+          "--description",
+          sg.description,
+          "--vpc-id",
+          vpcId,
+          "--tag-specifications",
+          JSON.stringify([{
+            ResourceType: "security-group",
+            Tags: [{ Key: "Name", Value: sg.name }],
+          }]),
+          "--output",
+          "json",
+        ],
+        10000,
+      );
+      const sgId = (JSON.parse(out) as { GroupId: string }).GroupId;
+      console.log(`  Created security group: ${sg.name} (${sgId})`);
+
+      for (const rule of sg.rules) {
+        await runAws(
+          [
+            "ec2",
+            "authorize-security-group-ingress",
+            "--group-id",
+            sgId,
+            "--protocol",
+            rule.protocol,
+            "--port",
+            String(rule.port),
+            "--cidr",
+            rule.cidr,
+          ],
+          10000,
+        ).catch(() => {});
+      }
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      if (!err.message?.includes("already exists") && !err.message?.includes("InvalidGroup.Duplicate")) {
+        console.log(`  Warning creating security group ${sg.name}: ${err.message ?? String(e)}`);
+      } else {
+        console.log(`  Security group already exists: ${sg.name}`);
+      }
+    }
+  }
+}
+
 async function main() {
   console.log("Checking LocalStack connection...");
   await checkLocalStack();
@@ -1451,6 +1890,36 @@ async function main() {
     await seedCloudFormation();
   } catch (e) {
     console.error(`\nCloudFormation seeding failed: ${(e as Error).message}`);
+  }
+
+  try {
+    await seedSNS();
+  } catch (e) {
+    console.error(`\nSNS seeding failed: ${(e as Error).message}`);
+  }
+
+  try {
+    await seedSSM();
+  } catch (e) {
+    console.error(`\nSSM seeding failed: ${(e as Error).message}`);
+  }
+
+  try {
+    await seedECR();
+  } catch (e) {
+    console.error(`\nECR seeding failed: ${(e as Error).message}`);
+  }
+
+  try {
+    await seedStepFunctions();
+  } catch (e) {
+    console.error(`\nStep Functions seeding failed: ${(e as Error).message}`);
+  }
+
+  try {
+    await seedVPC();
+  } catch (e) {
+    console.error(`\nVPC seeding failed: ${(e as Error).message}`);
   }
 
   // RDS: skipped — LocalStack Community does not support RDS (Pro only).

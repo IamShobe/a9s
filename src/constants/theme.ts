@@ -271,6 +271,8 @@ const MONOKAI_THEME = createTheme({
     vpc: { bg: "blue", fg: "white" },
     ecr: { bg: "magenta", fg: "white" },
     stepfunctions: { bg: "cyan", fg: "black" },
+    eventbridge: { bg: "yellow", fg: "black" },
+    apigateway: { bg: "magenta", fg: "white" },
   },
 });
 
@@ -311,6 +313,8 @@ const CATPPUCCIN_MOCHA_THEME = createTheme({
     vpc: { bg: "#89b4fa", fg: "#1e1e2e" },
     ecr: { bg: "#cba6f7", fg: "#1e1e2e" },
     stepfunctions: { bg: "#89dceb", fg: "#1e1e2e" },
+    eventbridge: { bg: "#f9e2af", fg: "#1e1e2e" },
+    apigateway: { bg: "#cba6f7", fg: "#1e1e2e" },
   },
 });
 
@@ -349,6 +353,8 @@ const NORD_THEME = createTheme({
     vpc: { bg: "#5e81ac", fg: "#eceff4" },
     ecr: { bg: "#b48ead", fg: "#eceff4" },
     stepfunctions: { bg: "#8fbcbb", fg: "#2e3440" },
+    eventbridge: { bg: "#ebcb8b", fg: "#2e3440" },
+    apigateway: { bg: "#b48ead", fg: "#eceff4" },
   },
 });
 
@@ -387,6 +393,8 @@ const TOKYO_NIGHT_THEME = createTheme({
     vpc: { bg: "#7aa2f7", fg: "#1a1b26" },
     ecr: { bg: "#bb9af7", fg: "#1a1b26" },
     stepfunctions: { bg: "#73daca", fg: "#1a1b26" },
+    eventbridge: { bg: "#e0af68", fg: "#1a1b26" },
+    apigateway: { bg: "#bb9af7", fg: "#1a1b26" },
   },
 });
 
@@ -425,6 +433,8 @@ const GRUVBOX_DARK_THEME = createTheme({
     vpc: { bg: "#83a598", fg: "#282828" },
     ecr: { bg: "#d3869b", fg: "#282828" },
     stepfunctions: { bg: "#8ec07c", fg: "#282828" },
+    eventbridge: { bg: "#fabd2f", fg: "#282828" },
+    apigateway: { bg: "#d3869b", fg: "#282828" },
   },
 });
 
@@ -464,6 +474,8 @@ const DRACULA_THEME = createTheme({
     vpc: { bg: "#bd93f9", fg: "#282a36" },
     ecr: { bg: "#ff79c6", fg: "#282a36" },
     stepfunctions: { bg: "#8be9fd", fg: "#282a36" },
+    eventbridge: { bg: "#f1fa8c", fg: "#282a36" },
+    apigateway: { bg: "#ff79c6", fg: "#282a36" },
   },
 });
 

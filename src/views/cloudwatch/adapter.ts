@@ -225,6 +225,19 @@ export function createCloudWatchServiceAdapter(
   const editCapability = createCloudWatchEditCapability(region, getLevel);
   const actionCapability = createCloudWatchActionCapability(region, getLevel);
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as CloudWatchRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "log-group") {
+      return `https://${r}.console.aws.amazon.com/cloudwatch/home?region=${r}#logsV2:log-groups/log-group/${encodeURIComponent(meta.logGroupName ?? "")}`;
+    }
+    if (meta.type === "log-stream") {
+      return `https://${r}.console.aws.amazon.com/cloudwatch/home?region=${r}#logsV2:log-groups/log-group/${encodeURIComponent(meta.logGroupName ?? "")}/log-events/${encodeURIComponent(meta.logStreamName ?? "")}`;
+    }
+    return null;
+  };
+
   return {
     id: "cloudwatch",
     label: "CloudWatch Logs",
@@ -236,6 +249,7 @@ export function createCloudWatchServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "log-groups" });
       setBackStack([]);

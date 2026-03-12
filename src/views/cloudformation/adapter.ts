@@ -1,6 +1,7 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
@@ -65,7 +66,7 @@ export function createCloudFormationServiceAdapter(
           id: stack.StackId ?? stack.StackName,
           cells: {
             name: textCell(stack.StackName),
-            status: textCell(stack.StackStatus ?? "-"),
+            status: statusCell(stack.StackStatus ?? "-"),
             created: textCell(stack.CreationTime ? stack.CreationTime.slice(0, 19).replace("T", " ") : "-"),
             updated: textCell(stack.LastUpdatedTime ? stack.LastUpdatedTime.slice(0, 19).replace("T", " ") : "-"),
             description: textCell(stack.Description ?? "-"),
@@ -101,7 +102,7 @@ export function createCloudFormationServiceAdapter(
           logicalId: textCell(res.LogicalResourceId),
           physicalId: textCell(res.PhysicalResourceId ?? "-"),
           type: textCell(res.ResourceType ?? "-"),
-          status: textCell(res.ResourceStatus ?? "-"),
+          status: statusCell(res.ResourceStatus ?? "-"),
         },
         meta: {
           type: "resource",
@@ -154,6 +155,16 @@ export function createCloudFormationServiceAdapter(
   const yankCapability = createCloudFormationYankCapability();
   const actionCapability = createCloudFormationActionCapability(region, getLevel);
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as CloudFormationRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "stack") {
+      return `https://${r}.console.aws.amazon.com/cloudformation/home?region=${r}#/stacks/stackinfo?stackId=${encodeURIComponent(meta.stackId)}`;
+    }
+    return null;
+  };
+
   return {
     id: "cloudformation",
     label: "CloudFormation",
@@ -165,6 +176,7 @@ export function createCloudFormationServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "stacks" });
       setBackStack([]);

@@ -1,6 +1,7 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
@@ -69,7 +70,7 @@ export function createRDSServiceAdapter(
           id: inst.DBInstanceIdentifier,
           cells: {
             identifier: textCell(inst.DBInstanceIdentifier),
-            status: textCell(inst.DBInstanceStatus ?? "-"),
+            status: statusCell(inst.DBInstanceStatus ?? "-"),
             engine: textCell(`${inst.Engine ?? "-"} ${inst.EngineVersion ?? ""}`.trim()),
             class: textCell(inst.DBInstanceClass ?? "-"),
             az: textCell(inst.AvailabilityZone ?? "-"),
@@ -107,7 +108,7 @@ export function createRDSServiceAdapter(
         id: snap.DBSnapshotIdentifier,
         cells: {
           snapshotId: textCell(snap.DBSnapshotIdentifier),
-          status: textCell(snap.Status ?? "-"),
+          status: statusCell(snap.Status ?? "-"),
           type: textCell(snap.SnapshotType ?? "-"),
           created: textCell(snap.SnapshotCreateTime ? snap.SnapshotCreateTime.slice(0, 19).replace("T", " ") : "-"),
           size: textCell(snap.AllocatedStorage != null ? String(snap.AllocatedStorage) : "-"),
@@ -169,6 +170,19 @@ export function createRDSServiceAdapter(
   const editCapability = createRDSEditCapability(region, getLevel);
   const actionCapability = createRDSActionCapability(region, getLevel);
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as RDSRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "instance") {
+      return `https://${r}.console.aws.amazon.com/rds/home?region=${r}#database:id=${meta.dbInstanceIdentifier};is-cluster=false`;
+    }
+    if (meta.type === "snapshot") {
+      return `https://${r}.console.aws.amazon.com/rds/home?region=${r}#db-snapshot:id=${meta.snapshotIdentifier}`;
+    }
+    return null;
+  };
+
   return {
     id: "rds",
     label: "RDS",
@@ -180,6 +194,7 @@ export function createRDSServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "instances" });
       setBackStack([]);

@@ -221,6 +221,16 @@ export function createSQSServiceAdapter(
     return resources;
   };
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as SQSRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "queue") {
+      return `https://${r}.console.aws.amazon.com/sqs/v3/home?region=${r}#/queues/${encodeURIComponent(meta.queueUrl)}`;
+    }
+    return null;
+  };
+
   return {
     id: "sqs",
     label: "SQS",
@@ -233,6 +243,7 @@ export function createSQSServiceAdapter(
     getPath,
     getContextLabel,
     getRelatedResources,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "queues" });
       setBackStack([]);

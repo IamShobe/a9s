@@ -205,6 +205,20 @@ export const KEYBINDINGS: KeyBinding[] = [
     showIf: (ctx) => ctx.hasHiddenSecrets,
   },
   {
+    action: KB.OPEN_IN_BROWSER,
+    trigger: { type: "key", char: "o" },
+    scope: "navigate",
+    label: "Open in AWS console (browser)",
+    shortLabel: "open",
+  },
+  {
+    action: KB.SORT_COLUMN,
+    trigger: { type: "key", char: "S" },
+    scope: "navigate",
+    label: "Cycle sort on current column (none → asc → desc)",
+    shortLabel: "sort",
+  },
+  {
     action: KB.QUIT,
     trigger: { type: "key", char: "q" },
     scope: "navigate",

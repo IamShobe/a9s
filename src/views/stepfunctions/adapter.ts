@@ -163,6 +163,19 @@ export function createStepFunctionsServiceAdapter(
   const yankCapability = createSFNYankCapability();
   const actionCapability = createSFNActionCapability(region, getLevel);
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as SFNRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "state-machine") {
+      return `https://${r}.console.aws.amazon.com/states/home?region=${r}#/statemachines/view/${encodeURIComponent(meta.stateMachineArn)}`;
+    }
+    if (meta.type === "execution") {
+      return `https://${r}.console.aws.amazon.com/states/home?region=${r}#/executions/details/${encodeURIComponent(meta.executionArn)}`;
+    }
+    return null;
+  };
+
   return {
     id: "stepfunctions",
     label: "Step Functions",
@@ -174,6 +187,7 @@ export function createStepFunctionsServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "state-machines" });
       setBackStack([]);

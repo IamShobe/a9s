@@ -41,6 +41,7 @@ interface AppMainViewProps {
   termCols: number;
   tableHeight: number;
   headerMarkers?: Record<string, string[]>;
+  sortState?: { colKey: string; dir: "asc" | "desc" } | null;
   yankHelpOpen: boolean;
   yankOptions: YankOption[];
   yankHelpRow: TableRow | null;
@@ -67,6 +68,7 @@ export function AppMainView({
   termCols,
   tableHeight,
   headerMarkers,
+  sortState,
   yankHelpOpen,
   yankOptions,
   yankHelpRow,
@@ -258,6 +260,7 @@ export function AppMainView({
       scrollOffset={scrollOffset}
       contextLabel={adapter.getContextLabel?.() ?? ""}
       {...(headerMarkers ? { headerMarkers } : {})}
+      {...(sortState ? { sortState } : {})}
     />
   );
 }

@@ -17,6 +17,8 @@ import { createSSMServiceAdapter } from "./views/ssm/adapter.js";
 import { createVPCServiceAdapter } from "./views/vpc/adapter.js";
 import { createECRServiceAdapter } from "./views/ecr/adapter.js";
 import { createStepFunctionsServiceAdapter } from "./views/stepfunctions/adapter.js";
+import { createEventBridgeServiceAdapter } from "./views/eventbridge/adapter.js";
+import { createApiGatewayServiceAdapter } from "./views/apigateway/adapter.js";
 
 export const SERVICE_REGISTRY = {
   s3: (endpointUrl?: string, region?: string) => createS3ServiceAdapter(endpointUrl, region),
@@ -43,6 +45,10 @@ export const SERVICE_REGISTRY = {
   ecr: (_endpointUrl?: string, region?: string) => createECRServiceAdapter(undefined, region),
   stepfunctions: (_endpointUrl?: string, region?: string) =>
     createStepFunctionsServiceAdapter(undefined, region),
+  eventbridge: (_endpointUrl?: string, region?: string) =>
+    createEventBridgeServiceAdapter(undefined, region),
+  apigateway: (_endpointUrl?: string, region?: string) =>
+    createApiGatewayServiceAdapter(undefined, region),
 } as const;
 
 export type ServiceId = keyof typeof SERVICE_REGISTRY;

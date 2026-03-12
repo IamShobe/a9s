@@ -20,6 +20,7 @@ interface UseAppDataArgs {
   availableProfiles: AwsProfileOption[];
   relatedResources?: RelatedResource[];
   tagFilter?: { key: string; value: string } | null;
+  sortState?: { colKey: string; dir: "asc" | "desc" } | null;
 }
 
 export function useAppData({
@@ -32,6 +33,7 @@ export function useAppData({
   availableProfiles,
   relatedResources,
   tagFilter,
+  sortState,
 }: UseAppDataArgs) {
   const adapter = useMemo<ServiceAdapter>(() => {
     debugLog(currentService, `useAppData: adapter created`);
@@ -51,14 +53,24 @@ export function useAppData({
 
   const filteredRows = useMemo(() => {
     const textFiltered = filterRowsByText(rows, filterText);
-    if (!tagFilter) return textFiltered;
-    const { key, value } = tagFilter;
-    const lowerValue = value.toLowerCase();
-    return textFiltered.filter((row) => {
-      const tagVal = row.tags?.[key];
-      return tagVal !== undefined && tagVal.toLowerCase().includes(lowerValue);
+    const tagFiltered = tagFilter
+      ? textFiltered.filter((row) => {
+          const tagVal = row.tags?.[tagFilter.key];
+          return tagVal !== undefined && tagVal.toLowerCase().includes(tagFilter.value.toLowerCase());
+        })
+      : textFiltered;
+
+    if (!sortState) return tagFiltered;
+    const { colKey, dir } = sortState;
+    return [...tagFiltered].sort((a, b) => {
+      const aCell = a.cells[colKey];
+      const bCell = b.cells[colKey];
+      const aVal = typeof aCell === "string" ? aCell : (aCell?.displayName ?? "");
+      const bVal = typeof bCell === "string" ? bCell : (bCell?.displayName ?? "");
+      const cmp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: "base" });
+      return dir === "asc" ? cmp : -cmp;
     });
-  }, [filterText, rows, tagFilter]);
+  }, [filterText, rows, tagFilter, sortState]);
 
   const navigation = useNavigation(filteredRows.length, tableHeight);
   const selectedRow = filteredRows[navigation.selectedIndex] ?? null;

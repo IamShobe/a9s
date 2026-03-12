@@ -1,6 +1,7 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
@@ -89,7 +90,7 @@ export function createELBServiceAdapter(
           cells: {
             name: textCell(lb.LoadBalancerName),
             lbType: textCell(lbTypeLabel(lb.Type)),
-            state: textCell(lb.State?.Code ?? "-"),
+            state: statusCell(lb.State?.Code ?? "-"),
             scheme: textCell(lb.Scheme ?? "-"),
             dnsName: textCell(lb.DNSName ?? "-"),
           },
@@ -182,7 +183,7 @@ export function createELBServiceAdapter(
         cells: {
           targetId: textCell(desc.Target.Id),
           port: textCell(desc.Target.Port != null ? String(desc.Target.Port) : "-"),
-          health: textCell(desc.TargetHealth.State),
+          health: statusCell(desc.TargetHealth.State),
           az: textCell(desc.Target.AvailabilityZone ?? "-"),
         },
         meta: {
@@ -254,6 +255,19 @@ export function createELBServiceAdapter(
   const detailCapability = createELBDetailCapability(region, getLevel);
   const yankCapability = createELBYankCapability();
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as ELBRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "load-balancer") {
+      return `https://${r}.console.aws.amazon.com/ec2/v2/home?region=${r}#LoadBalancers:search=${encodeURIComponent(meta.lbArn)}`;
+    }
+    if (meta.type === "target-group") {
+      return `https://${r}.console.aws.amazon.com/ec2/v2/home?region=${r}#TargetGroups:search=${encodeURIComponent(meta.tgArn)}`;
+    }
+    return null;
+  };
+
   return {
     id: "elb",
     label: "Load Balancers",
@@ -265,6 +279,7 @@ export function createELBServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "load-balancers" });
       setBackStack([]);

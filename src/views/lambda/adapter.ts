@@ -176,6 +176,19 @@ export function createLambdaServiceAdapter(
     ];
   };
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as LambdaRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "function") {
+      return `https://${r}.console.aws.amazon.com/lambda/home?region=${r}#/functions/${meta.functionName}`;
+    }
+    if (meta.type === "version") {
+      return `https://${r}.console.aws.amazon.com/lambda/home?region=${r}#/functions/${meta.functionName}/versions/${meta.version}`;
+    }
+    return null;
+  };
+
   return {
     id: "lambda",
     label: "Lambda",
@@ -188,6 +201,7 @@ export function createLambdaServiceAdapter(
     getPath,
     getContextLabel,
     getRelatedResources,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "functions" });
       setBackStack([]);

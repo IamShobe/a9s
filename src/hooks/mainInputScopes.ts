@@ -81,6 +81,8 @@ export type NavigateScopeAction =
   | { type: "top" }
   | { type: "enter" }
   | { type: "relatedResources" }
+  | { type: "openInBrowser" }
+  | { type: "sortColumn" }
   | { type: "none" };
 
 export function resolveNavigateScopeAction(action: KeyAction | null): NavigateScopeAction {
@@ -109,6 +111,10 @@ export function resolveNavigateScopeAction(action: KeyAction | null): NavigateSc
       return { type: "enter" };
     case KB.RELATED_RESOURCES:
       return { type: "relatedResources" };
+    case KB.OPEN_IN_BROWSER:
+      return { type: "openInBrowser" };
+    case KB.SORT_COLUMN:
+      return { type: "sortColumn" };
     default:
       return { type: "none" };
   }

@@ -1,6 +1,7 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
@@ -99,7 +100,7 @@ export function createECSServiceAdapter(
           id: cluster.clusterArn,
           cells: {
             name: textCell(cluster.clusterName),
-            status: textCell(cluster.status ?? "-"),
+            status: statusCell(cluster.status ?? "-"),
             services: textCell(String(cluster.activeServicesCount ?? 0)),
             running: textCell(String(cluster.runningTasksCount ?? 0)),
             pending: textCell(String(cluster.pendingTasksCount ?? 0)),
@@ -143,7 +144,7 @@ export function createECSServiceAdapter(
           id: svc.serviceArn,
           cells: {
             name: textCell(svc.serviceName),
-            status: textCell(svc.status ?? "-"),
+            status: statusCell(svc.status ?? "-"),
             desired: textCell(String(svc.desiredCount ?? 0)),
             running: textCell(String(svc.runningCount ?? 0)),
             pending: textCell(String(svc.pendingCount ?? 0)),
@@ -193,7 +194,7 @@ export function createECSServiceAdapter(
           id: task.taskArn,
           cells: {
             taskId: textCell(taskId),
-            status: textCell(task.lastStatus ?? "-"),
+            status: statusCell(task.lastStatus ?? "-"),
             cpu: textCell(task.cpu ?? "-"),
             memory: textCell(task.memory ?? "-"),
             startedAt: textCell(task.startedAt ?? "-"),
@@ -269,6 +270,24 @@ export function createECSServiceAdapter(
   const editCapability = createECSEditCapability(region, getLevel);
   const actionCapability = createECSActionCapability(region, getLevel);
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as ECSRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "cluster") {
+      return `https://${r}.console.aws.amazon.com/ecs/v2/clusters/${meta.clusterName}/services?region=${r}`;
+    }
+    if (meta.type === "service") {
+      const clusterName = meta.clusterArn.split("/").pop() ?? meta.clusterArn;
+      return `https://${r}.console.aws.amazon.com/ecs/v2/clusters/${clusterName}/services/${meta.serviceName}/health?region=${r}`;
+    }
+    if (meta.type === "task") {
+      const clusterName = meta.clusterArn.split("/").pop() ?? meta.clusterArn;
+      return `https://${r}.console.aws.amazon.com/ecs/v2/clusters/${clusterName}/tasks/${meta.taskId}/configuration?region=${r}`;
+    }
+    return null;
+  };
+
   return {
     id: "ecs",
     label: "ECS",
@@ -280,6 +299,7 @@ export function createECSServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "clusters" });
       setBackStack([]);

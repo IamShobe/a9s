@@ -338,6 +338,16 @@ export function createDynamoDBServiceAdapter(
   const detailCapability = createDynamoDBDetailCapability(region, getLevel);
   const yankCapability = createDynamoDBYankCapability();
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as DynamoDBRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "table") {
+      return `https://${r}.console.aws.amazon.com/dynamodbv2/home?region=${r}#table?name=${encodeURIComponent(meta.tableName!)}`;
+    }
+    return null;
+  };
+
   return {
     id: "dynamodb",
     label: "DynamoDB",
@@ -349,6 +359,7 @@ export function createDynamoDBServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "tables" });
       setBackStack([]);

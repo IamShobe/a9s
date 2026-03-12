@@ -182,6 +182,16 @@ export function createSecretsManagerServiceAdapter(
   const yankCapability = createSecretsManagerYankCapability(region, getLevel);
   const actionCapability = createSecretsManagerActionCapability(region, getLevel);
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as SecretRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "secret") {
+      return `https://${r}.console.aws.amazon.com/secretsmanager/secret?name=${encodeURIComponent(meta.name!)}&region=${r}`;
+    }
+    return null;
+  };
+
   return {
     id: "secretsmanager",
     label: "Secrets Manager",
@@ -193,6 +203,7 @@ export function createSecretsManagerServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "secrets" });
       setBackStack([]);

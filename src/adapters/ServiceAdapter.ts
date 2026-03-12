@@ -39,6 +39,9 @@ export interface ServiceAdapter {
   /** Return related resources for a selected row (e.g. Lambda → CloudWatch log group). */
   getRelatedResources?(row: TableRow): RelatedResource[];
 
+  /** Return an AWS console URL for the selected row, or null if not supported. */
+  getBrowserUrl?(row: TableRow): string | null;
+
   // Capability registry — opt-in composition
   capabilities?: {
     edit?: EditCapability;

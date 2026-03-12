@@ -162,6 +162,16 @@ export function createSSMServiceAdapter(
   const yankCapability = createSSMYankCapability(region);
   const editCapability = createSSMEditCapability(region, getLevel);
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const r = region ?? "us-east-1";
+    const meta = row.meta as SSMRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "parameter") {
+      return `https://${r}.console.aws.amazon.com/systems-manager/parameters${meta.parameterName}/description?region=${r}`;
+    }
+    return null;
+  };
+
   return {
     id: "ssm",
     label: "SSM",
@@ -173,6 +183,7 @@ export function createSSMServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "parameters" });
       setBackStack([]);
