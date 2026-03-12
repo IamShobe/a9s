@@ -1,7 +1,7 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
-import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
 import type { AwsLogEvent, AwsLogGroup, AwsLogStream, CloudWatchLevel, CloudWatchRowMeta } from "./types.js";
@@ -226,7 +226,7 @@ export function createCloudWatchServiceAdapter(
   const actionCapability = createCloudWatchActionCapability(region, getLevel);
 
   const getBrowserUrl = (row: TableRow): string | null => {
-    const r = region ?? "us-east-1";
+    const r = resolveRegion(region);
     const meta = row.meta as CloudWatchRowMeta | undefined;
     if (!meta) return null;
     if (meta.type === "log-group") {

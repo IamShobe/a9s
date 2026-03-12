@@ -51,14 +51,14 @@ export function useAppData({
     });
   }, [rows.length, isLoading, adapter.id]);
 
-  const filteredRows = useMemo(() => {
-    const textFiltered = filterRowsByText(rows, filterText);
+  // Tag-filter + sort: only re-runs when rows/tagFilter/sortState change, not on every keystroke.
+  const tagSortedRows = useMemo(() => {
     const tagFiltered = tagFilter
-      ? textFiltered.filter((row) => {
+      ? rows.filter((row) => {
           const tagVal = row.tags?.[tagFilter.key];
           return tagVal !== undefined && tagVal.toLowerCase().includes(tagFilter.value.toLowerCase());
         })
-      : textFiltered;
+      : rows;
 
     if (!sortState) return tagFiltered;
     const { colKey, dir } = sortState;
@@ -70,7 +70,13 @@ export function useAppData({
       const cmp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: "base" });
       return dir === "asc" ? cmp : -cmp;
     });
-  }, [filterText, rows, tagFilter, sortState]);
+  }, [rows, tagFilter, sortState]);
+
+  // Text filter: re-runs on every keystroke but is a cheap O(n) scan.
+  const filteredRows = useMemo(
+    () => filterRowsByText(tagSortedRows, filterText),
+    [tagSortedRows, filterText],
+  );
 
   const navigation = useNavigation(filteredRows.length, tableHeight);
   const selectedRow = filteredRows[navigation.selectedIndex] ?? null;

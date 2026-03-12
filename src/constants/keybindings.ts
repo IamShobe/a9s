@@ -215,7 +215,7 @@ export const KEYBINDINGS: KeyBinding[] = [
     action: KB.SORT_COLUMN,
     trigger: { type: "key", char: "S" },
     scope: "navigate",
-    label: "Cycle sort on current column (none → asc → desc)",
+    label: "Cycle sort across columns (col asc → col desc → next col → … → clear)",
     shortLabel: "sort",
   },
   {

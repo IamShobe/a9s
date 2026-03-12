@@ -1814,6 +1814,85 @@ async function seedVPC() {
   }
 }
 
+async function seedEventBridge() {
+  console.log("\nSeeding EventBridge:");
+
+  // Create a custom event bus
+  try {
+    await runAws(["events", "create-event-bus", "--name", "my-app-events"]);
+    console.log("  Created event bus: my-app-events");
+  } catch (e: unknown) {
+    const msg = (e as { message?: string }).message ?? "";
+    if (!msg.includes("already exists")) throw e;
+    console.log("  Event bus already exists: my-app-events");
+  }
+
+  const rules = [
+    {
+      bus: "default",
+      name: "daily-cleanup",
+      schedule: "cron(0 2 * * ? *)",
+      description: "Triggers daily cleanup Lambda at 2am UTC",
+      state: "ENABLED",
+    },
+    {
+      bus: "default",
+      name: "hourly-metrics",
+      schedule: "rate(1 hour)",
+      description: "Sends hourly metrics to CloudWatch",
+      state: "ENABLED",
+    },
+    {
+      bus: "default",
+      name: "user-signup-handler",
+      pattern: JSON.stringify({ source: ["my-app"], "detail-type": ["UserSignup"] }),
+      description: "Handles user signup events from the app",
+      state: "ENABLED",
+    },
+    {
+      bus: "default",
+      name: "legacy-job-runner",
+      schedule: "rate(5 minutes)",
+      description: "Legacy background job — pending deprecation",
+      state: "DISABLED",
+    },
+    {
+      bus: "my-app-events",
+      name: "order-processor",
+      pattern: JSON.stringify({ source: ["my-app.orders"], "detail-type": ["OrderPlaced"] }),
+      description: "Processes new order events",
+      state: "ENABLED",
+    },
+    {
+      bus: "my-app-events",
+      name: "payment-notifier",
+      pattern: JSON.stringify({ source: ["my-app.payments"], "detail-type": ["PaymentCompleted"] }),
+      description: "Sends payment confirmation notifications",
+      state: "ENABLED",
+    },
+  ];
+
+  for (const rule of rules) {
+    try {
+      const args = [
+        "events", "put-rule",
+        "--name", rule.name,
+        "--event-bus-name", rule.bus,
+        "--state", rule.state,
+        "--description", rule.description,
+      ];
+      if (rule.schedule) args.push("--schedule-expression", rule.schedule);
+      if (rule.pattern) args.push("--event-pattern", rule.pattern);
+      await runAws(args);
+      console.log(`  Created rule: ${rule.bus}/${rule.name}`);
+    } catch (e: unknown) {
+      const msg = (e as { message?: string }).message ?? "";
+      if (!msg.includes("already exists")) throw e;
+      console.log(`  Rule already exists: ${rule.bus}/${rule.name}`);
+    }
+  }
+}
+
 async function main() {
   console.log("Checking LocalStack connection...");
   await checkLocalStack();
@@ -1920,6 +1999,12 @@ async function main() {
     await seedVPC();
   } catch (e) {
     console.error(`\nVPC seeding failed: ${(e as Error).message}`);
+  }
+
+  try {
+    await seedEventBridge();
+  } catch (e) {
+    console.error(`\nEventBridge seeding failed: ${(e as Error).message}`);
   }
 
   // RDS: skipped — LocalStack Community does not support RDS (Pro only).

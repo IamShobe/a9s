@@ -2,7 +2,7 @@ import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdap
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
 import { statusCell } from "../../utils/statusColors.js";
-import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
 import type { AwsInstance, AwsVolume, EC2Level, EC2RowMeta } from "./types.js";
@@ -197,7 +197,7 @@ export function createEC2ServiceAdapter(
   };
 
   const getBrowserUrl = (row: TableRow): string | null => {
-    const r = region ?? "us-east-1";
+    const r = resolveRegion(region);
     const meta = row.meta as EC2RowMeta | undefined;
     if (!meta) return null;
     if (meta.type === "instance") {

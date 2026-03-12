@@ -2,7 +2,7 @@ import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
 import { statusCell } from "../../utils/statusColors.js";
-import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
 import type { AwsEcsCluster, AwsEcsService, AwsEcsTask, ECSLevel, ECSRowMeta } from "./types.js";
@@ -271,7 +271,7 @@ export function createECSServiceAdapter(
   const actionCapability = createECSActionCapability(region, getLevel);
 
   const getBrowserUrl = (row: TableRow): string | null => {
-    const r = region ?? "us-east-1";
+    const r = resolveRegion(region);
     const meta = row.meta as ECSRowMeta | undefined;
     if (!meta) return null;
     if (meta.type === "cluster") {

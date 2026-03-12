@@ -1,7 +1,7 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell, secretCell } from "../../types.js";
-import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
 import { atom } from "jotai";
 import { getDefaultStore } from "jotai";
 import type { AwsSecret, SecretRowMeta, SecretLevel } from "./types.js";
@@ -183,7 +183,7 @@ export function createSecretsManagerServiceAdapter(
   const actionCapability = createSecretsManagerActionCapability(region, getLevel);
 
   const getBrowserUrl = (row: TableRow): string | null => {
-    const r = region ?? "us-east-1";
+    const r = resolveRegion(region);
     const meta = row.meta as SecretRowMeta | undefined;
     if (!meta) return null;
     if (meta.type === "secret") {

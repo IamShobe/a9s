@@ -1,5 +1,6 @@
 /**
  * Opens an AWS console URL using the current CLI credentials via the federation endpoint.
+ * Federation tokens are cached for 55 minutes to avoid redundant network calls.
  * Falls back to opening the plain URL if federation fails.
  */
 import open from "open";
@@ -15,6 +16,10 @@ interface AwsCredentials {
 interface FederationTokenResponse {
   SigninToken: string;
 }
+
+// Cache keyed by profile; tokens are valid for 3600s, we evict at 55 min to be safe.
+const TOKEN_TTL_MS = 55 * 60 * 1000;
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 async function getCliCredentials(profile?: string): Promise<AwsCredentials | null> {
   try {
@@ -53,21 +58,30 @@ export async function openConsoleUrl(
   profile?: string,
 ): Promise<void> {
   try {
-    const creds = await getCliCredentials(profile);
-    if (creds) {
-      const signinToken = await getFederationSigninToken(creds);
-      if (signinToken) {
-        const federatedUrl =
-          `https://signin.aws.amazon.com/federation?Action=login` +
-          `&Issuer=a9s&Destination=${encodeURIComponent(destinationUrl)}` +
-          `&SigninToken=${encodeURIComponent(signinToken)}`;
-        await open(federatedUrl);
-        return;
+    const cacheKey = profile ?? "$default";
+    const cached = tokenCache.get(cacheKey);
+    let signinToken: string | null = cached && cached.expiresAt > Date.now() ? cached.token : null;
+
+    if (!signinToken) {
+      const creds = await getCliCredentials(profile);
+      if (creds) {
+        signinToken = await getFederationSigninToken(creds);
+        if (signinToken) {
+          tokenCache.set(cacheKey, { token: signinToken, expiresAt: Date.now() + TOKEN_TTL_MS });
+        }
       }
+    }
+
+    if (signinToken) {
+      const federatedUrl =
+        `https://signin.aws.amazon.com/federation?Action=login` +
+        `&Issuer=a9s&Destination=${encodeURIComponent(destinationUrl)}` +
+        `&SigninToken=${encodeURIComponent(signinToken)}`;
+      await open(federatedUrl);
+      return;
     }
   } catch (e) {
     debugLog("consoleUrl", "federation failed, falling back to plain URL", e);
   }
-  // Fallback: open plain URL
   await open(destinationUrl);
 }

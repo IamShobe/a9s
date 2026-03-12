@@ -1,7 +1,7 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
-import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
 import { SERVICE_COLORS } from "../../constants/theme.js";
@@ -32,7 +32,7 @@ export function createEventBridgeServiceAdapter(
 ): ServiceAdapter {
   const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-  const r = region ?? "us-east-1";
+  const r = resolveRegion(region);
 
   const getLevel = () => store.get(eventBridgeLevelAtom);
   const setLevel = (level: EventBridgeLevel) => store.set(eventBridgeLevelAtom, level);
@@ -101,25 +101,7 @@ export function createEventBridgeServiceAdapter(
           ...regionArgs,
         ]);
 
-        return await Promise.all(
-          (data.Rules ?? []).map(async (rule) => {
-            // Get target count
-            let targetCount = 0;
-            try {
-              const targets = await runAwsJsonAsync<{ Targets: unknown[] }>([
-                "events",
-                "list-targets-by-rule",
-                "--rule",
-                rule.Name,
-                "--event-bus-name",
-                level.busName,
-                ...regionArgs,
-              ]);
-              targetCount = targets.Targets?.length ?? 0;
-            } catch {
-              // ignore
-            }
-
+        return (data.Rules ?? []).map((rule) => {
             const scheduleOrPattern =
               rule.ScheduleExpression ??
               (rule.EventPattern ? rule.EventPattern.slice(0, 40) : "-");
@@ -140,14 +122,11 @@ export function createEventBridgeServiceAdapter(
                 name: textCell(rule.Name),
                 state: statusCell(rule.State ?? "UNKNOWN"),
                 schedule: textCell(scheduleOrPattern),
-                description: textCell(
-                  targetCount > 0 ? `${targetCount} target${targetCount > 1 ? "s" : ""}` : "-",
-                ),
+                description: textCell(rule.Description || "-"),
               },
               meta: ruleMeta as EventBridgeRowMeta,
             };
-          }),
-        );
+          });
       } catch (e) {
         debugLog("eventbridge", "getRows (rules) failed", e);
         return [];

@@ -2,7 +2,7 @@ import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
 import { statusCell } from "../../utils/statusColors.js";
-import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
 import type { AwsRDSInstance, AwsRDSSnapshot, RDSLevel, RDSRowMeta } from "./types.js";
@@ -171,7 +171,7 @@ export function createRDSServiceAdapter(
   const actionCapability = createRDSActionCapability(region, getLevel);
 
   const getBrowserUrl = (row: TableRow): string | null => {
-    const r = region ?? "us-east-1";
+    const r = resolveRegion(region);
     const meta = row.meta as RDSRowMeta | undefined;
     if (!meta) return null;
     if (meta.type === "instance") {

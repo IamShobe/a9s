@@ -1,7 +1,7 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult } from "../../types.js";
 import { textCell } from "../../types.js";
-import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
 import { SERVICE_COLORS } from "../../constants/theme.js";
@@ -31,7 +31,7 @@ export function createApiGatewayServiceAdapter(
 ): ServiceAdapter {
   const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-  const r = region ?? "us-east-1";
+  const r = resolveRegion(region);
 
   const getLevel = () => store.get(apiGatewayLevelAtom);
   const setLevel = (level: ApiGatewayLevel) => store.set(apiGatewayLevelAtom, level);

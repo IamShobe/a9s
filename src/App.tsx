@@ -404,7 +404,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const handleCommandSubmit = useCallback(() => {
     const command = state.commandText.trim();
     if (command) {
-      setCommandHistory((prev) => [...prev.filter((h) => h !== command), command]);
+      setCommandHistory((prev) => {
+        const deduped = prev.filter((h) => h !== command);
+        return [...deduped, command].slice(-200);
+      });
     }
     commandHistoryIndexRef.current = -1;
     actions.setCommandText("");

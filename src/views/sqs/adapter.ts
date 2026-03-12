@@ -1,7 +1,7 @@
 import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
-import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
+import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { atom, getDefaultStore } from "jotai";
 import type { AwsSQSQueueAttributes, AwsSQSMessage, SQSLevel, SQSRowMeta } from "./types.js";
@@ -222,7 +222,7 @@ export function createSQSServiceAdapter(
   };
 
   const getBrowserUrl = (row: TableRow): string | null => {
-    const r = region ?? "us-east-1";
+    const r = resolveRegion(region);
     const meta = row.meta as SQSRowMeta | undefined;
     if (!meta) return null;
     if (meta.type === "queue") {
