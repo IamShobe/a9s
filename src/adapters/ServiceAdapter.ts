@@ -15,6 +15,13 @@ export type {
   ActionEffect,
 } from "./capabilities/ActionCapability.js";
 
+/** A related resource that can be jumped to from another service's row. */
+export interface RelatedResource {
+  serviceId: string; // matches a key in SERVICE_REGISTRY
+  label: string; // human-readable description, e.g. "CloudWatch logs"
+  filterHint?: string; // pre-populate filter when switching to that service
+}
+
 export interface ServiceAdapter {
   id: string;
   label: string;
@@ -28,6 +35,12 @@ export interface ServiceAdapter {
   getPath(): string;
   getContextLabel?(): string; // e.g., "🪣 Buckets" or "📦 Objects"
   reset?(): void;
+
+  /** Return related resources for a selected row (e.g. Lambda → CloudWatch log group). */
+  getRelatedResources?(row: TableRow): RelatedResource[];
+
+  /** Return an AWS console URL for the selected row, or null if not supported. */
+  getBrowserUrl?(row: TableRow): string | null;
 
   // Capability registry — opt-in composition
   capabilities?: {

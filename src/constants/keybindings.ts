@@ -189,6 +189,13 @@ export const KEYBINDINGS: KeyBinding[] = [
     shortLabel: "refresh",
   },
   {
+    action: KB.RELATED_RESOURCES,
+    trigger: { type: "chord", keys: ["g", "r"] },
+    scope: "navigate",
+    label: "Jump to related resource (e.g. Lambda → CloudWatch)",
+    shortLabel: "related",
+  },
+  {
     action: KB.REVEAL_TOGGLE,
     trigger: { type: "key", char: "v" },
     scope: "navigate",
@@ -196,6 +203,20 @@ export const KEYBINDINGS: KeyBinding[] = [
     shortLabel: "reveal",
     priority: 90,
     showIf: (ctx) => ctx.hasHiddenSecrets,
+  },
+  {
+    action: KB.OPEN_IN_BROWSER,
+    trigger: { type: "key", char: "o" },
+    scope: "navigate",
+    label: "Open in AWS console (browser)",
+    shortLabel: "open",
+  },
+  {
+    action: KB.SORT_COLUMN,
+    trigger: { type: "key", char: "S" },
+    scope: "navigate",
+    label: "Cycle sort across columns (col asc → col desc → next col → … → clear)",
+    shortLabel: "sort",
   },
   {
     action: KB.QUIT,

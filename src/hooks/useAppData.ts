@@ -1,7 +1,7 @@
 import { useMemo, useLayoutEffect } from "react";
 import { SERVICE_REGISTRY } from "../services.js";
 import type { ServiceId } from "../services.js";
-import type { ServiceAdapter } from "../adapters/ServiceAdapter.js";
+import type { ServiceAdapter, RelatedResource } from "../adapters/ServiceAdapter.js";
 import { useServiceView } from "./useServiceView.js";
 import { useNavigation } from "./useNavigation.js";
 import { usePickerManager } from "./usePickerManager.js";
@@ -18,6 +18,9 @@ interface UseAppDataArgs {
   filterText: string;
   availableRegions: AwsRegionOption[];
   availableProfiles: AwsProfileOption[];
+  relatedResources?: RelatedResource[];
+  tagFilter?: { key: string; value: string } | null;
+  sortState?: { colKey: string; dir: "asc" | "desc" } | null;
 }
 
 export function useAppData({
@@ -28,6 +31,9 @@ export function useAppData({
   filterText,
   availableRegions,
   availableProfiles,
+  relatedResources,
+  tagFilter,
+  sortState,
 }: UseAppDataArgs) {
   const adapter = useMemo<ServiceAdapter>(() => {
     debugLog(currentService, `useAppData: adapter created`);
@@ -45,12 +51,42 @@ export function useAppData({
     });
   }, [rows.length, isLoading, adapter.id]);
 
-  const filteredRows = useMemo(() => filterRowsByText(rows, filterText), [filterText, rows]);
+  // Tag-filter + sort: only re-runs when rows/tagFilter/sortState change, not on every keystroke.
+  const tagSortedRows = useMemo(() => {
+    const tagFiltered = tagFilter
+      ? rows.filter((row) => {
+          const tagVal = row.tags?.[tagFilter.key];
+          return tagVal !== undefined && tagVal.toLowerCase().includes(tagFilter.value.toLowerCase());
+        })
+      : rows;
+
+    if (!sortState) return tagFiltered;
+    const { colKey, dir } = sortState;
+    return [...tagFiltered].sort((a, b) => {
+      const aCell = a.cells[colKey];
+      const bCell = b.cells[colKey];
+      const aVal = typeof aCell === "string" ? aCell : (aCell?.displayName ?? "");
+      const bVal = typeof bCell === "string" ? bCell : (bCell?.displayName ?? "");
+      const cmp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: "base" });
+      return dir === "asc" ? cmp : -cmp;
+    });
+  }, [rows, tagFilter, sortState]);
+
+  // Text filter: re-runs on every keystroke but is a cheap O(n) scan.
+  const filteredRows = useMemo(
+    () => filterRowsByText(tagSortedRows, filterText),
+    [tagSortedRows, filterText],
+  );
 
   const navigation = useNavigation(filteredRows.length, tableHeight);
   const selectedRow = filteredRows[navigation.selectedIndex] ?? null;
 
-  const pickers = usePickerManager({ tableHeight, availableRegions, availableProfiles });
+  const pickers = usePickerManager({
+    tableHeight,
+    availableRegions,
+    availableProfiles,
+    ...(relatedResources !== undefined ? { relatedResources } : {}),
+  });
 
   return {
     adapter,

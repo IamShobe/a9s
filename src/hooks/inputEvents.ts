@@ -44,7 +44,9 @@ export type InputEvent =
         | "clearFilterOrNavigateBack"
         | "startSearch"
         | "startCommand"
-        | "commandAutocomplete";
+        | "commandAutocomplete"
+        | "commandHistoryPrev"
+        | "commandHistoryNext";
     }
   | {
       scope: "navigation";
@@ -57,7 +59,10 @@ export type InputEvent =
         | "edit"
         | "bottom"
         | "top"
-        | "enter";
+        | "enter"
+        | "relatedResources"
+        | "openInBrowser"
+        | "sortColumn";
     }
   | { scope: "scroll"; type: "up" | "down" }
   | { scope: "adapterAction"; type: "run"; actionId: string; row: TableRow | null };

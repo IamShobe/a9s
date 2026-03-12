@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useApp } from "ink";
 import { useAtom } from "jotai";
 import clipboardy from "clipboardy";
@@ -24,12 +24,14 @@ import { deriveYankHeaderMarkers } from "./hooks/yankHeaderMarkers.js";
 import { AppMainView } from "./features/AppMainView.js";
 import type { ServiceId } from "./services.js";
 import type { ServiceViewResult, TableRow } from "./types.js";
+import type { RelatedResource } from "./adapters/ServiceAdapter.js";
 import { AVAILABLE_COMMANDS } from "./constants/commands.js";
 import { buildHelpTabs, triggerToString } from "./constants/keybindings.js";
 import type { InputRuntimeState } from "./hooks/inputEvents.js";
 import { useTheme } from "./contexts/ThemeContext.js";
 import { saveConfig } from "./utils/config.js";
 import { readFile } from "fs/promises";
+import { openConsoleUrl } from "./utils/consoleUrl.js";
 import { runAwsJsonAsync } from "./utils/aws.js";
 import { debugLog } from "./utils/debugLogger.js";
 import {
@@ -116,6 +118,15 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const HEADER_LINES = 2;
   const tableHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES - HEADER_LINES - 4);
 
+  // Related resources state — populated when user presses g+r on a row (must be declared before useAppData)
+  const [relatedResources, setRelatedResources] = useState<RelatedResource[]>([]);
+
+  // Tag filter state — set via :tag Key=Value command
+  const [tagFilter, setTagFilterState] = useState<{ key: string; value: string } | null>(null);
+
+  // Sort state — null = no sort; S cycles through columns and directions
+  const [sortState, setSortState] = useState<{ colKey: string; dir: "asc" | "desc" } | null>(null);
+
   const {
     adapter,
     columns,
@@ -138,6 +149,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
     filterText: state.filterText,
     availableRegions,
     availableProfiles,
+    relatedResources,
+    tagFilter,
+    sortState,
   });
 
   const [didOpenInitialResources, setDidOpenInitialResources] = useState(false);
@@ -164,6 +178,28 @@ export function App({ initialService, endpointUrl }: AppProps) {
     setThemeName(pickers.theme.selectedRow.id as ThemeName);
   }, [pickers.theme.open, pickers.theme.selectedRow, setThemeName]);
 
+  // Watch mode — declared before switchAdapter which references setWatchInterval
+  const [watchInterval, setWatchInterval] = useState<number | null>(null);
+  const watchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (watchTimerRef.current) {
+      clearTimeout(watchTimerRef.current);
+      watchTimerRef.current = null;
+    }
+    if (watchInterval == null) return;
+    const schedule = () => {
+      watchTimerRef.current = setTimeout(() => {
+        void refresh();
+        schedule();
+      }, watchInterval * 1000);
+    };
+    schedule();
+    return () => {
+      if (watchTimerRef.current) clearTimeout(watchTimerRef.current);
+    };
+  }, [watchInterval, refresh]);
+
   const switchAdapter = useCallback(
     (serviceId: ServiceId) => {
       setCurrentService(serviceId);
@@ -174,6 +210,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
       actions.setYankMode(false);
       actions.setUploadPending(null);
       actions.setPendingAction(null);
+      setWatchInterval(null);
+      setTagFilterState(null);
+      setSortState(null);
       resetHierarchy();
       navigation.reset();
     },
@@ -334,6 +373,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
     openRegionPicker: () => pickers.openPicker("region"),
     openResourcePicker: () => pickers.openPicker("resource"),
     openThemePicker: () => pickers.openPicker("theme"),
+    setWatch: setWatchInterval,
+    clearWatch: () => setWatchInterval(null),
+    setTagFilter: (key, value) => setTagFilterState({ key, value }),
+    clearTagFilter: () => setTagFilterState(null),
     exit,
   });
 
@@ -360,10 +403,21 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   const handleCommandSubmit = useCallback(() => {
     const command = state.commandText.trim();
+    if (command) {
+      setCommandHistory((prev) => {
+        const deduped = prev.filter((h) => h !== command);
+        return [...deduped, command].slice(-200);
+      });
+    }
+    commandHistoryIndexRef.current = -1;
     actions.setCommandText("");
     actions.setMode("navigate");
     commandRouter(command);
   }, [actions, commandRouter, state.commandText]);
+
+  // Command history for ↑/↓ navigation in command mode
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const commandHistoryIndexRef = useRef(-1);
 
   const [uploadPreview, setUploadPreview] = useState<{
     old: string;
@@ -473,6 +527,45 @@ export function App({ initialService, endpointUrl }: AppProps) {
     return () => { cancelled = true; };
   }, [state.uploadPending, selectedRegion]);
 
+  const handleSortColumn = useCallback(() => {
+    if (columns.length === 0) return;
+    setSortState((prev) => {
+      if (!prev) {
+        return { colKey: columns[0]!.key, dir: "asc" };
+      }
+      if (prev.dir === "asc") {
+        return { colKey: prev.colKey, dir: "desc" };
+      }
+      // desc → advance to next column, or clear if last
+      const currentIdx = columns.findIndex((c) => c.key === prev.colKey);
+      const nextIdx = currentIdx + 1;
+      if (nextIdx < columns.length) {
+        return { colKey: columns[nextIdx]!.key, dir: "asc" };
+      }
+      return null;
+    });
+  }, [columns]);
+
+  const commandHistoryPrev = useCallback(() => {
+    if (commandHistory.length === 0) return;
+    const newIndex = Math.min(commandHistoryIndexRef.current + 1, commandHistory.length - 1);
+    commandHistoryIndexRef.current = newIndex;
+    actions.setCommandText(commandHistory[commandHistory.length - 1 - newIndex] ?? "");
+    actions.bumpCommandCursorToEnd();
+  }, [actions, commandHistory]);
+
+  const commandHistoryNext = useCallback(() => {
+    if (commandHistoryIndexRef.current <= 0) {
+      commandHistoryIndexRef.current = -1;
+      actions.setCommandText("");
+      return;
+    }
+    const newIndex = commandHistoryIndexRef.current - 1;
+    commandHistoryIndexRef.current = newIndex;
+    actions.setCommandText(commandHistory[commandHistory.length - 1 - newIndex] ?? "");
+    actions.bumpCommandCursorToEnd();
+  }, [actions, commandHistory]);
+
   const commandAutocomplete = useCallback(() => {
     const match = AVAILABLE_COMMANDS.find((cmd) =>
       cmd.toLowerCase().startsWith(state.commandText.toLowerCase()),
@@ -514,7 +607,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
         goToTab: helpPanel.goToTab,
       },
       picker: {
-        close: pickers.closeActivePicker,
+        close: () => {
+          if (pickers.activePicker?.id === "related") setRelatedResources([]);
+          pickers.closeActivePicker();
+        },
         cancelSearch: () => pickers.activePicker?.cancelSearch(),
         startSearch: () => pickers.activePicker?.startSearch(),
         moveDown: () => pickers.activePicker?.moveDown(),
@@ -530,6 +626,11 @@ export function App({ initialService, endpointUrl }: AppProps) {
               themePickerConfirmedRef.current = true;
               setThemeName(name);
               saveConfig({ theme: name });
+            },
+            onSelectRelated: (serviceId, filterHint) => {
+              switchAdapter(serviceId);
+              if (filterHint) actions.setFilterText(filterHint);
+              setRelatedResources([]);
             },
           }),
       },
@@ -555,12 +656,27 @@ export function App({ initialService, endpointUrl }: AppProps) {
           actions.setMode("search");
         },
         startCommand: () => {
+          commandHistoryIndexRef.current = -1;
           actions.setCommandText("");
           actions.setMode("command");
         },
         commandAutocomplete,
+        historyPrev: commandHistoryPrev,
+        historyNext: commandHistoryNext,
       },
       navigation: {
+        sortColumn: handleSortColumn,
+        openInBrowser: () => {
+          if (!selectedRow) return;
+          const url = adapter.getBrowserUrl?.(selectedRow) ?? null;
+          if (!url) {
+            actions.pushFeedback("No console URL for this resource", 2000);
+            return;
+          }
+          void openConsoleUrl(url, selectedProfile).then(() => {
+            actions.pushFeedback("Opened in browser", 2000);
+          });
+        },
         refresh: () => {
           void refresh();
         },
@@ -572,6 +688,25 @@ export function App({ initialService, endpointUrl }: AppProps) {
         top: navigation.toTop,
         bottom: navigation.toBottom,
         enter: navigateIntoSelection,
+        jumpToRelated: () => {
+          if (!selectedRow) return;
+          const resources = adapter.getRelatedResources?.(selectedRow) ?? [];
+          if (resources.length === 0) {
+            actions.pushFeedback("No related resources", 2000);
+            return;
+          }
+          setRelatedResources(resources);
+          if (resources.length === 1) {
+            // Jump directly if there's only one option
+            const r = resources[0];
+            switchAdapter(r.serviceId as ServiceId);
+            if (r.filterHint) actions.setFilterText(r.filterHint);
+            setRelatedResources([]);
+            return;
+          }
+          // Multiple options — open picker
+          pickers.openPicker("related");
+        },
       },
       scroll: {
         up: () => {
@@ -641,6 +776,8 @@ export function App({ initialService, endpointUrl }: AppProps) {
           context={{ accountName, accountId, awsProfile, currentIdentity, region }}
           terminalWidth={termCols}
           loading={isLoading || Boolean(state.describeState?.loading)}
+          watchInterval={watchInterval}
+          tagFilter={tagFilter}
         />
         <Box flexDirection="row" width="100%" flexGrow={1} backgroundColor={theme.global.mainBg}>
           <AppMainView
@@ -665,6 +802,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
             uploadPreview={uploadPreview}
             panelScrollOffset={panelScrollOffset}
             {...(yankHeaderMarkers ? { headerMarkers: yankHeaderMarkers } : {})}
+            {...(sortState ? { sortState } : {})}
           />
         </Box>
         {!helpPanel.helpOpen && yankFeedbackMessage && (

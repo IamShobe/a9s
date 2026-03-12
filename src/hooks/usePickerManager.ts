@@ -9,10 +9,11 @@ import { SERVICE_REGISTRY } from "../services.js";
 import type { ServiceId } from "../services.js";
 import { THEMES, THEME_LABELS } from "../constants/theme.js";
 import type { ThemeName } from "../constants/theme.js";
+import type { RelatedResource } from "../adapters/ServiceAdapter.js";
 
 export interface PickerEntry {
   // Picker identity
-  id: "region" | "profile" | "resource" | "theme";
+  id: "region" | "profile" | "resource" | "theme" | "related";
   columns: ColumnDef[];
   contextLabel: string;
   // Picker open/filter/search state
@@ -42,6 +43,7 @@ interface UsePickerManagerArgs {
   tableHeight: number;
   availableRegions: AwsRegionOption[];
   availableProfiles: AwsProfileOption[];
+  relatedResources?: RelatedResource[];
 }
 
 export interface PickerManager {
@@ -49,6 +51,7 @@ export interface PickerManager {
   profile: PickerEntry;
   resource: PickerEntry;
   theme: PickerEntry;
+  related: PickerEntry;
   activePicker: PickerEntry | null;
   openPicker: (id: PickerEntry["id"]) => void;
   closeActivePicker: () => void;
@@ -58,6 +61,7 @@ export interface PickerManager {
     onSelectRegion: (region: string) => void;
     onSelectProfile: (profile: string) => void;
     onSelectTheme: (themeName: ThemeName) => void;
+    onSelectRelated: (serviceId: ServiceId, filterHint?: string) => void;
   }) => void;
 }
 
@@ -65,11 +69,13 @@ export function usePickerManager({
   tableHeight,
   availableRegions,
   availableProfiles,
+  relatedResources = [],
 }: UsePickerManagerArgs): PickerManager {
   const region = usePickerState();
   const profile = usePickerState();
   const resource = usePickerState();
   const theme = usePickerState();
+  const related = usePickerState();
 
   const regionRows = useMemo<TableRow[]>(
     () =>
@@ -117,6 +123,20 @@ export function usePickerManager({
     [],
   );
 
+  const relatedRows = useMemo<TableRow[]>(
+    () =>
+      relatedResources.map((r) => ({
+        id: r.serviceId,
+        cells: {
+          service: textCell(r.label),
+          ...(r.filterHint ? { hint: textCell(r.filterHint) } : {}),
+        },
+        meta: { filterHint: r.filterHint },
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [relatedResources],
+  );
+
   const regionTable = usePickerTable({
     rows: regionRows,
     filterText: region.filter,
@@ -138,6 +158,12 @@ export function usePickerManager({
     maxHeight: tableHeight,
   });
 
+  const relatedTable = usePickerTable({
+    rows: relatedRows,
+    filterText: related.filter,
+    maxHeight: tableHeight,
+  });
+
   const regionColumns: ColumnDef[] = [
     { key: "region", label: "Region" },
     { key: "description", label: "Description" },
@@ -156,6 +182,11 @@ export function usePickerManager({
   const themeColumns: ColumnDef[] = [
     { key: "theme", label: "Theme" },
     { key: "id", label: "ID" },
+  ];
+
+  const relatedColumns: ColumnDef[] = [
+    { key: "service", label: "Jump To" },
+    { key: "hint", label: "Filter" },
   ];
 
   const regionEntry: PickerEntry = {
@@ -190,8 +221,17 @@ export function usePickerManager({
     ...themeTable,
   };
 
+  const relatedEntry: PickerEntry = {
+    id: "related",
+    columns: relatedColumns,
+    contextLabel: "Jump to Related Resource",
+    ...related,
+    ...relatedTable,
+  };
+
   const activePicker =
-    [regionEntry, profileEntry, resourceEntry, themeEntry].find((e) => e.open) ?? null;
+    [regionEntry, profileEntry, resourceEntry, themeEntry, relatedEntry].find((e) => e.open) ??
+    null;
 
   const getEntry = (id: PickerEntry["id"]): PickerEntry => {
     switch (id) {
@@ -203,6 +243,8 @@ export function usePickerManager({
         return resourceEntry;
       case "theme":
         return themeEntry;
+      case "related":
+        return relatedEntry;
     }
   };
 
@@ -238,6 +280,11 @@ export function usePickerManager({
       case "theme":
         handlers.onSelectTheme(activePicker.selectedRow.id as ThemeName);
         break;
+      case "related": {
+        const filterHint = activePicker.selectedRow.meta?.filterHint as string | undefined;
+        handlers.onSelectRelated(activePicker.selectedRow.id as ServiceId, filterHint);
+        break;
+      }
     }
     activePicker.closePicker();
   };
@@ -247,6 +294,7 @@ export function usePickerManager({
     profile: profileEntry,
     resource: resourceEntry,
     theme: themeEntry,
+    related: relatedEntry,
     activePicker,
     openPicker,
     closeActivePicker,

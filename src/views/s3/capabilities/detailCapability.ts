@@ -3,6 +3,8 @@ import {
   GetBucketAclCommand,
   GetBucketEncryptionCommand,
   GetBucketLocationCommand,
+  GetBucketPolicyStatusCommand,
+  GetPublicAccessBlockCommand,
   GetBucketTaggingCommand,
   GetBucketVersioningCommand,
   ListObjectsV2Command,
@@ -39,6 +41,8 @@ export function createS3DetailCapability(
         encryptionResult,
         taggingResult,
         aclResult,
+        publicAccessBlockResult,
+        policyStatusResult,
         sampleObjectsResult,
       ] = await Promise.allSettled([
         client.send(new GetBucketLocationCommand({ Bucket: bucket })),
@@ -46,6 +50,8 @@ export function createS3DetailCapability(
         client.send(new GetBucketEncryptionCommand({ Bucket: bucket })),
         client.send(new GetBucketTaggingCommand({ Bucket: bucket })),
         client.send(new GetBucketAclCommand({ Bucket: bucket })),
+        client.send(new GetPublicAccessBlockCommand({ Bucket: bucket })),
+        client.send(new GetBucketPolicyStatusCommand({ Bucket: bucket })),
         client.send(
           new ListObjectsV2Command({
             Bucket: bucket,
@@ -95,9 +101,49 @@ export function createS3DetailCapability(
         }
       }
 
+      if (publicAccessBlockResult.status === "fulfilled") {
+        const cfg = publicAccessBlockResult.value.PublicAccessBlockConfiguration;
+        fields.push({ label: "--- Permissions ---", value: "" });
+        fields.push({
+          label: "Block Public ACLs",
+          value: cfg?.BlockPublicAcls ? "Yes" : "No",
+        });
+        fields.push({
+          label: "Ignore Public ACLs",
+          value: cfg?.IgnorePublicAcls ? "Yes" : "No",
+        });
+        fields.push({
+          label: "Block Public Policy",
+          value: cfg?.BlockPublicPolicy ? "Yes" : "No",
+        });
+        fields.push({
+          label: "Restrict Public Buckets",
+          value: cfg?.RestrictPublicBuckets ? "Yes" : "No",
+        });
+      }
+
+      if (policyStatusResult.status === "fulfilled") {
+        fields.push({
+          label: "Bucket Policy Public",
+          value: policyStatusResult.value.PolicyStatus?.IsPublic ? "Yes" : "No",
+        });
+      }
+
       if (aclResult.status === "fulfilled") {
         const grants = aclResult.value.Grants ?? [];
         fields.push({ label: "ACL Grants", value: String(grants.length) });
+        for (const grant of grants) {
+          const grantee =
+            grant.Grantee?.DisplayName ??
+            grant.Grantee?.URI?.split("/").pop() ??
+            grant.Grantee?.EmailAddress ??
+            grant.Grantee?.ID?.slice(0, 12) ??
+            "-";
+          fields.push({
+            label: `acl:${grantee}`,
+            value: grant.Permission ?? "-",
+          });
+        }
       }
 
       if (sampleObjectsResult.status === "fulfilled") {

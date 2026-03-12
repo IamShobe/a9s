@@ -20,6 +20,9 @@ export const KB = {
   QUIT: "quit", // q
   HELP: "help", // ?
   JUMP_TO_PATH: "jump_to_path", // chord: g p  (S3 only)
+  RELATED_RESOURCES: "related_resources", // chord: g r
+  OPEN_IN_BROWSER: "open_in_browser", // o
+  SORT_COLUMN: "sort_column", // S
 
   // Picker
   PICKER_UP: "picker_up",

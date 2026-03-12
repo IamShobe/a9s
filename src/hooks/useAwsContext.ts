@@ -46,9 +46,10 @@ export function useAwsContext(
       }
 
       const profile = explicitProfile ?? process.env.AWS_PROFILE ?? "default";
+      const profileArgs = explicitProfile ? ["--profile", explicitProfile] : [];
       const [stsOut, aliasOut] = await Promise.all([
-        runAwsCli(["sts", "get-caller-identity", "--output", "json"], 1500),
-        runAwsCli(["iam", "list-account-aliases", "--output", "json"], 1500),
+        runAwsCli(["sts", "get-caller-identity", "--output", "json", ...profileArgs], 5000),
+        runAwsCli(["iam", "list-account-aliases", "--output", "json", ...profileArgs], 5000),
       ]);
 
       let accountId = "";

@@ -7,9 +7,9 @@ const isS3Navigable = (row: { meta: S3RowMeta }) =>
 
 export const s3YankOptions: YankOptionDef<S3RowMeta, S3YankCtx>[] = [
   {
-    trigger: { type: "key", char: "k" },
-    label: "copy key/path",
-    feedback: "Copied Key",
+    trigger: { type: "key", char: "p" },
+    label: "copy path (s3://)",
+    feedback: "Copied Path",
     headerKey: "name",
     isRelevant: isS3Navigable,
     resolve: async (row, ctx) => {
@@ -18,6 +18,15 @@ export const s3YankOptions: YankOptionDef<S3RowMeta, S3YankCtx>[] = [
       if (row.meta.type === "bucket") return `s3://${row.id}`;
       return `s3://${bucket}/${row.meta.key}`;
     },
+  },
+  {
+    trigger: { type: "key", char: "k" },
+    label: "copy key (from bucket root)",
+    feedback: "Copied Key",
+    headerKey: "name",
+    isRelevant: (row) => row.meta.type === "folder" || row.meta.type === "object",
+    resolve: async (row) =>
+      row.meta.type !== "bucket" ? row.meta.key : null,
   },
   {
     trigger: { type: "key", char: "a" },

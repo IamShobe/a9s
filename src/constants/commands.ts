@@ -12,9 +12,13 @@ export const AVAILABLE_COMMANDS = [
   "profile",
   "use-region",
   "use-profile",
+  "watch",
+  "unwatch",
+  "tag",
+  "untag",
   "$default",
   "quit",
 ] as const;
 
 export const COMMAND_MODE_HINT =
-  ` Commands: ${SERVICE_COMMANDS.join(" ")} quit regions profiles resources theme  •  Enter run  •  Esc cancel`;
+  ` Commands: ${SERVICE_COMMANDS.join(" ")} quit regions profiles resources theme watch unwatch tag untag  •  Enter run  •  Esc cancel`;

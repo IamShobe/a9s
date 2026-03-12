@@ -8,6 +8,11 @@ export function buildRegionArgs(region?: string): string[] {
   return region ? ["--region", region] : [];
 }
 
+/** Resolve the effective region, defaulting to us-east-1. */
+export function resolveRegion(region?: string): string {
+  return region ?? "us-east-1";
+}
+
 /**
  * Run an AWS CLI command asynchronously. Returns stdout or null on error/timeout.
  */

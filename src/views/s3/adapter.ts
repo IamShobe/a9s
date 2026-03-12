@@ -7,6 +7,7 @@ import type { S3Client } from "@aws-sdk/client-s3";
 import { atom } from "jotai";
 import { getDefaultStore } from "jotai";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
+import { resolveRegion } from "../../utils/aws.js";
 import { formatSize } from "./utils.js";
 import { createS3EditCapability } from "./capabilities/editCapability.js";
 import { createS3DetailCapability } from "./capabilities/detailCapability.js";
@@ -157,6 +158,15 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
     setLevel,
   );
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const level = getLevel();
+    const r = resolveRegion(region);
+    if (level.kind === "buckets") {
+      return `https://s3.console.aws.amazon.com/s3/buckets/${row.id}?region=${r}`;
+    }
+    return `https://s3.console.aws.amazon.com/s3/object/${level.bucket}?region=${r}&prefix=${encodeURIComponent(row.id)}`;
+  };
+
   return {
     id: "s3",
     label: "S3",
@@ -168,6 +178,7 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "buckets" });
       setBackStack([]);

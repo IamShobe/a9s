@@ -18,6 +18,8 @@ interface HUDProps {
   context: AwsContextInfo;
   terminalWidth: number;
   loading?: boolean;
+  watchInterval?: number | null;
+  tagFilter?: { key: string; value: string } | null;
 }
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -29,6 +31,8 @@ export function HUD({
   context: { accountName, accountId, awsProfile, currentIdentity, region },
   terminalWidth,
   loading = false,
+  watchInterval = null,
+  tagFilter = null,
 }: HUDProps) {
   const theme = useTheme();
   const [spinnerIndex, setSpinnerIndex] = React.useState(0);
@@ -44,6 +48,7 @@ export function HUD({
     return () => clearInterval(timer);
   }, [loading]);
 
+  const watchText = watchInterval != null ? ` ⟳${watchInterval}s` : "";
   const nameMaxLen = Math.max(8, terminalWidth - 44);
   const compactName =
     accountName.length > nameMaxLen ? `${accountName.slice(0, nameMaxLen - 1)}…` : accountName;
@@ -51,11 +56,12 @@ export function HUD({
   const profilePart = `[${awsProfile}]`;
   const leftTopRaw = `${compactName}${idPart}·${region}·${profilePart}`;
   const spinnerWidth = loading ? 1 : 0;
-  const topPadLen = Math.max(0, terminalWidth - leftTopRaw.length - spinnerWidth);
+  const topPadLen = Math.max(0, terminalWidth - leftTopRaw.length - watchText.length - spinnerWidth);
   const identityLine = truncateNoPad(currentIdentity || "-", Math.max(1, terminalWidth));
   const identityPadLen = Math.max(0, terminalWidth - identityLine.length);
   const label = ` ${serviceLabel.toUpperCase()} `;
-  const pathDisplay = ` ${path} `;
+  const tagBadge = tagFilter ? ` 🏷 ${tagFilter.key}=${tagFilter.value}` : "";
+  const pathDisplay = ` ${path}${tagBadge} `;
   const padLen = Math.max(0, terminalWidth - label.length - pathDisplay.length);
 
   return (
@@ -80,6 +86,11 @@ export function HUD({
           {profilePart}
         </Text>
         <Text>{" ".repeat(topPadLen)}</Text>
+        {watchInterval != null ? (
+          <Text color={theme.hud.loadingSpinnerText} bold>
+            {watchText}
+          </Text>
+        ) : null}
         {loading ? (
           <Text color={theme.hud.loadingSpinnerText} bold>
             {SPINNER_FRAMES[spinnerIndex]}

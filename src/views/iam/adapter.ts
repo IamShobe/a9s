@@ -267,6 +267,18 @@ export function createIamServiceAdapter(): ServiceAdapter {
   const detailCapability = createIamDetailCapability(getLevel);
   const yankCapability = createIamYankCapability();
 
+  const getBrowserUrl = (row: TableRow): string | null => {
+    const meta = row.meta as IamRowMeta | undefined;
+    if (!meta) return null;
+    if (meta.type === "role") {
+      return `https://us-east-1.console.aws.amazon.com/iam/home#/roles/${encodeURIComponent(meta.roleName)}`;
+    }
+    if (meta.type === "managed-policy") {
+      return `https://us-east-1.console.aws.amazon.com/iam/home#/policies/${encodeURIComponent(meta.policyArn)}`;
+    }
+    return null;
+  };
+
   return {
     id: "iam",
     label: "IAM",
@@ -278,6 +290,7 @@ export function createIamServiceAdapter(): ServiceAdapter {
     goBack,
     getPath,
     getContextLabel,
+    getBrowserUrl,
     reset() {
       setLevel({ kind: "root" });
       setBackStack([]);
