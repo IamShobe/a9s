@@ -1,4 +1,4 @@
-import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
+import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult } from "../../types.js";
 import { textCell } from "../../types.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
@@ -21,6 +21,8 @@ import type {
   ActionContext,
   ActionEffect,
 } from "../../adapters/capabilities/ActionCapability.js";
+import { createApiGatewayDetailCapability } from "./capabilities/detailCapability.js";
+import { createApiGatewayYankCapability } from "./capabilities/yankCapability.js";
 
 export const apiGatewayLevelAtom = atom<ApiGatewayLevel>({ kind: "apis" });
 export const apiGatewayBackStackAtom = atom<ApiGatewayNavFrame[]>([]);
@@ -201,6 +203,8 @@ export function createApiGatewayServiceAdapter(
   };
 
   const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
+  const detailCapability = createApiGatewayDetailCapability(region, getLevel);
+  const yankCapability = createApiGatewayYankCapability();
 
   const getPath = (): string => {
     const level = getLevel();
@@ -247,6 +251,18 @@ export function createApiGatewayServiceAdapter(
     },
   };
 
+  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+    const level = getLevel();
+    if (level.kind !== "apis") return [];
+    const meta = row.meta as ApiGatewayRowMeta | undefined;
+    if (!meta) return [];
+    const name = meta.apiName ?? meta.apiId ?? row.id;
+    return [
+      { serviceId: "cloudwatch", label: `CloudWatch logs for ${name}`, filterHint: `/aws/apigateway/${meta.apiId ?? row.id}` },
+      { serviceId: "lambda", label: `Lambda integrations for ${name}` },
+    ];
+  };
+
   return {
     id: "apigateway",
     label: "API Gateway",
@@ -258,6 +274,7 @@ export function createApiGatewayServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getRelatedResources,
     reset() {
       setLevel({ kind: "apis" });
       setBackStack([]);
@@ -275,6 +292,8 @@ export function createApiGatewayServiceAdapter(
     },
     capabilities: {
       actions: actionsCapability,
+      detail: detailCapability,
+      yank: yankCapability,
     },
   };
 }

@@ -8,6 +8,8 @@ import { DetailPanel } from "../components/DetailPanel.js";
 import { ErrorStatePanel } from "../components/ErrorStatePanel.js";
 import { TableSkeleton } from "../components/TableSkeleton.js";
 import { DiffViewer } from "../components/DiffViewer.js";
+import { SearchHistoryDropdown } from "../components/SearchHistoryDropdown.js";
+import { HistogramPanel } from "../components/HistogramPanel.js";
 import { debugLog } from "../utils/debugLogger.js";
 import { revealSecretsAtom } from "../state/atoms.js";
 import { truncateSecretForTable } from "../utils/secretDisplay.js";
@@ -20,6 +22,7 @@ import type { ColumnDef, TableRow } from "../types.js";
 import { getCellLabel } from "../types.js";
 import type { YankOption } from "../adapters/capabilities/YankCapability.js";
 import { useTheme } from "../contexts/ThemeContext.js";
+import type { HistogramBar } from "../utils/histogram.js";
 
 interface AppMainViewProps {
   helpPanel: HelpPanelState;
@@ -48,6 +51,13 @@ interface AppMainViewProps {
   uploadPending?: { filePath: string; metadata: Record<string, unknown> } | null;
   uploadPreview?: { old: string; new: string };
   panelScrollOffset: number;
+  footerContent?: React.ReactNode;
+  selectedRowIds?: Set<string>;
+  bookmarkedIds?: Set<string>;
+  searchHistory?: string[];
+  searchHistoryIndex?: number;
+  showSearchHistory?: boolean;
+  histogramState?: { columnKey: string; columnLabel: string; bars: HistogramBar[] | null } | null;
 }
 
 export function AppMainView({
@@ -73,6 +83,13 @@ export function AppMainView({
   yankOptions,
   yankHelpRow,
   panelScrollOffset,
+  footerContent,
+  selectedRowIds,
+  bookmarkedIds,
+  searchHistory,
+  searchHistoryIndex,
+  showSearchHistory,
+  histogramState,
 }: AppMainViewProps) {
   const theme = useTheme();
   const revealSecrets = useAtomValue(revealSecretsAtom);
@@ -228,6 +245,14 @@ export function AppMainView({
     );
   }
 
+  if (histogramState) {
+    return (
+      <Box width="100%" borderStyle="round" borderColor={theme.panel.detailPanelBorderText} backgroundColor={theme.global.mainBg}>
+        <HistogramPanel columnLabel={histogramState.columnLabel} bars={histogramState.bars} />
+      </Box>
+    );
+  }
+
   if (isLoading) {
     return (
       <TableSkeleton
@@ -250,17 +275,29 @@ export function AppMainView({
   }
 
   return (
-    <Table
-      rows={displayRows}
-      columns={columns}
-      selectedIndex={selectedIndex}
-      filterText={filterText}
-      terminalWidth={termCols}
-      maxHeight={tableHeight}
-      scrollOffset={scrollOffset}
-      contextLabel={adapter.getContextLabel?.() ?? ""}
-      {...(headerMarkers ? { headerMarkers } : {})}
-      {...(sortState ? { sortState } : {})}
-    />
+    <Box flexDirection="column" flexGrow={1}>
+      {showSearchHistory && searchHistory && (
+        <SearchHistoryDropdown
+          history={searchHistory}
+          selectedIndex={searchHistoryIndex ?? -1}
+          visible={true}
+        />
+      )}
+      <Table
+        rows={displayRows}
+        columns={columns}
+        selectedIndex={selectedIndex}
+        filterText={filterText}
+        terminalWidth={termCols}
+        maxHeight={tableHeight}
+        scrollOffset={scrollOffset}
+        contextLabel={adapter.getContextLabel?.() ?? ""}
+        {...(footerContent !== undefined ? { footerContent } : {})}
+        {...(selectedRowIds !== undefined ? { multiSelectedIds: selectedRowIds } : {})}
+        {...(bookmarkedIds !== undefined ? { bookmarkedIds } : {})}
+        {...(headerMarkers ? { headerMarkers } : {})}
+        {...(sortState ? { sortState } : {})}
+      />
+    </Box>
   );
 }

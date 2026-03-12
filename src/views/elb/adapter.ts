@@ -1,4 +1,4 @@
-import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
+import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
 import { statusCell } from "../../utils/statusColors.js";
@@ -255,6 +255,16 @@ export function createELBServiceAdapter(
   const detailCapability = createELBDetailCapability(region, getLevel);
   const yankCapability = createELBYankCapability();
 
+  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+    const meta = row.meta as ELBRowMeta | undefined;
+    if (!meta || meta.type !== "load-balancer") return [];
+    const name = meta.lbName ?? row.id;
+    return [
+      { serviceId: "cloudwatch", label: `CloudWatch metrics for ${name}`, filterHint: name },
+      { serviceId: "ec2", label: `EC2 targets for ${name}` },
+    ];
+  };
+
   const getBrowserUrl = (row: TableRow): string | null => {
     const r = resolveRegion(region);
     const meta = row.meta as ELBRowMeta | undefined;
@@ -279,6 +289,7 @@ export function createELBServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getRelatedResources,
     getBrowserUrl,
     reset() {
       setLevel({ kind: "load-balancers" });

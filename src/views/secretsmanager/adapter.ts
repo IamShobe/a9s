@@ -14,6 +14,7 @@ import { getSecretValue } from "./client.js";
 import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
 import { debugLog } from "../../utils/debugLogger.js";
+import { ageBandProps } from "../../utils/ageBanding.js";
 
 interface SecretNavFrame extends NavFrame {
   level: SecretLevel;
@@ -92,6 +93,7 @@ export function createSecretsManagerServiceAdapter(
           arn: secret.ARN,
           description: secret.Description ?? "",
         } satisfies SecretRowMeta,
+        ...ageBandProps(secret.LastChangedDate),
       }));
     }
 

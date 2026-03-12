@@ -8,6 +8,7 @@ export const AVAILABLE_COMMANDS = [
   "profiles",
   "resources",
   "theme",
+  "b",
   "region",
   "profile",
   "use-region",

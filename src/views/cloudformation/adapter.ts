@@ -1,4 +1,4 @@
-import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
+import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
 import { statusCell } from "../../utils/statusColors.js";
@@ -11,6 +11,7 @@ import { createCloudFormationYankCapability } from "./capabilities/yankCapabilit
 import { createCloudFormationActionCapability } from "./capabilities/actionCapability.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
 import { debugLog } from "../../utils/debugLogger.js";
+import { ageBandProps } from "../../utils/ageBanding.js";
 
 interface CloudFormationNavFrame extends NavFrame {
   level: CloudFormationLevel;
@@ -78,6 +79,7 @@ export function createCloudFormationServiceAdapter(
             stackStatus: stack.StackStatus ?? "",
             creationTime: stack.CreationTime ?? "",
           } satisfies CloudFormationRowMeta,
+          ...ageBandProps(stack.CreationTime),
         }));
       } catch (e) {
         debugLog("cloudformation", "getRows (stacks) failed", e);
@@ -155,6 +157,18 @@ export function createCloudFormationServiceAdapter(
   const yankCapability = createCloudFormationYankCapability();
   const actionCapability = createCloudFormationActionCapability(region, getLevel);
 
+  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+    const level = getLevel();
+    if (level.kind !== "stacks") return [];
+    const meta = row.meta as CloudFormationRowMeta | undefined;
+    if (!meta || meta.type !== "stack") return [];
+    const name = meta.stackName ?? row.id;
+    return [
+      { serviceId: "cloudwatch", label: `CloudWatch events for ${name}`, filterHint: name },
+      { serviceId: "iam", label: `IAM roles for ${name}` },
+    ];
+  };
+
   const getBrowserUrl = (row: TableRow): string | null => {
     const r = resolveRegion(region);
     const meta = row.meta as CloudFormationRowMeta | undefined;
@@ -176,6 +190,7 @@ export function createCloudFormationServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getRelatedResources,
     getBrowserUrl,
     reset() {
       setLevel({ kind: "stacks" });

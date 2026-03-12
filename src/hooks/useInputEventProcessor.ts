@@ -56,6 +56,12 @@ export interface InputEventActions {
     jumpToRelated: () => void;
     openInBrowser: () => void;
     sortColumn: () => void;
+    heatmapToggle: () => void;
+    multiSelectToggle: () => void;
+    multiSelectRange: () => void;
+    multiSelectAll: () => void;
+    bookmarkToggle: () => void;
+    showHistogram: () => void;
   };
   scroll: {
     up: () => void;
@@ -69,6 +75,7 @@ export interface InputEventActions {
   };
   details: {
     close: () => void;
+    closeHistogram: () => void;
   };
   pending: {
     cancelPrompt: () => void;
@@ -220,6 +227,13 @@ export function translateRawInputEvent(
     return { event: null, resetChord: true };
   }
 
+  if (runtime.histogramOpen) {
+    if (key.escape) {
+      return { event: { scope: "modal", type: "closeHistogram" }, resetChord: true };
+    }
+    return { event: null, resetChord: true };
+  }
+
   if (runtime.yankMode) {
     if (!runtime.selectedRow) {
       return { event: null, resetChord: true };
@@ -302,6 +316,18 @@ export function translateRawInputEvent(
       return { event: { scope: "navigation", type: "openInBrowser" }, resetChord: false };
     case "sortColumn":
       return { event: { scope: "navigation", type: "sortColumn" }, resetChord: false };
+    case "heatmapToggle":
+      return { event: { scope: "navigation", type: "heatmapToggle" }, resetChord: false };
+    case "multiSelectToggle":
+      return { event: { scope: "navigation", type: "multiSelectToggle" }, resetChord: false };
+    case "multiSelectRange":
+      return { event: { scope: "navigation", type: "multiSelectRange" }, resetChord: false };
+    case "multiSelectAll":
+      return { event: { scope: "navigation", type: "multiSelectAll" }, resetChord: false };
+    case "bookmarkToggle":
+      return { event: { scope: "navigation", type: "bookmarkToggle" }, resetChord: false };
+    case "showHistogram":
+      return { event: { scope: "navigation", type: "showHistogram" }, resetChord: false };
     case "none":
       return { event: null, resetChord: false };
   }
@@ -438,6 +464,9 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
         case "cancelPendingPrompt":
           actions.pending.cancelPrompt();
           return;
+        case "closeHistogram":
+          actions.details.closeHistogram();
+          return;
       }
       return;
     case "pending":
@@ -508,6 +537,24 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
           return;
         case "sortColumn":
           actions.navigation.sortColumn();
+          return;
+        case "heatmapToggle":
+          actions.navigation.heatmapToggle();
+          return;
+        case "multiSelectToggle":
+          actions.navigation.multiSelectToggle();
+          return;
+        case "multiSelectRange":
+          actions.navigation.multiSelectRange();
+          return;
+        case "multiSelectAll":
+          actions.navigation.multiSelectAll();
+          return;
+        case "bookmarkToggle":
+          actions.navigation.bookmarkToggle();
+          return;
+        case "showHistogram":
+          actions.navigation.showHistogram();
           return;
       }
       return;
@@ -615,6 +662,11 @@ export function useInputEventProcessor({
             pendingYankHelpRef.current = true;
           }
           applyInputEvent(translated.event, actions);
+          return;
+        }
+
+        // Adapter bindings must never fire while the user is typing (command/search mode).
+        if (runtime.mode !== "navigate") {
           return;
         }
 

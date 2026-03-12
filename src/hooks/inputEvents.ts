@@ -14,6 +14,7 @@ export interface InputRuntimeState {
   describeOpen: boolean;
   uploadPending: boolean;
   pendingActionType: "prompt" | "confirm" | null;
+  histogramOpen: boolean;
 }
 
 export type InputEvent =
@@ -33,7 +34,8 @@ export type InputEvent =
         | "closeYankHelp"
         | "closeDetails"
         | "cancelYank"
-        | "cancelPendingPrompt";
+        | "cancelPendingPrompt"
+        | "closeHistogram";
     }
   | { scope: "pending"; type: "submit"; confirmed: boolean }
   | { scope: "upload"; type: "decision"; confirmed: boolean }
@@ -62,7 +64,13 @@ export type InputEvent =
         | "enter"
         | "relatedResources"
         | "openInBrowser"
-        | "sortColumn";
+        | "sortColumn"
+        | "heatmapToggle"
+        | "multiSelectToggle"
+        | "multiSelectRange"
+        | "multiSelectAll"
+        | "bookmarkToggle"
+        | "showHistogram";
     }
   | { scope: "scroll"; type: "up" | "down" }
   | { scope: "adapterAction"; type: "run"; actionId: string; row: TableRow | null };

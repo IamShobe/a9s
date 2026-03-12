@@ -10,10 +10,12 @@ import type { ServiceId } from "../services.js";
 import { THEMES, THEME_LABELS } from "../constants/theme.js";
 import type { ThemeName } from "../constants/theme.js";
 import type { RelatedResource } from "../adapters/ServiceAdapter.js";
+import { loadBookmarks } from "../utils/bookmarks.js";
+import type { BookmarkEntry } from "../utils/bookmarks.js";
 
 export interface PickerEntry {
   // Picker identity
-  id: "region" | "profile" | "resource" | "theme" | "related";
+  id: "region" | "profile" | "resource" | "theme" | "related" | "bookmarks";
   columns: ColumnDef[];
   contextLabel: string;
   // Picker open/filter/search state
@@ -52,6 +54,7 @@ export interface PickerManager {
   resource: PickerEntry;
   theme: PickerEntry;
   related: PickerEntry;
+  bookmarks: PickerEntry;
   activePicker: PickerEntry | null;
   openPicker: (id: PickerEntry["id"]) => void;
   closeActivePicker: () => void;
@@ -62,6 +65,7 @@ export interface PickerManager {
     onSelectProfile: (profile: string) => void;
     onSelectTheme: (themeName: ThemeName) => void;
     onSelectRelated: (serviceId: ServiceId, filterHint?: string) => void;
+    onSelectBookmark?: (entry: BookmarkEntry) => void;
   }) => void;
 }
 
@@ -76,6 +80,7 @@ export function usePickerManager({
   const resource = usePickerState();
   const theme = usePickerState();
   const related = usePickerState();
+  const bookmarksPicker = usePickerState();
 
   const regionRows = useMemo<TableRow[]>(
     () =>
@@ -137,6 +142,18 @@ export function usePickerManager({
     [relatedResources],
   );
 
+  const bookmarksRows = useMemo<TableRow[]>(() => {
+    return loadBookmarks().map((entry) => ({
+      id: `${entry.serviceId}::${entry.rowId}`,
+      cells: {
+        label: textCell(entry.rowLabel),
+        service: textCell(entry.serviceId),
+        savedAt: textCell(entry.savedAt.slice(0, 10)),
+      },
+      meta: { bookmarkEntry: entry },
+    }));
+  }, [bookmarksPicker.open]);
+
   const regionTable = usePickerTable({
     rows: regionRows,
     filterText: region.filter,
@@ -164,6 +181,12 @@ export function usePickerManager({
     maxHeight: tableHeight,
   });
 
+  const bookmarksTable = usePickerTable({
+    rows: bookmarksRows,
+    filterText: bookmarksPicker.filter,
+    maxHeight: tableHeight,
+  });
+
   const regionColumns: ColumnDef[] = [
     { key: "region", label: "Region" },
     { key: "description", label: "Description" },
@@ -187,6 +210,12 @@ export function usePickerManager({
   const relatedColumns: ColumnDef[] = [
     { key: "service", label: "Jump To" },
     { key: "hint", label: "Filter" },
+  ];
+
+  const bookmarksColumns: ColumnDef[] = [
+    { key: "label", label: "Label" },
+    { key: "service", label: "Service", width: 20 },
+    { key: "savedAt", label: "Saved", width: 12 },
   ];
 
   const regionEntry: PickerEntry = {
@@ -229,8 +258,16 @@ export function usePickerManager({
     ...relatedTable,
   };
 
+  const bookmarksEntry: PickerEntry = {
+    id: "bookmarks",
+    columns: bookmarksColumns,
+    contextLabel: "Bookmarks",
+    ...bookmarksPicker,
+    ...bookmarksTable,
+  };
+
   const activePicker =
-    [regionEntry, profileEntry, resourceEntry, themeEntry, relatedEntry].find((e) => e.open) ??
+    [regionEntry, profileEntry, resourceEntry, themeEntry, relatedEntry, bookmarksEntry].find((e) => e.open) ??
     null;
 
   const getEntry = (id: PickerEntry["id"]): PickerEntry => {
@@ -245,6 +282,8 @@ export function usePickerManager({
         return themeEntry;
       case "related":
         return relatedEntry;
+      case "bookmarks":
+        return bookmarksEntry;
     }
   };
 
@@ -285,6 +324,13 @@ export function usePickerManager({
         handlers.onSelectRelated(activePicker.selectedRow.id as ServiceId, filterHint);
         break;
       }
+      case "bookmarks": {
+        const entry = activePicker.selectedRow.meta?.bookmarkEntry as BookmarkEntry | undefined;
+        if (entry && handlers.onSelectBookmark) {
+          handlers.onSelectBookmark(entry);
+        }
+        break;
+      }
     }
     activePicker.closePicker();
   };
@@ -295,6 +341,7 @@ export function usePickerManager({
     resource: resourceEntry,
     theme: themeEntry,
     related: relatedEntry,
+    bookmarks: bookmarksEntry,
     activePicker,
     openPicker,
     closeActivePicker,

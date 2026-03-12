@@ -13,9 +13,10 @@ export interface Cell {
 
 export interface TableRow {
   id: string;
-  cells: Record<string, Cell>; // Cell for typed cells, string for backward compatibility
+  cells: Record<string, Cell | undefined>;
   meta?: Record<string, unknown>;
   tags?: Record<string, string>; // optional AWS resource tags for :tag filter support
+  rowColor?: string; // optional row-level color applied to all cells (overridden by cell.color)
 }
 
 /** Helper to create a text cell */
@@ -34,8 +35,8 @@ export function coloredCell(displayName: string, color: string): Cell {
 }
 
 /** Helper to get cell displayName from Cell or string */
-export function getCellLabel(cell: Cell): string {
-  return cell.displayName;
+export function getCellLabel(cell: Cell | undefined): string | undefined {
+  return cell?.displayName;
 }
 
 export interface NavFrame {

@@ -12,6 +12,7 @@ import { createEC2EditCapability } from "./capabilities/editCapability.js";
 import { createEC2ActionCapability } from "./capabilities/actionCapability.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
 import { debugLog } from "../../utils/debugLogger.js";
+import { ageBandProps } from "../../utils/ageBanding.js";
 
 interface EC2NavFrame extends NavFrame {
   level: EC2Level;
@@ -94,6 +95,7 @@ export function createEC2ServiceAdapter(
               privateIp: inst.PrivateIpAddress ?? "",
             } satisfies EC2RowMeta,
             tags,
+            ...ageBandProps(inst.LaunchTime),
           };
         });
       } catch (e) {

@@ -11,6 +11,7 @@ import { createLambdaEditCapability } from "./capabilities/editCapability.js";
 import { createLambdaActionCapability } from "./capabilities/actionCapability.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
 import { debugLog } from "../../utils/debugLogger.js";
+import { ageBandProps } from "../../utils/ageBanding.js";
 
 interface LambdaNavFrame extends NavFrame {
   level: LambdaLevel;
@@ -83,6 +84,7 @@ export function createLambdaServiceAdapter(
             functionArn: fn.FunctionArn,
             runtime: fn.Runtime ?? "",
           } satisfies LambdaRowMeta,
+          ...ageBandProps(fn.LastModified),
         }));
       } catch (e) {
         debugLog("lambda", "getRows (functions) failed", e);

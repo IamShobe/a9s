@@ -1,4 +1,4 @@
-import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
+import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
 import { statusCell } from "../../utils/statusColors.js";
@@ -188,6 +188,18 @@ export function createSNSServiceAdapter(
   const yankCapability = createSNSYankCapability();
   const actionCapability = createSNSActionCapability(region, getLevel);
 
+  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+    const level = getLevel();
+    if (level.kind !== "topics") return [];
+    const meta = row.meta as SNSRowMeta | undefined;
+    if (!meta) return [];
+    const name = meta.topicName ?? topicNameFromArn(meta.topicArn ?? row.id);
+    return [
+      { serviceId: "sqs", label: `SQS subscriptions for ${name}` },
+      { serviceId: "lambda", label: `Lambda subscriptions for ${name}` },
+    ];
+  };
+
   const getBrowserUrl = (row: TableRow): string | null => {
     const r = resolveRegion(region);
     const meta = row.meta as SNSRowMeta | undefined;
@@ -209,6 +221,7 @@ export function createSNSServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getRelatedResources,
     getBrowserUrl,
     reset() {
       setLevel({ kind: "topics" });

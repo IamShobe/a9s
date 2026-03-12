@@ -1,4 +1,4 @@
-import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
+import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
 import { statusCell } from "../../utils/statusColors.js";
@@ -270,6 +270,18 @@ export function createECSServiceAdapter(
   const editCapability = createECSEditCapability(region, getLevel);
   const actionCapability = createECSActionCapability(region, getLevel);
 
+  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+    const meta = row.meta as ECSRowMeta | undefined;
+    if (!meta || meta.type !== "service") return [];
+    const clusterName = meta.clusterArn.split("/").pop() ?? meta.clusterArn;
+    const { serviceName } = meta;
+    if (!clusterName || !serviceName) return [];
+    return [
+      { serviceId: "cloudwatch", label: `CloudWatch logs for ${serviceName}`, filterHint: `/ecs/${clusterName}/${serviceName}` },
+      { serviceId: "elb", label: `Load balancers for ${serviceName}` },
+    ];
+  };
+
   const getBrowserUrl = (row: TableRow): string | null => {
     const r = resolveRegion(region);
     const meta = row.meta as ECSRowMeta | undefined;
@@ -299,6 +311,7 @@ export function createECSServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getRelatedResources,
     getBrowserUrl,
     reset() {
       setLevel({ kind: "clusters" });

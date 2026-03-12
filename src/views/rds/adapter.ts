@@ -1,4 +1,4 @@
-import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
+import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
 import { statusCell } from "../../utils/statusColors.js";
@@ -12,6 +12,7 @@ import { createRDSEditCapability } from "./capabilities/editCapability.js";
 import { createRDSActionCapability } from "./capabilities/actionCapability.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
 import { debugLog } from "../../utils/debugLogger.js";
+import { ageBandProps } from "../../utils/ageBanding.js";
 
 interface RDSNavFrame extends NavFrame {
   level: RDSLevel;
@@ -122,6 +123,7 @@ export function createRDSServiceAdapter(
           status: snap.Status ?? "",
           snapshotType: snap.SnapshotType ?? "",
         } satisfies RDSRowMeta,
+        ...ageBandProps(snap.SnapshotCreateTime),
       }));
     } catch (e) {
       debugLog("rds", "getRows (snapshots) failed", e);
@@ -170,6 +172,16 @@ export function createRDSServiceAdapter(
   const editCapability = createRDSEditCapability(region, getLevel);
   const actionCapability = createRDSActionCapability(region, getLevel);
 
+  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+    const meta = row.meta as RDSRowMeta | undefined;
+    if (!meta || meta.type !== "instance") return [];
+    const id = meta.dbInstanceIdentifier ?? row.id;
+    return [
+      { serviceId: "cloudwatch", label: `CloudWatch logs for ${id}`, filterHint: `/aws/rds/instance/${id}` },
+      { serviceId: "secretsmanager", label: `Secrets for ${id}`, filterHint: id },
+    ];
+  };
+
   const getBrowserUrl = (row: TableRow): string | null => {
     const r = resolveRegion(region);
     const meta = row.meta as RDSRowMeta | undefined;
@@ -194,6 +206,7 @@ export function createRDSServiceAdapter(
     goBack,
     getPath,
     getContextLabel,
+    getRelatedResources,
     getBrowserUrl,
     reset() {
       setLevel({ kind: "instances" });

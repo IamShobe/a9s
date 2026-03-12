@@ -31,7 +31,7 @@ export function applyDetailError(
     fields: [
       {
         label: "Name",
-        value: selectedRow.cells.name ? getCellLabel(selectedRow.cells.name) : selectedRow.id,
+        value: getCellLabel(selectedRow.cells.name) ?? selectedRow.id,
       },
       { label: "Error", value: error.message },
     ],
@@ -56,9 +56,7 @@ export function useDetailController({ adapter, setDescribeState }: UseDetailCont
             : [
                 {
                   label: "Name",
-                  value: selectedRow.cells.name
-                    ? getCellLabel(selectedRow.cells.name)
-                    : selectedRow.id,
+                  value: getCellLabel(selectedRow.cells.name) ?? selectedRow.id,
                 },
                 { label: "Type", value: String(selectedRow.meta?.type ?? "Unknown") },
                 { label: "Details", value: "Not available for this service" },

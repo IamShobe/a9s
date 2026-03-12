@@ -12,6 +12,7 @@ import { createEBSEditCapability } from "./capabilities/editCapability.js";
 import { createEBSActionCapability } from "./capabilities/actionCapability.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
 import { debugLog } from "../../utils/debugLogger.js";
+import { ageBandProps } from "../../utils/ageBanding.js";
 
 interface EBSNavFrame extends NavFrame {
   level: EBSLevel;
@@ -92,6 +93,7 @@ export function createEBSServiceAdapter(
               state: vol.State ?? "",
               attachedInstanceId: attachment?.InstanceId ?? "",
             } satisfies EBSRowMeta,
+            ...ageBandProps(vol.CreateTime),
           };
         });
       } catch (e) {
