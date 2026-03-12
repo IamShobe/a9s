@@ -57,7 +57,8 @@ export type InputEvent =
         | "edit"
         | "bottom"
         | "top"
-        | "enter";
+        | "enter"
+        | "relatedResources";
     }
   | { scope: "scroll"; type: "up" | "down" }
   | { scope: "adapterAction"; type: "run"; actionId: string; row: TableRow | null };

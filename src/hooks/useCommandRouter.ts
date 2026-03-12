@@ -9,6 +9,10 @@ export type ParsedCommand =
   | { type: "openThemePicker" }
   | { type: "setRegion"; region: string }
   | { type: "setProfile"; profile: string }
+  | { type: "setWatch"; seconds: number }
+  | { type: "clearWatch" }
+  | { type: "setTagFilter"; key: string; value: string }
+  | { type: "clearTagFilter" }
   | { type: "quit" }
   | { type: "switchService"; serviceId: ServiceId }
   | { type: "unknown" };
@@ -19,6 +23,21 @@ export function parseCommand(input: string): ParsedCommand {
   if (command === "regions") return { type: "openRegions" };
   if (command === "resources") return { type: "openResources" };
   if (command === "theme") return { type: "openThemePicker" };
+
+  if (command === "unwatch") return { type: "clearWatch" };
+
+  if (command === "untag") return { type: "clearTagFilter" };
+
+  const tagMatch = command.match(/^tag\s+([^=\s]+)=(.+)$/i);
+  if (tagMatch?.[1] && tagMatch?.[2]) {
+    return { type: "setTagFilter", key: tagMatch[1], value: tagMatch[2].trim() };
+  }
+
+  const watchMatch = command.match(/^watch(?:\s+(\d+))?$/i);
+  if (watchMatch) {
+    const seconds = watchMatch[1] ? parseInt(watchMatch[1], 10) : 5;
+    return { type: "setWatch", seconds: Math.max(1, Math.min(3600, seconds)) };
+  }
 
   const regionMatch = command.match(/^(region|use-region)\s+([a-z0-9-]+)$/i);
   if (regionMatch?.[2]) {
@@ -49,6 +68,10 @@ interface UseCommandRouterArgs {
   openRegionPicker: () => void;
   openResourcePicker: () => void;
   openThemePicker: () => void;
+  setWatch: (seconds: number) => void;
+  clearWatch: () => void;
+  setTagFilter: (key: string, value: string) => void;
+  clearTagFilter: () => void;
   exit: () => void;
 }
 
@@ -60,6 +83,10 @@ export function useCommandRouter({
   openRegionPicker,
   openResourcePicker,
   openThemePicker,
+  setWatch,
+  clearWatch,
+  setTagFilter,
+  clearTagFilter,
   exit,
 }: UseCommandRouterArgs) {
   return useCallback(
@@ -84,6 +111,18 @@ export function useCommandRouter({
         case "setProfile":
           setSelectedProfile(parsed.profile);
           return;
+        case "setWatch":
+          setWatch(parsed.seconds);
+          return;
+        case "clearWatch":
+          clearWatch();
+          return;
+        case "setTagFilter":
+          setTagFilter(parsed.key, parsed.value);
+          return;
+        case "clearTagFilter":
+          clearTagFilter();
+          return;
         case "quit":
           exit();
           return;
@@ -94,6 +133,6 @@ export function useCommandRouter({
           return;
       }
     },
-    [setSelectedRegion, setSelectedProfile, switchAdapter, openProfilePicker, openRegionPicker, openResourcePicker, openThemePicker, exit],
+    [setSelectedRegion, setSelectedProfile, switchAdapter, openProfilePicker, openRegionPicker, openResourcePicker, openThemePicker, setWatch, clearWatch, setTagFilter, clearTagFilter, exit],
   );
 }

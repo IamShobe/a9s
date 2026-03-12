@@ -189,6 +189,13 @@ export const KEYBINDINGS: KeyBinding[] = [
     shortLabel: "refresh",
   },
   {
+    action: KB.RELATED_RESOURCES,
+    trigger: { type: "chord", keys: ["g", "r"] },
+    scope: "navigate",
+    label: "Jump to related resource (e.g. Lambda → CloudWatch)",
+    shortLabel: "related",
+  },
+  {
     action: KB.REVEAL_TOGGLE,
     trigger: { type: "key", char: "v" },
     scope: "navigate",

@@ -51,6 +51,7 @@ export interface InputEventActions {
     top: () => void;
     bottom: () => void;
     enter: () => void;
+    jumpToRelated: () => void;
   };
   scroll: {
     up: () => void;
@@ -285,6 +286,8 @@ export function translateRawInputEvent(
       return { event: { scope: "navigation", type: "top" }, resetChord: false };
     case "enter":
       return { event: { scope: "navigation", type: "enter" }, resetChord: false };
+    case "relatedResources":
+      return { event: { scope: "navigation", type: "relatedResources" }, resetChord: true };
     case "none":
       return { event: null, resetChord: false };
   }
@@ -476,6 +479,9 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
           return;
         case "enter":
           actions.navigation.enter();
+          return;
+        case "relatedResources":
+          actions.navigation.jumpToRelated();
           return;
       }
       return;

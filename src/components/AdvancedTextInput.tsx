@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Text, useInput } from "ink";
 import type { Key } from "ink";
+import clipboardy from "clipboardy";
 import { useTheme } from "../contexts/ThemeContext.js";
 
 export interface AdvancedTextInputProps {
@@ -47,6 +48,11 @@ export function decodeAltWordDirection(input: string, key: Key): WordDirection |
   if (input === "\u001b[1;3C" || input === "\u001b[1;9C") return "right";
 
   return null;
+}
+
+/** Normalize pasted text: collapse CRLF/LF to a single space (text inputs are single-line). */
+function normalizePastedText(text: string): string {
+  return text.replace(/\r\n/g, " ").replace(/[\r\n]/g, " ");
 }
 
 export interface TextEditResult {
@@ -165,6 +171,18 @@ export function applyAdvancedInputEdit(
     return { value: next, cursor, submit: false, handled: true };
   }
 
+  // Bracketed paste: \x1b[200~...content...\x1b[201~
+  if (input.startsWith("\x1b[200~")) {
+    const endMarker = "\x1b[201~";
+    const endIdx = input.indexOf(endMarker);
+    const text =
+      endIdx >= 0 ? input.slice("\x1b[200~".length, endIdx) : input.slice("\x1b[200~".length);
+    const cleaned = normalizePastedText(text);
+    if (!cleaned) return { value: currentValue, cursor, submit: false, handled: true };
+    const next = currentValue.slice(0, cursor) + cleaned + currentValue.slice(cursor);
+    return { value: next, cursor: cursor + cleaned.length, submit: false, handled: true };
+  }
+
   if (key.ctrl || key.meta || key.escape || key.tab) {
     return { value: currentValue, cursor, submit: false, handled: false };
   }
@@ -173,9 +191,9 @@ export function applyAdvancedInputEdit(
     return { value: currentValue, cursor, submit: false, handled: false };
   }
 
-  // Ignore control escape-sequences or other non-printable input.
+  // Ignore control characters (but allow multi-char printable input from terminal paste).
   // eslint-disable-next-line no-control-regex
-  if (input.length > 1 || /[\u0000-\u001f\u007f]/.test(input)) {
+  if (/[\u0000-\u001f\u007f]/.test(input)) {
     return { value: currentValue, cursor, submit: false, handled: false };
   }
 
@@ -211,6 +229,19 @@ export function AdvancedTextInput({
   useInput(
     (input, key) => {
       if (!focus) return;
+
+      // Ctrl+V: explicit paste from clipboard
+      if (key.ctrl && input === "v") {
+        const capturedValue = value;
+        const capturedCursor = clamp(cursor, 0, value.length);
+        void clipboardy.read().then((text) => {
+          if (!text) return;
+          const cleaned = normalizePastedText(text);
+          onChange(capturedValue.slice(0, capturedCursor) + cleaned + capturedValue.slice(capturedCursor));
+          setCursor(capturedCursor + cleaned.length);
+        });
+        return;
+      }
 
       const result = applyAdvancedInputEdit(value, cursor, input, key);
 

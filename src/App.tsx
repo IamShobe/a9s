@@ -24,6 +24,7 @@ import { deriveYankHeaderMarkers } from "./hooks/yankHeaderMarkers.js";
 import { AppMainView } from "./features/AppMainView.js";
 import type { ServiceId } from "./services.js";
 import type { ServiceViewResult, TableRow } from "./types.js";
+import type { RelatedResource } from "./adapters/ServiceAdapter.js";
 import { AVAILABLE_COMMANDS } from "./constants/commands.js";
 import { buildHelpTabs, triggerToString } from "./constants/keybindings.js";
 import type { InputRuntimeState } from "./hooks/inputEvents.js";
@@ -116,6 +117,12 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const HEADER_LINES = 2;
   const tableHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES - HEADER_LINES - 4);
 
+  // Related resources state — populated when user presses g+r on a row (must be declared before useAppData)
+  const [relatedResources, setRelatedResources] = useState<RelatedResource[]>([]);
+
+  // Tag filter state — set via :tag Key=Value command
+  const [tagFilter, setTagFilterState] = useState<{ key: string; value: string } | null>(null);
+
   const {
     adapter,
     columns,
@@ -138,6 +145,8 @@ export function App({ initialService, endpointUrl }: AppProps) {
     filterText: state.filterText,
     availableRegions,
     availableProfiles,
+    relatedResources,
+    tagFilter,
   });
 
   const [didOpenInitialResources, setDidOpenInitialResources] = useState(false);
@@ -164,6 +173,28 @@ export function App({ initialService, endpointUrl }: AppProps) {
     setThemeName(pickers.theme.selectedRow.id as ThemeName);
   }, [pickers.theme.open, pickers.theme.selectedRow, setThemeName]);
 
+  // Watch mode — declared before switchAdapter which references setWatchInterval
+  const [watchInterval, setWatchInterval] = useState<number | null>(null);
+  const watchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (watchTimerRef.current) {
+      clearTimeout(watchTimerRef.current);
+      watchTimerRef.current = null;
+    }
+    if (watchInterval == null) return;
+    const schedule = () => {
+      watchTimerRef.current = setTimeout(() => {
+        void refresh();
+        schedule();
+      }, watchInterval * 1000);
+    };
+    schedule();
+    return () => {
+      if (watchTimerRef.current) clearTimeout(watchTimerRef.current);
+    };
+  }, [watchInterval, refresh]);
+
   const switchAdapter = useCallback(
     (serviceId: ServiceId) => {
       setCurrentService(serviceId);
@@ -174,6 +205,8 @@ export function App({ initialService, endpointUrl }: AppProps) {
       actions.setYankMode(false);
       actions.setUploadPending(null);
       actions.setPendingAction(null);
+      setWatchInterval(null);
+      setTagFilterState(null);
       resetHierarchy();
       navigation.reset();
     },
@@ -334,6 +367,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
     openRegionPicker: () => pickers.openPicker("region"),
     openResourcePicker: () => pickers.openPicker("resource"),
     openThemePicker: () => pickers.openPicker("theme"),
+    setWatch: setWatchInterval,
+    clearWatch: () => setWatchInterval(null),
+    setTagFilter: (key, value) => setTagFilterState({ key, value }),
+    clearTagFilter: () => setTagFilterState(null),
     exit,
   });
 
@@ -514,7 +551,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
         goToTab: helpPanel.goToTab,
       },
       picker: {
-        close: pickers.closeActivePicker,
+        close: () => {
+          if (pickers.activePicker?.id === "related") setRelatedResources([]);
+          pickers.closeActivePicker();
+        },
         cancelSearch: () => pickers.activePicker?.cancelSearch(),
         startSearch: () => pickers.activePicker?.startSearch(),
         moveDown: () => pickers.activePicker?.moveDown(),
@@ -530,6 +570,11 @@ export function App({ initialService, endpointUrl }: AppProps) {
               themePickerConfirmedRef.current = true;
               setThemeName(name);
               saveConfig({ theme: name });
+            },
+            onSelectRelated: (serviceId, filterHint) => {
+              switchAdapter(serviceId);
+              if (filterHint) actions.setFilterText(filterHint);
+              setRelatedResources([]);
             },
           }),
       },
@@ -572,6 +617,25 @@ export function App({ initialService, endpointUrl }: AppProps) {
         top: navigation.toTop,
         bottom: navigation.toBottom,
         enter: navigateIntoSelection,
+        jumpToRelated: () => {
+          if (!selectedRow) return;
+          const resources = adapter.getRelatedResources?.(selectedRow) ?? [];
+          if (resources.length === 0) {
+            actions.pushFeedback("No related resources", 2000);
+            return;
+          }
+          setRelatedResources(resources);
+          if (resources.length === 1) {
+            // Jump directly if there's only one option
+            const r = resources[0];
+            switchAdapter(r.serviceId as ServiceId);
+            if (r.filterHint) actions.setFilterText(r.filterHint);
+            setRelatedResources([]);
+            return;
+          }
+          // Multiple options — open picker
+          pickers.openPicker("related");
+        },
       },
       scroll: {
         up: () => {
@@ -641,6 +705,8 @@ export function App({ initialService, endpointUrl }: AppProps) {
           context={{ accountName, accountId, awsProfile, currentIdentity, region }}
           terminalWidth={termCols}
           loading={isLoading || Boolean(state.describeState?.loading)}
+          watchInterval={watchInterval}
+          tagFilter={tagFilter}
         />
         <Box flexDirection="row" width="100%" flexGrow={1} backgroundColor={theme.global.mainBg}>
           <AppMainView

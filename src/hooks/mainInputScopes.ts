@@ -80,6 +80,7 @@ export type NavigateScopeAction =
   | { type: "bottom" }
   | { type: "top" }
   | { type: "enter" }
+  | { type: "relatedResources" }
   | { type: "none" };
 
 export function resolveNavigateScopeAction(action: KeyAction | null): NavigateScopeAction {
@@ -106,6 +107,8 @@ export function resolveNavigateScopeAction(action: KeyAction | null): NavigateSc
       return { type: "top" };
     case KB.NAVIGATE_INTO:
       return { type: "enter" };
+    case KB.RELATED_RESOURCES:
+      return { type: "relatedResources" };
     default:
       return { type: "none" };
   }

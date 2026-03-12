@@ -8,12 +8,14 @@ export interface ColumnDef {
 export interface Cell {
   displayName: string;
   type?: "text" | "secret"; // defaults to 'text' if not specified
+  color?: string; // optional per-cell foreground color (ignored when row is selected)
 }
 
 export interface TableRow {
   id: string;
   cells: Record<string, Cell>; // Cell for typed cells, string for backward compatibility
   meta?: Record<string, unknown>;
+  tags?: Record<string, string>; // optional AWS resource tags for :tag filter support
 }
 
 /** Helper to create a text cell */
@@ -24,6 +26,11 @@ export function textCell(displayName: string): Cell {
 /** Helper to create a secret cell */
 export function secretCell(displayName: string): Cell {
   return { displayName, type: "secret" };
+}
+
+/** Helper to create a colored text cell */
+export function coloredCell(displayName: string, color: string): Cell {
+  return { displayName, type: "text", color };
 }
 
 /** Helper to get cell displayName from Cell or string */

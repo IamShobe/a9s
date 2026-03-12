@@ -169,6 +169,7 @@ describe("applyInputEvent", () => {
         top: vi.fn(),
         bottom: vi.fn(),
         enter: vi.fn(),
+        jumpToRelated: vi.fn(),
       },
       scroll: {
         up: vi.fn(),

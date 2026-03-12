@@ -241,6 +241,41 @@ describe("AdvancedTextInput helpers", () => {
     expect(escSeq2.cursor).toBe(8);
   });
 
+  it("handles bracketed paste sequences", () => {
+    const bpaste = applyAdvancedInputEdit("hello ", 6, "\x1b[200~world\x1b[201~", makeKey());
+    expect(bpaste.value).toBe("hello world");
+    expect(bpaste.cursor).toBe(11);
+    expect(bpaste.handled).toBe(true);
+
+    // Mid-cursor paste
+    const midPaste = applyAdvancedInputEdit("helo", 2, "\x1b[200~l\x1b[201~", makeKey());
+    expect(midPaste.value).toBe("hello");
+    expect(midPaste.cursor).toBe(3);
+
+    // Newlines in pasted content are normalized to spaces
+    const newlinePaste = applyAdvancedInputEdit("", 0, "\x1b[200~line1\nline2\x1b[201~", makeKey());
+    expect(newlinePaste.value).toBe("line1 line2");
+
+    // Empty bracketed paste is a no-op
+    const emptyPaste = applyAdvancedInputEdit("abc", 3, "\x1b[200~\x1b[201~", makeKey());
+    expect(emptyPaste.value).toBe("abc");
+    expect(emptyPaste.handled).toBe(true);
+  });
+
+  it("accepts multi-char printable input (terminal direct paste)", () => {
+    const result = applyAdvancedInputEdit("hi ", 3, "world", makeKey());
+    expect(result.value).toBe("hi world");
+    expect(result.cursor).toBe(8);
+    expect(result.handled).toBe(true);
+  });
+
+  it("rejects multi-char input containing control characters", () => {
+    // Should not insert if control chars present (still treated as unhandled sequence)
+    const result = applyAdvancedInputEdit("hello", 5, "ab\u0003", makeKey());
+    expect(result.handled).toBe(false);
+    expect(result.value).toBe("hello");
+  });
+
   it("alt+backspace deletes full word even with numbers/underscores", () => {
     // "foo test_var123 bar", cursor at 14 (the '3' in '123')
     // moveCursorWordLeft at 14 returns 4 (start of "test_var123")

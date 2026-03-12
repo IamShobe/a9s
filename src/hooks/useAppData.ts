@@ -1,7 +1,7 @@
 import { useMemo, useLayoutEffect } from "react";
 import { SERVICE_REGISTRY } from "../services.js";
 import type { ServiceId } from "../services.js";
-import type { ServiceAdapter } from "../adapters/ServiceAdapter.js";
+import type { ServiceAdapter, RelatedResource } from "../adapters/ServiceAdapter.js";
 import { useServiceView } from "./useServiceView.js";
 import { useNavigation } from "./useNavigation.js";
 import { usePickerManager } from "./usePickerManager.js";
@@ -18,6 +18,8 @@ interface UseAppDataArgs {
   filterText: string;
   availableRegions: AwsRegionOption[];
   availableProfiles: AwsProfileOption[];
+  relatedResources?: RelatedResource[];
+  tagFilter?: { key: string; value: string } | null;
 }
 
 export function useAppData({
@@ -28,6 +30,8 @@ export function useAppData({
   filterText,
   availableRegions,
   availableProfiles,
+  relatedResources,
+  tagFilter,
 }: UseAppDataArgs) {
   const adapter = useMemo<ServiceAdapter>(() => {
     debugLog(currentService, `useAppData: adapter created`);
@@ -45,12 +49,26 @@ export function useAppData({
     });
   }, [rows.length, isLoading, adapter.id]);
 
-  const filteredRows = useMemo(() => filterRowsByText(rows, filterText), [filterText, rows]);
+  const filteredRows = useMemo(() => {
+    const textFiltered = filterRowsByText(rows, filterText);
+    if (!tagFilter) return textFiltered;
+    const { key, value } = tagFilter;
+    const lowerValue = value.toLowerCase();
+    return textFiltered.filter((row) => {
+      const tagVal = row.tags?.[key];
+      return tagVal !== undefined && tagVal.toLowerCase().includes(lowerValue);
+    });
+  }, [filterText, rows, tagFilter]);
 
   const navigation = useNavigation(filteredRows.length, tableHeight);
   const selectedRow = filteredRows[navigation.selectedIndex] ?? null;
 
-  const pickers = usePickerManager({ tableHeight, availableRegions, availableProfiles });
+  const pickers = usePickerManager({
+    tableHeight,
+    availableRegions,
+    availableProfiles,
+    ...(relatedResources !== undefined ? { relatedResources } : {}),
+  });
 
   return {
     adapter,

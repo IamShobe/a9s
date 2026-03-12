@@ -26,6 +26,13 @@ describe("parseCommand", () => {
     expect(parseCommand("quit")).toEqual({ type: "quit" });
   });
 
+  it("parses watch and unwatch commands", () => {
+    expect(parseCommand("watch")).toEqual({ type: "setWatch", seconds: 5 });
+    expect(parseCommand("watch 10")).toEqual({ type: "setWatch", seconds: 10 });
+    expect(parseCommand("watch 0")).toEqual({ type: "setWatch", seconds: 1 }); // clamped
+    expect(parseCommand("unwatch")).toEqual({ type: "clearWatch" });
+  });
+
   it("returns unknown for unsupported commands", () => {
     expect(parseCommand("something-else")).toEqual({ type: "unknown" });
   });
