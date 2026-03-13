@@ -183,12 +183,16 @@ export function App({ initialService, endpointUrl }: AppProps) {
     bookmarkedIds,
   });
 
-  const [didOpenInitialResources, setDidOpenInitialResources] = useState(false);
-  useEffect(() => {
-    if (didOpenInitialResources) return;
+  const isResourcesRootRef = useRef(true);
+
+  const navigateToRoot = useCallback(() => {
+    isResourcesRootRef.current = true;
     pickers.openPicker("resource");
-    setDidOpenInitialResources(true);
-  }, [didOpenInitialResources, pickers]);
+  }, [pickers]);
+
+  useEffect(() => {
+    navigateToRoot();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh bookmarked IDs when service changes
   useEffect(() => {
@@ -246,6 +250,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   const switchAdapter = useCallback(
     (serviceId: ServiceId) => {
+      isResourcesRootRef.current = false;
       setCurrentService(serviceId);
       actions.setFilterText("");
       actions.setDescribeState(null);
@@ -267,7 +272,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
   );
 
   const navigateBack = useCallback(() => {
-    if (!adapter.canGoBack()) return;
+    if (!adapter.canGoBack()) {
+      navigateToRoot();
+      return;
+    }
     void goBack().then(() => {
       actions.setDescribeState(null);
       actions.setSearchEntryFilter(null);
@@ -275,7 +283,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       actions.setFilterText(restoredFilter);
       navigation.setIndex(restoredIndex);
     });
-  }, [actions, adapter, goBack, navigation, popLevel]);
+  }, [actions, adapter, goBack, navigateToRoot, navigation, popLevel]);
 
   const navigateIntoSelection = useCallback(() => {
     if (!selectedRow) return;
@@ -680,6 +688,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       },
       picker: {
         close: () => {
+          if (isResourcesRootRef.current && pickers.activePicker?.id === "resource") return;
           if (pickers.activePicker?.id === "related") setRelatedResources([]);
           pickers.closeActivePicker();
         },
