@@ -40,6 +40,7 @@ import { loadBookmarks, toggleBookmark } from "./utils/bookmarks.js";
 import { buildHistogram } from "./utils/histogram.js";
 import { isNumericColumn } from "./utils/heatmap.js";
 import type { HistogramBar } from "./utils/histogram.js";
+import { useFilePreview } from "./hooks/useFilePreview.js";
 import {
   currentlySelectedServiceAtom,
   selectedRegionAtom,
@@ -153,6 +154,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   // Histogram state
   const [histogramState, setHistogramState] = useState<{ columnKey: string; columnLabel: string; bars: HistogramBar[] | null } | null>(null);
+
+  // File preview state
+  const filePreview = useFilePreview(tableHeight);
 
   const {
     adapter,
@@ -365,8 +369,14 @@ export function App({ initialService, endpointUrl }: AppProps) {
       Object.values(row.cells).some((cell) => typeof cell === "object" && cell?.type === "secret"),
     );
     // Only show reveal toggle if there are secrets AND they're currently hidden
-    return { hasHiddenSecrets: hasSecretData && !revealSecrets };
-  }, [filteredRows, revealSecrets]);
+    const hasPreviewableRow = Boolean(
+      selectedRow && adapter.capabilities?.preview?.canPreview(selectedRow),
+    );
+    return {
+      hasHiddenSecrets: hasSecretData && !revealSecrets,
+      hasPreviewableRow,
+    };
+  }, [filteredRows, revealSecrets, selectedRow, adapter]);
 
   const helpTabs = useMemo(
     () => buildHelpTabs(adapter.id, adapterBindings, uiHintsContext),
@@ -669,8 +679,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
       uploadPending: Boolean(state.uploadPending),
       pendingActionType: state.pendingAction?.effect.type ?? null,
       histogramOpen: Boolean(histogramState),
+      filePreviewOpen: Boolean(filePreview.previewState),
+      previewFilterActive: filePreview.previewState?.filterActive ?? false,
     }),
-    [helpPanel.helpOpen, pickers.activePicker?.pickerMode, selectedRow, state, histogramState],
+    [helpPanel.helpOpen, pickers.activePicker?.pickerMode, selectedRow, state, histogramState, filePreview.previewState],
   );
 
   const inputDispatch = useInputEventProcessor({
@@ -835,6 +847,15 @@ export function App({ initialService, endpointUrl }: AppProps) {
         revealToggle: () => {
           setRevealSecrets(!revealSecrets);
         },
+        previewFile: () => {
+          if (!selectedRow) return;
+          if (adapter.capabilities?.preview?.canPreview(selectedRow)) {
+            filePreview.showPreview(selectedRow, adapter);
+          } else {
+            // Fall back to reveal toggle for non-previewable rows (e.g. secrets)
+            setRevealSecrets(!revealSecrets);
+          }
+        },
         showDetails: () => showDetails(selectedRow),
         editSelection,
         top: navigation.toTop,
@@ -895,6 +916,14 @@ export function App({ initialService, endpointUrl }: AppProps) {
       details: {
         close: closeDetails,
         closeHistogram: () => setHistogramState(null),
+      },
+      preview: {
+        close: filePreview.closePreview,
+        openFilter: filePreview.openFilter,
+        nextPage: filePreview.nextPage,
+        prevPage: filePreview.prevPage,
+        scrollUp: filePreview.previewNavigation.moveUp,
+        scrollDown: filePreview.previewNavigation.moveDown,
       },
       pending: {
         cancelPrompt: () => actions.setPendingAction(null),
@@ -961,6 +990,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
             searchHistoryIndex={searchHistoryIndex}
             showSearchHistory={showSearchHistory}
             histogramState={histogramState}
+            filePreviewState={filePreview.previewState}
+            filePreviewNavigation={filePreview.previewNavigation}
+            onPreviewFilterChange={filePreview.setFilterText}
+            onPreviewFilterSubmit={filePreview.closeFilter}
             {...(yankHeaderMarkers ? { headerMarkers: yankHeaderMarkers } : {})}
             {...(sortState ? { sortState } : {})}
           />

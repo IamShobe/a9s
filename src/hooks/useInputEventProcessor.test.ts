@@ -23,6 +23,8 @@ const baseRuntime: InputRuntimeState = {
   uploadPending: false,
   pendingActionType: null,
   histogramOpen: false,
+  filePreviewOpen: false,
+  previewFilterActive: false,
 };
 
 describe("translateRawInputEvent", () => {
@@ -181,6 +183,15 @@ describe("applyInputEvent", () => {
         multiSelectAll: vi.fn(),
         bookmarkToggle: vi.fn(),
         showHistogram: vi.fn(),
+        previewFile: vi.fn(),
+      },
+      preview: {
+        close: vi.fn(),
+        openFilter: vi.fn(),
+        nextPage: vi.fn(),
+        prevPage: vi.fn(),
+        scrollUp: vi.fn(),
+        scrollDown: vi.fn(),
       },
       scroll: {
         up: vi.fn(),

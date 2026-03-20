@@ -89,6 +89,7 @@ export type NavigateScopeAction =
   | { type: "multiSelectAll" }
   | { type: "bookmarkToggle" }
   | { type: "showHistogram" }
+  | { type: "previewFile" }
   | { type: "none" };
 
 export function resolveNavigateScopeAction(action: KeyAction | null): NavigateScopeAction {
@@ -133,6 +134,8 @@ export function resolveNavigateScopeAction(action: KeyAction | null): NavigateSc
       return { type: "bookmarkToggle" };
     case KB.HISTOGRAM:
       return { type: "showHistogram" };
+    case KB.PREVIEW_FILE:
+      return { type: "previewFile" };
     default:
       return { type: "none" };
   }

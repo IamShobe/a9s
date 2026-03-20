@@ -62,6 +62,15 @@ export interface InputEventActions {
     multiSelectAll: () => void;
     bookmarkToggle: () => void;
     showHistogram: () => void;
+    previewFile: () => void;
+  };
+  preview: {
+    close: () => void;
+    openFilter: () => void;
+    nextPage: () => void;
+    prevPage: () => void;
+    scrollUp: () => void;
+    scrollDown: () => void;
   };
   scroll: {
     up: () => void;
@@ -234,6 +243,36 @@ export function translateRawInputEvent(
     return { event: null, resetChord: true };
   }
 
+  if (runtime.filePreviewOpen) {
+    if (runtime.previewFilterActive) {
+      // In filter mode — only Esc is captured here; text input is handled by the panel
+      if (key.escape) {
+        return { event: { scope: "modal", type: "closePreview" }, resetChord: true };
+      }
+      return { event: null, resetChord: false };
+    }
+    if (key.escape) {
+      return { event: { scope: "modal", type: "closePreview" }, resetChord: true };
+    }
+    if (input === "]") {
+      return { event: { scope: "preview", type: "nextPage" }, resetChord: true };
+    }
+    if (input === "[") {
+      return { event: { scope: "preview", type: "prevPage" }, resetChord: true };
+    }
+    if (input === "/") {
+      return { event: { scope: "modal", type: "openPreviewFilter" }, resetChord: true };
+    }
+    const scrollAction = deps.resolve(input, key, "navigate");
+    if (scrollAction === KB.MOVE_DOWN) {
+      return { event: { scope: "preview", type: "scrollDown" }, resetChord: false };
+    }
+    if (scrollAction === KB.MOVE_UP) {
+      return { event: { scope: "preview", type: "scrollUp" }, resetChord: false };
+    }
+    return { event: null, resetChord: true };
+  }
+
   if (runtime.yankMode) {
     if (!runtime.selectedRow) {
       return { event: null, resetChord: true };
@@ -328,6 +367,8 @@ export function translateRawInputEvent(
       return { event: { scope: "navigation", type: "bookmarkToggle" }, resetChord: false };
     case "showHistogram":
       return { event: { scope: "navigation", type: "showHistogram" }, resetChord: false };
+    case "previewFile":
+      return { event: { scope: "navigation", type: "previewFile" }, resetChord: false };
     case "none":
       return { event: null, resetChord: false };
   }
@@ -467,6 +508,12 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
         case "closeHistogram":
           actions.details.closeHistogram();
           return;
+        case "closePreview":
+          actions.preview.close();
+          return;
+        case "openPreviewFilter":
+          actions.preview.openFilter();
+          return;
       }
       return;
     case "pending":
@@ -555,6 +602,25 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
           return;
         case "showHistogram":
           actions.navigation.showHistogram();
+          return;
+        case "previewFile":
+          actions.navigation.previewFile();
+          return;
+      }
+      return;
+    case "preview":
+      switch (event.type) {
+        case "nextPage":
+          actions.preview.nextPage();
+          return;
+        case "prevPage":
+          actions.preview.prevPage();
+          return;
+        case "scrollDown":
+          actions.preview.scrollDown();
+          return;
+        case "scrollUp":
+          actions.preview.scrollUp();
           return;
       }
       return;

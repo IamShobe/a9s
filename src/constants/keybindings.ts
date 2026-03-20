@@ -58,6 +58,7 @@ export type KeyScope =
   | "details"
   | "upload"
   | "picker"
+  | "preview"
   | "help";
 
 const SCOPE_LABELS: Record<KeyScope, string> = {
@@ -68,6 +69,7 @@ const SCOPE_LABELS: Record<KeyScope, string> = {
   details: "Details",
   upload: "Upload",
   picker: "Pickers",
+  preview: "File Preview",
   help: "Help Panel",
 };
 
@@ -77,7 +79,7 @@ const SCOPE_LABELS: Record<KeyScope, string> = {
 
 export interface KeyBindingContext {
   hasHiddenSecrets: boolean; // true if there are secret values AND they're currently hidden
-  // Add more context fields as needed
+  hasPreviewableRow: boolean; // true if the selected row can be previewed (CSV/Parquet)
 }
 
 export interface KeyBinding {
@@ -194,6 +196,15 @@ export const KEYBINDINGS: KeyBinding[] = [
     scope: "navigate",
     label: "Jump to related resource (e.g. Lambda → CloudWatch)",
     shortLabel: "related",
+  },
+  {
+    action: KB.PREVIEW_FILE,
+    trigger: { type: "key", char: "v" },
+    scope: "navigate",
+    label: "Preview CSV/Parquet file",
+    shortLabel: "view",
+    priority: 30,
+    showIf: (ctx) => ctx.hasPreviewableRow,
   },
   {
     action: KB.REVEAL_TOGGLE,
@@ -462,6 +473,57 @@ export const KEYBINDINGS: KeyBinding[] = [
     shortLabel: "close",
   },
 
+  // --- Preview ---
+  {
+    action: KB.PREVIEW_FILE,
+    trigger: { type: "key", char: "v" },
+    scope: "preview",
+    label: "Open: press v on a CSV/Parquet file",
+    shortLabel: "open preview",
+  },
+  {
+    action: KB.PREVIEW_NEXT_PAGE,
+    trigger: { type: "key", char: "]" },
+    scope: "preview",
+    label: "Next page",
+    shortLabel: "next page",
+  },
+  {
+    action: KB.PREVIEW_PREV_PAGE,
+    trigger: { type: "key", char: "[" },
+    scope: "preview",
+    label: "Previous page",
+    shortLabel: "prev page",
+  },
+  {
+    action: KB.PREVIEW_FILTER,
+    trigger: { type: "key", char: "/" },
+    scope: "preview",
+    label: "Filter rows",
+    shortLabel: "filter",
+  },
+  {
+    action: KB.MOVE_DOWN,
+    trigger: j_down,
+    scope: "preview",
+    label: "Scroll down",
+    shortLabel: "down",
+  },
+  {
+    action: KB.MOVE_UP,
+    trigger: k_up,
+    scope: "preview",
+    label: "Scroll up",
+    shortLabel: "up",
+  },
+  {
+    action: KB.PREVIEW_CLOSE,
+    trigger: { type: "special", name: "escape" },
+    scope: "preview",
+    label: "Close preview",
+    shortLabel: "close",
+  },
+
   // --- Help panel ---
   {
     action: KB.HELP_PREV_TAB,
@@ -530,6 +592,7 @@ const SCOPE_ORDER: KeyScope[] = [
   "details",
   "upload",
   "picker",
+  "preview",
   "help",
 ];
 
@@ -541,7 +604,7 @@ const SCOPE_ORDER: KeyScope[] = [
 export function buildHelpTabs(
   adapterId?: string,
   adapterBindings?: AdapterKeyBinding[],
-  context: KeyBindingContext = { hasHiddenSecrets: false },
+  context: KeyBindingContext = { hasHiddenSecrets: false, hasPreviewableRow: false },
 ): HelpTab[] {
   const groups = new Map<KeyScope, HelpItem[]>();
 
@@ -599,7 +662,7 @@ export function buildScopeHint(
 ): string {
   const adapterBindings = opts?.adapterBindings;
   const maxItems = opts?.maxItems ?? 8;
-  const context: KeyBindingContext = opts?.context ?? { hasHiddenSecrets: false };
+  const context: KeyBindingContext = opts?.context ?? { hasHiddenSecrets: false, hasPreviewableRow: false };
   const filtered = KEYBINDINGS.filter((kb) => kb.scope === scope);
 
   const seen = new Set<string>();

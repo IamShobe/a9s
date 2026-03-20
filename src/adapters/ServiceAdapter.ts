@@ -3,6 +3,7 @@ import type { EditCapability } from "./capabilities/EditCapability.js";
 import type { DetailCapability } from "./capabilities/DetailCapability.js";
 import type { YankCapability } from "./capabilities/YankCapability.js";
 import type { ActionCapability } from "./capabilities/ActionCapability.js";
+import type { PreviewCapability } from "./capabilities/PreviewCapability.js";
 
 // Re-export capability types for convenience
 export type { EditCapability } from "./capabilities/EditCapability.js";
@@ -14,6 +15,7 @@ export type {
   ActionContext,
   ActionEffect,
 } from "./capabilities/ActionCapability.js";
+export type { PreviewCapability, PreviewPageResult } from "./capabilities/PreviewCapability.js";
 
 /** A related resource that can be jumped to from another service's row. */
 export interface RelatedResource {
@@ -48,5 +50,6 @@ export interface ServiceAdapter {
     detail?: DetailCapability;
     yank?: YankCapability;
     actions?: ActionCapability;
+    preview?: PreviewCapability;
   };
 }

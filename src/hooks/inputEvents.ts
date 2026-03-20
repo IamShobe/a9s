@@ -15,6 +15,8 @@ export interface InputRuntimeState {
   uploadPending: boolean;
   pendingActionType: "prompt" | "confirm" | null;
   histogramOpen: boolean;
+  filePreviewOpen: boolean;
+  previewFilterActive: boolean;
 }
 
 export type InputEvent =
@@ -35,7 +37,9 @@ export type InputEvent =
         | "closeDetails"
         | "cancelYank"
         | "cancelPendingPrompt"
-        | "closeHistogram";
+        | "closeHistogram"
+        | "closePreview"
+        | "openPreviewFilter";
     }
   | { scope: "pending"; type: "submit"; confirmed: boolean }
   | { scope: "upload"; type: "decision"; confirmed: boolean }
@@ -70,8 +74,10 @@ export type InputEvent =
         | "multiSelectRange"
         | "multiSelectAll"
         | "bookmarkToggle"
-        | "showHistogram";
+        | "showHistogram"
+        | "previewFile";
     }
+  | { scope: "preview"; type: "nextPage" | "prevPage" | "scrollUp" | "scrollDown" }
   | { scope: "scroll"; type: "up" | "down" }
   | { scope: "adapterAction"; type: "run"; actionId: string; row: TableRow | null };
 

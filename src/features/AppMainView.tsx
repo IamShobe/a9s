@@ -10,6 +10,7 @@ import { TableSkeleton } from "../components/TableSkeleton.js";
 import { DiffViewer } from "../components/DiffViewer.js";
 import { SearchHistoryDropdown } from "../components/SearchHistoryDropdown.js";
 import { HistogramPanel } from "../components/HistogramPanel.js";
+import { FilePreviewPanel } from "../components/FilePreviewPanel.js";
 import { debugLog } from "../utils/debugLogger.js";
 import { revealSecretsAtom } from "../state/atoms.js";
 import { truncateSecretForTable } from "../utils/secretDisplay.js";
@@ -23,6 +24,8 @@ import { getCellLabel } from "../types.js";
 import type { YankOption } from "../adapters/capabilities/YankCapability.js";
 import { useTheme } from "../contexts/ThemeContext.js";
 import type { HistogramBar } from "../utils/histogram.js";
+import type { FilePreviewState } from "../hooks/useFilePreview.js";
+import type { useNavigation } from "../hooks/useNavigation.js";
 
 interface AppMainViewProps {
   helpPanel: HelpPanelState;
@@ -58,6 +61,10 @@ interface AppMainViewProps {
   searchHistoryIndex?: number;
   showSearchHistory?: boolean;
   histogramState?: { columnKey: string; columnLabel: string; bars: HistogramBar[] | null } | null;
+  filePreviewState?: FilePreviewState | null;
+  filePreviewNavigation?: ReturnType<typeof useNavigation>;
+  onPreviewFilterChange?: (text: string) => void;
+  onPreviewFilterSubmit?: () => void;
 }
 
 export function AppMainView({
@@ -90,6 +97,10 @@ export function AppMainView({
   searchHistoryIndex,
   showSearchHistory,
   histogramState,
+  filePreviewState,
+  filePreviewNavigation,
+  onPreviewFilterChange,
+  onPreviewFilterSubmit,
 }: AppMainViewProps) {
   const theme = useTheme();
   const revealSecrets = useAtomValue(revealSecretsAtom);
@@ -250,6 +261,19 @@ export function AppMainView({
       <Box width="100%" borderStyle="round" borderColor={theme.panel.detailPanelBorderText} backgroundColor={theme.global.mainBg}>
         <HistogramPanel columnLabel={histogramState.columnLabel} bars={histogramState.bars} />
       </Box>
+    );
+  }
+
+  if (filePreviewState && filePreviewNavigation) {
+    return (
+      <FilePreviewPanel
+        previewState={filePreviewState}
+        navigation={filePreviewNavigation}
+        termCols={termCols}
+        tableHeight={tableHeight}
+        onFilterChange={onPreviewFilterChange ?? (() => {})}
+        onFilterSubmit={onPreviewFilterSubmit ?? (() => {})}
+      />
     );
   }
 
