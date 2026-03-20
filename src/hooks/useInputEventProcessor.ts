@@ -35,6 +35,7 @@ export interface InputEventActions {
     top: () => void;
     bottom: () => void;
     confirm: () => void;
+    deleteItem: () => void;
   };
   mode: {
     cancelSearchOrCommand: () => void;
@@ -79,6 +80,7 @@ export interface InputEventActions {
     enterYank: () => void;
     cancelYank: () => void;
     yankColumn: (colIndex: number) => void;
+    showDetails: () => void;
   };
   scroll: {
     up: () => void;
@@ -148,9 +150,11 @@ export function translateRawInputEvent(
 
   if (runtime.pickerMode) {
     const action = resolvePickerScopeAction(
+      input,
       key,
       runtime.pickerMode,
       deps.resolve(input, key, "picker"),
+      runtime.activePickerId,
     );
 
     switch (action.type) {
@@ -176,6 +180,8 @@ export function translateRawInputEvent(
         return { event: { scope: "picker", type: "bottom" }, resetChord: true };
       case "confirm":
         return { event: { scope: "picker", type: "confirm" }, resetChord: true };
+      case "delete":
+        return { event: { scope: "picker", type: "deleteItem" }, resetChord: true };
       case "none":
         return { event: null, resetChord: false };
     }
@@ -279,6 +285,9 @@ export function translateRawInputEvent(
     }
     if (input === "y") {
       return { event: { scope: "modal", type: "enterPreviewYank" }, resetChord: true };
+    }
+    if (input === "d") {
+      return { event: { scope: "preview", type: "showDetails" }, resetChord: true };
     }
     const scrollAction = deps.resolve(input, key, "navigate");
     if (scrollAction === KB.MOVE_DOWN) {
@@ -506,6 +515,9 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
         case "confirm":
           actions.picker.confirm();
           return;
+        case "deleteItem":
+          actions.picker.deleteItem();
+          return;
       }
       return;
     case "modal":
@@ -668,6 +680,9 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
           return;
         case "yankColumn":
           actions.preview.yankColumn(event.colIndex);
+          return;
+        case "showDetails":
+          actions.preview.showDetails();
           return;
       }
       return;

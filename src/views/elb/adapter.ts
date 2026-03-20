@@ -1,10 +1,10 @@
 import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type {
   AwsLoadBalancer,
   AwsTargetGroup,
@@ -21,8 +21,6 @@ interface ELBNavFrame extends NavFrame {
   level: ELBLevel;
 }
 
-export const elbLevelAtom = atom<ELBLevel>({ kind: "load-balancers" });
-export const elbBackStackAtom = atom<ELBNavFrame[]>([]);
 
 function lbTypeLabel(type: string): string {
   switch (type) {
@@ -37,13 +35,8 @@ export function createELBServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(elbLevelAtom);
-  const setLevel = (level: ELBLevel) => store.set(elbLevelAtom, level);
-  const getBackStack = () => store.get(elbBackStackAtom);
-  const setBackStack = (stack: ELBNavFrame[]) => store.set(elbBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<ELBLevel, ELBNavFrame>({ kind: "load-balancers" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -236,8 +229,6 @@ export function createELBServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "load-balancers") return "elb://";
@@ -287,13 +278,54 @@ export function createELBServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getRelatedResources,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "load-balancers" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      const meta = row.meta as ELBRowMeta | undefined;
+      if (level.kind === "load-balancers") {
+        const lbName = meta?.type === "load-balancer" ? meta.lbName : row.id;
+        return [{ label: "Load Balancer", displayName: lbName, id: row.id }];
+      }
+      if (level.kind === "target-groups") {
+        const tgName = meta?.type === "target-group" ? meta.tgName : row.id;
+        return [
+          { label: "Load Balancer", displayName: level.lbName, id: level.lbArn },
+          { label: "Target Group", displayName: tgName, id: row.id },
+        ];
+      }
+      // targets level
+      const targetId = meta?.type === "target" ? meta.targetId : row.id;
+      return [
+        { label: "Load Balancer", displayName: level.lbArn.split("/")[2] ?? level.lbArn, id: level.lbArn },
+        { label: "Target Group", displayName: level.tgName, id: level.tgArn },
+        { label: "Target", displayName: targetId, id: row.id },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        setBackStack([]);
+        setLevel({ kind: "load-balancers" });
+      } else if (key.length === 2) {
+        const lbArn = key[0]!.id ?? key[0]!.displayName;
+        const lbName = key[0]!.displayName;
+        setBackStack([{ level: { kind: "load-balancers" }, selectedIndex: 0 }]);
+        setLevel({ kind: "target-groups", lbArn, lbName, lbType: "" });
+      } else if (key.length >= 3) {
+        const lbArn = key[0]!.id ?? key[0]!.displayName;
+        const lbName = key[0]!.displayName;
+        const tgArn = key[1]!.id ?? key[1]!.displayName;
+        const tgName = key[1]!.displayName;
+        setBackStack([
+          { level: { kind: "load-balancers" }, selectedIndex: 0 },
+          { level: { kind: "target-groups", lbArn, lbName, lbType: "" }, selectedIndex: 0 },
+        ]);
+        setLevel({ kind: "targets", tgArn, tgName, lbArn });
+      }
     },
     capabilities: {
       detail: detailCapability,

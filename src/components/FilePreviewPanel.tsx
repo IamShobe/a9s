@@ -3,6 +3,7 @@ import { Box, Text } from "ink";
 import { Table } from "./Table/index.js";
 import { AdvancedTextInput } from "./AdvancedTextInput.js";
 import { useTheme } from "../contexts/ThemeContext.js";
+import { computeTableDataRows } from "../utils/layoutBudget.js";
 import type { FilePreviewState } from "../hooks/useFilePreview.js";
 import type { useNavigation } from "../hooks/useNavigation.js";
 
@@ -16,7 +17,7 @@ interface FilePreviewPanelProps {
   previewState: FilePreviewState;
   navigation: ReturnType<typeof useNavigation>;
   termCols: number;
-  tableHeight: number;
+  availableHeight: number;
   onFilterChange: (text: string) => void;
   onFilterSubmit: () => void;
   previewYankMode?: boolean;
@@ -36,11 +37,13 @@ export function FilePreviewPanel({
   previewState,
   navigation,
   termCols,
-  tableHeight,
+  availableHeight,
   onFilterChange,
   onFilterSubmit,
   previewYankMode = false,
 }: FilePreviewPanelProps) {
+  // border(2) is the only chrome this component adds around the Table
+  const tableBudget = availableHeight - 2;
   const theme = useTheme();
 
   const filteredRows = useMemo(() => filterRows(previewState), [previewState]);
@@ -97,6 +100,12 @@ export function FilePreviewPanel({
     ? `Loading ${previewState.fileName || "…"}`
     : `${previewState.fileName}${statusParts ? ` | ${statusParts}` : ""}`;
 
+  const tableMaxHeight = computeTableDataRows(tableBudget, {
+    hasContextLabel: true,
+    footerContentRows: 1,
+    totalRows: filteredRows.length,
+  });
+
   const footerContent = (
     <Box flexDirection="row" justifyContent="space-between">
       {previewState.filterActive ? (
@@ -143,7 +152,7 @@ export function FilePreviewPanel({
         selectedIndex={navigation.selectedIndex}
         filterText={previewState.filterText}
         terminalWidth={termCols - 2}
-        maxHeight={tableHeight}
+        maxHeight={tableMaxHeight}
         scrollOffset={navigation.scrollOffset}
         contextLabel={contextLabel}
         footerContent={footerContent}

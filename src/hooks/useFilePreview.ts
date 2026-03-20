@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import type { ColumnDef, TableRow } from "../types.js";
 import type { ServiceAdapter } from "../adapters/ServiceAdapter.js";
 import { useNavigation } from "./useNavigation.js";
+import { computeTableDataRows } from "../utils/layoutBudget.js";
 import { debugLog } from "../utils/debugLogger.js";
 
 const PAGE_SIZE = 10_000;
@@ -21,9 +22,19 @@ export interface FilePreviewState {
   previewYankMode: boolean;
 }
 
+function filterPreviewRows(ps: FilePreviewState): TableRow[] {
+  const text = ps.filterText.trim().toLowerCase();
+  if (!text) return ps.rows;
+  return ps.rows.filter((r) =>
+    Object.values(r.cells).some((c) => (c?.displayName ?? "").toLowerCase().includes(text)),
+  );
+}
+
 interface UseFilePreviewReturn {
   previewState: FilePreviewState | null;
   previewNavigation: ReturnType<typeof useNavigation>;
+  /** Returns the currently selected row after applying the filter, or null. */
+  getSelectedRow: () => TableRow | null;
   showPreview: (row: TableRow, adapter: ServiceAdapter) => void;
   closePreview: () => void;
   nextPage: () => void;
@@ -37,12 +48,21 @@ interface UseFilePreviewReturn {
   cancelPreviewYank: () => void;
 }
 
-export function useFilePreview(tableHeight: number): UseFilePreviewReturn {
+export function useFilePreview(contentBudget: number): UseFilePreviewReturn {
   const [previewState, setPreviewState] = useState<FilePreviewState | null>(null);
+
+  // Match FilePreviewPanel: border(2), then Table chrome via computeTableDataRows
+  // FilePreviewPanel always has contextLabel and 1 footerContent row
+  const tableBudget = contentBudget - 2;
+  const navPageSize = computeTableDataRows(tableBudget, {
+    hasContextLabel: true,
+    footerContentRows: 1,
+    totalRows: previewState?.rows.length ?? 0,
+  });
 
   const previewNavigation = useNavigation(
     previewState?.rows.length ?? 0,
-    tableHeight,
+    navPageSize,
   );
 
   const resetRef = useRef(previewNavigation.reset);
@@ -167,9 +187,16 @@ export function useFilePreview(tableHeight: number): UseFilePreviewReturn {
     setPreviewState((prev) => (prev ? { ...prev, previewYankMode: false } : null));
   }, []);
 
+  const getSelectedRow = useCallback((): TableRow | null => {
+    if (!previewState) return null;
+    const rows = filterPreviewRows(previewState);
+    return rows[previewNavigation.selectedIndex] ?? null;
+  }, [previewState, previewNavigation.selectedIndex]);
+
   return {
     previewState,
     previewNavigation,
+    getSelectedRow,
     showPreview,
     closePreview,
     nextPage,

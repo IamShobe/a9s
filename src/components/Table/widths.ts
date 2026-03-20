@@ -7,19 +7,72 @@ export function computeColumnWidths(columns: ColumnDef[], terminalWidth: number)
   const totalGaps = (columns.length - 1) * GAP;
   const available = Math.max(0, terminalWidth - totalGaps);
 
-  // Assign fixed widths first
-  let fixedTotal = 0;
-  const widths: (number | null)[] = columns.map((col) => {
-    if (col.width !== undefined) {
-      fixedTotal += col.width;
-      return col.width;
+  // Separate fixed vs flex columns
+  const fixedIndices: number[] = [];
+  const flexIndices: number[] = [];
+  const widths: number[] = new Array(columns.length);
+
+  for (let i = 0; i < columns.length; i++) {
+    if (columns[i]!.width !== undefined) {
+      fixedIndices.push(i);
+      widths[i] = columns[i]!.width!;
+    } else {
+      flexIndices.push(i);
     }
-    return null;
-  });
+  }
 
-  const flexColumns = widths.filter((w) => w === null).length;
-  const flexAvailable = Math.max(available - fixedTotal, flexColumns * MIN_WIDTH);
-  const flexWidth = flexColumns > 0 ? Math.floor(flexAvailable / flexColumns) : 0;
+  const fixedTotal = fixedIndices.reduce((sum, i) => sum + widths[i]!, 0);
+  const flexCount = flexIndices.length;
 
-  return widths.map((w) => (w !== null ? w : Math.max(flexWidth, MIN_WIDTH)));
+  const flexMinTotal = flexCount * MIN_WIDTH;
+
+  if (fixedTotal + flexMinTotal <= available) {
+    // Happy path: fixed columns + flex minimums fit — flex columns split the remainder
+    const flexAvailable = available - fixedTotal;
+    const flexWidth = flexCount > 0 ? Math.floor(flexAvailable / flexCount) : 0;
+    for (const i of flexIndices) {
+      widths[i] = Math.max(flexWidth, MIN_WIDTH);
+    }
+  } else {
+    // Overflow path: fixed columns exceed available space — shrink proportionally
+    // Give flex columns MIN_WIDTH, then shrink fixed to fill the rest
+    const flexBudget = flexCount * MIN_WIDTH;
+    const fixedBudget = Math.max(0, available - flexBudget);
+
+    for (const i of flexIndices) {
+      widths[i] = MIN_WIDTH;
+    }
+
+    if (fixedBudget <= 0 || fixedTotal === 0) {
+      // No room for fixed columns at all
+      for (const i of fixedIndices) {
+        widths[i] = Math.max(columns[i]!.minWidth ?? MIN_WIDTH, MIN_WIDTH);
+      }
+    } else {
+      // Shrink each fixed column proportionally
+      let allocated = 0;
+      const minWidths: number[] = [];
+      for (const i of fixedIndices) {
+        const minW = Math.max(columns[i]!.minWidth ?? MIN_WIDTH, MIN_WIDTH);
+        minWidths.push(minW);
+        const proportional = Math.floor((widths[i]! / fixedTotal) * fixedBudget);
+        widths[i] = Math.max(proportional, minW);
+        allocated += widths[i]!;
+      }
+
+      // Distribute rounding remainder to widest columns first
+      let remainder = fixedBudget - allocated;
+      if (remainder > 0) {
+        // Sort indices by current width descending for remainder distribution
+        const sorted = [...fixedIndices].sort((a, b) => widths[b]! - widths[a]!);
+        for (const i of sorted) {
+          if (remainder <= 0) break;
+          widths[i]!++;
+          remainder--;
+        }
+      }
+    }
+  }
+
+  return widths;
 }

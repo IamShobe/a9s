@@ -2,8 +2,8 @@ import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import { runAwsJsonAsync } from "../../utils/aws.js";
 import type { ColumnDef, TableRow, SelectResult } from "../../types.js";
 import { textCell } from "../../types.js";
-import { atom } from "jotai";
-import { getDefaultStore } from "jotai";
+import { singlePartKey } from "../../utils/bookmarks.js";
+import { createStackState } from "../../utils/createStackState.js";
 import type {
   IamLevel,
   IamNavFrame,
@@ -17,18 +17,10 @@ import { createIamEditCapability } from "./capabilities/editCapability.js";
 import { createIamDetailCapability } from "./capabilities/detailCapability.js";
 import { createIamYankCapability } from "./capabilities/yankCapability.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
 
-export const iamLevelAtom = atom<IamLevel>({ kind: "root" });
-export const iamBackStackAtom = atom<IamNavFrame[]>([]);
 
 export function createIamServiceAdapter(): ServiceAdapter {
-  const store = getDefaultStore();
-
-  const getLevel = () => store.get(iamLevelAtom);
-  const setLevel = (newLevel: IamLevel) => store.set(iamLevelAtom, newLevel);
-  const getBackStack = () => store.get(iamBackStackAtom);
-  const setBackStack = (newStack: IamNavFrame[]) => store.set(iamBackStackAtom, newStack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<IamLevel, IamNavFrame>({ kind: "root" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -224,8 +216,6 @@ export function createIamServiceAdapter(): ServiceAdapter {
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     switch (level.kind) {
@@ -288,12 +278,13 @@ export function createIamServiceAdapter(): ServiceAdapter {
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "root" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow) {
+      return singlePartKey("Role", row);
     },
     capabilities: {
       edit: editCapability,

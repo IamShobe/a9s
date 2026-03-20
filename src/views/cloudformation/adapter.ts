@@ -1,11 +1,28 @@
-import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
-import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
+import type {
+  ServiceAdapter,
+  RelatedResource,
+} from "../../adapters/ServiceAdapter.js";
+import type {
+  ColumnDef,
+  TableRow,
+  SelectResult,
+  NavFrame,
+} from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { statusCell } from "../../utils/statusColors.js";
-import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
-import type { AwsCloudFormationStack, AwsCloudFormationStackResource, CloudFormationLevel, CloudFormationRowMeta } from "./types.js";
+import {
+  runAwsJsonAsync,
+  buildRegionArgs,
+  resolveRegion,
+} from "../../utils/aws.js";
+import { createStackState } from "../../utils/createStackState.js";
+import type {
+  AwsCloudFormationStack,
+  AwsCloudFormationStackResource,
+  CloudFormationLevel,
+  CloudFormationRowMeta,
+} from "./types.js";
 import { createCloudFormationDetailCapability } from "./capabilities/detailCapability.js";
 import { createCloudFormationYankCapability } from "./capabilities/yankCapability.js";
 import { createCloudFormationActionCapability } from "./capabilities/actionCapability.js";
@@ -17,20 +34,13 @@ interface CloudFormationNavFrame extends NavFrame {
   level: CloudFormationLevel;
 }
 
-export const cloudformationLevelAtom = atom<CloudFormationLevel>({ kind: "stacks" });
-export const cloudformationBackStackAtom = atom<CloudFormationNavFrame[]>([]);
 
 export function createCloudFormationServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(cloudformationLevelAtom);
-  const setLevel = (level: CloudFormationLevel) => store.set(cloudformationLevelAtom, level);
-  const getBackStack = () => store.get(cloudformationBackStackAtom);
-  const setBackStack = (stack: CloudFormationNavFrame[]) => store.set(cloudformationBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<CloudFormationLevel, CloudFormationNavFrame>({ kind: "stacks" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -57,19 +67,25 @@ export function createCloudFormationServiceAdapter(
 
     if (level.kind === "stacks") {
       try {
-        const data = await runAwsJsonAsync<{ Stacks: AwsCloudFormationStack[] }>([
-          "cloudformation",
-          "describe-stacks",
-          ...regionArgs,
-        ]);
+        const data = await runAwsJsonAsync<{
+          Stacks: AwsCloudFormationStack[];
+        }>(["cloudformation", "describe-stacks", ...regionArgs]);
 
         return (data.Stacks ?? []).map((stack) => ({
           id: stack.StackId ?? stack.StackName,
           cells: {
             name: textCell(stack.StackName),
             status: statusCell(stack.StackStatus ?? "-"),
-            created: textCell(stack.CreationTime ? stack.CreationTime.slice(0, 19).replace("T", " ") : "-"),
-            updated: textCell(stack.LastUpdatedTime ? stack.LastUpdatedTime.slice(0, 19).replace("T", " ") : "-"),
+            created: textCell(
+              stack.CreationTime
+                ? stack.CreationTime.slice(0, 19).replace("T", " ")
+                : "-",
+            ),
+            updated: textCell(
+              stack.LastUpdatedTime
+                ? stack.LastUpdatedTime.slice(0, 19).replace("T", " ")
+                : "-",
+            ),
             description: textCell(stack.Description ?? "-"),
           },
           meta: {
@@ -90,7 +106,9 @@ export function createCloudFormationServiceAdapter(
     // resources level
     const { stackName } = level;
     try {
-      const data = await runAwsJsonAsync<{ StackResourceSummaries: AwsCloudFormationStackResource[] }>([
+      const data = await runAwsJsonAsync<{
+        StackResourceSummaries: AwsCloudFormationStackResource[];
+      }>([
         "cloudformation",
         "list-stack-resources",
         "--stack-name",
@@ -116,7 +134,11 @@ export function createCloudFormationServiceAdapter(
         } satisfies CloudFormationRowMeta,
       }));
     } catch (e) {
-      debugLog("cloudformation", `getRows (resources for ${stackName}) failed`, e);
+      debugLog(
+        "cloudformation",
+        `getRows (resources for ${stackName}) failed`,
+        e,
+      );
       return [];
     }
   };
@@ -131,15 +153,17 @@ export function createCloudFormationServiceAdapter(
 
       const newStack = [...backStack, { level, selectedIndex: 0 }];
       setBackStack(newStack);
-      setLevel({ kind: "resources", stackName: meta.stackName, stackId: meta.stackId });
+      setLevel({
+        kind: "resources",
+        stackName: meta.stackName,
+        stackId: meta.stackId,
+      });
       return { action: "navigate" };
     }
 
     // resources level: leaf
     return { action: "none" };
   };
-
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
 
   const getPath = (): string => {
     const level = getLevel();
@@ -153,9 +177,15 @@ export function createCloudFormationServiceAdapter(
     return `📦 ${level.stackName}`;
   };
 
-  const detailCapability = createCloudFormationDetailCapability(region, getLevel);
+  const detailCapability = createCloudFormationDetailCapability(
+    region,
+    getLevel,
+  );
   const yankCapability = createCloudFormationYankCapability();
-  const actionCapability = createCloudFormationActionCapability(region, getLevel);
+  const actionCapability = createCloudFormationActionCapability(
+    region,
+    getLevel,
+  );
 
   const getRelatedResources = (row: TableRow): RelatedResource[] => {
     const level = getLevel();
@@ -164,7 +194,11 @@ export function createCloudFormationServiceAdapter(
     if (!meta || meta.type !== "stack") return [];
     const name = meta.stackName ?? row.id;
     return [
-      { serviceId: "cloudwatch", label: `CloudWatch events for ${name}`, filterHint: name },
+      {
+        serviceId: "cloudwatch",
+        label: `CloudWatch events for ${name}`,
+        filterHint: name,
+      },
       { serviceId: "iam", label: `IAM roles for ${name}`, filterHint: name },
     ];
   };
@@ -188,13 +222,35 @@ export function createCloudFormationServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getRelatedResources,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "stacks" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      const meta = row.meta as CloudFormationRowMeta | undefined;
+      if (level.kind === "stacks") {
+        const stackName = meta?.type === "stack" ? meta.stackName : row.id;
+        return [{ label: "Stack", displayName: stackName, id: row.id }];
+      }
+      // resources level
+      return [
+        { label: "Stack", displayName: level.stackName, id: level.stackId },
+        { label: "Resource", displayName: row.id, id: row.id },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        setBackStack([]);
+        setLevel({ kind: "stacks" });
+      } else if (key.length >= 2) {
+        const stackName = key[0]!.displayName;
+        const stackId = key[0]!.id ?? key[0]!.displayName;
+        setBackStack([{ level: { kind: "stacks" }, selectedIndex: 0 }]);
+        setLevel({ kind: "resources", stackName, stackId });
+      }
     },
     capabilities: {
       detail: detailCapability,

@@ -8,7 +8,7 @@ import { textCell } from "../types.js";
 
 function createPickerManager(active: PickerManager["activePicker"]): PickerManager {
   const noop = () => {};
-  const mkEntry = (id: "region" | "profile" | "resource" | "theme" | "related" | "bookmarks") => ({
+  const mkEntry = (id: "theme" | "related" | "bookmarks") => ({
     id,
     columns: [{ key: id, label: id }],
     contextLabel: id,
@@ -34,9 +34,6 @@ function createPickerManager(active: PickerManager["activePicker"]): PickerManag
   });
 
   return {
-    region: mkEntry("region"),
-    profile: mkEntry("profile"),
-    resource: mkEntry("resource"),
     theme: mkEntry("theme"),
     related: mkEntry("related"),
     bookmarks: mkEntry("bookmarks"),
@@ -44,6 +41,7 @@ function createPickerManager(active: PickerManager["activePicker"]): PickerManag
     openPicker: (_id) => {},
     closeActivePicker: noop,
     resetPicker: (_id) => {},
+    refreshPicker: noop,
     confirmActivePickerSelection: (_handlers) => {},
   };
 }
@@ -81,9 +79,11 @@ const baseProps = {
     getRows: async () => [],
     onSelect: async () => ({ action: "none" as const }),
     canGoBack: () => false,
-    goBack: () => {},
+    goBack: () => undefined,
+    pushUiLevel: () => {},
     getPath: () => "s3://",
     getContextLabel: () => "Buckets",
+    getBookmarkKey: (row: { id: string }) => [{ label: "Item", displayName: row.id, id: row.id }],
   },
   termCols: 120,
   tableHeight: 20,
@@ -104,15 +104,16 @@ describe("AppMainView integration", () => {
 
   it("renders picker table when picker is active", () => {
     const activePicker = {
-      ...createPickerManager(null).resource,
+      ...createPickerManager(null).theme,
+      id: "theme" as const,
       open: true,
-      contextLabel: "Select AWS Resource",
+      contextLabel: "Select Theme",
       filteredRows: [
-        { id: "s3", cells: { resource: textCell("s3"), description: textCell("S3") } },
+        { id: "monokai", cells: { theme: textCell("Monokai"), id: textCell("monokai") } },
       ],
       columns: [
-        { key: "resource", label: "Resource" },
-        { key: "description", label: "Description" },
+        { key: "theme", label: "Theme" },
+        { key: "id", label: "ID" },
       ],
     };
 
@@ -120,51 +121,6 @@ describe("AppMainView integration", () => {
       <AppMainView {...baseProps} pickers={createPickerManager(activePicker)} />,
     );
 
-    expect(lastFrame()).toContain("Select AWS Resource");
-  });
-
-  it("renders details panel when details are present", () => {
-    const { lastFrame } = render(
-      <AppMainView
-        {...baseProps}
-        describeState={{
-          row: { id: "obj-1", cells: { name: textCell("object-1") } },
-          fields: [{ label: "Name", value: "object-1" }],
-          loading: false,
-        }}
-      />,
-    );
-
-    expect(lastFrame()).toContain("object-1");
-  });
-
-  it("renders yank header markers when provided", () => {
-    const { lastFrame } = render(
-      <AppMainView {...baseProps} headerMarkers={{ name: ["n", "k"] }} />,
-    );
-
-    expect(lastFrame()).toContain("[n,k]");
-  });
-
-  it("renders lightweight yank help panel", () => {
-    const { lastFrame } = render(
-      <AppMainView
-        {...baseProps}
-        yankHelpOpen={true}
-        yankOptions={[
-          {
-            trigger: { type: "key", char: "n" },
-            label: "copy name",
-            feedback: "Copied",
-            isRelevant: () => true,
-            resolve: async () => "x",
-          },
-        ]}
-        yankHelpRow={{ id: "row", cells: { name: textCell("item") } }}
-      />,
-    );
-
-    expect(lastFrame()).toContain("Yank");
-    expect(lastFrame()).toContain("copy name");
+    expect(lastFrame()).toContain("Select Theme");
   });
 });

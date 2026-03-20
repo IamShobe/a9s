@@ -1,14 +1,21 @@
+export type HeatmapColumnConfig =
+  | { type: "numeric" } // uses parseNumericValue (K/M/G suffixes)
+  | { type: "date" } // uses parseDateValue (YYYY-MM-DD or YYYY-MM-DD HH:mm:ss)
+  | { type: "custom"; parse: (displayValue: string) => number };
+
 export interface ColumnDef {
   key: string;
   label: string;
   width?: number; // fixed width; undefined = flex
   minWidth?: number;
+  heatmap?: HeatmapColumnConfig; // undefined = no heatmap for this column
 }
 
 export interface Cell {
   displayName: string;
   type?: "text" | "secret"; // defaults to 'text' if not specified
   color?: string; // optional per-cell foreground color (ignored when row is selected)
+  isHeatmap?: boolean; // true when color is from heatmap (not status) — excluded from status summary
 }
 
 export interface TableRow {

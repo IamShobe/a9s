@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { SERVICE_REGISTRY } from "../services.js";
-import type { ServiceId } from "../services.js";
+import type { ServiceId, AwsServiceId } from "../services.js";
 
 export type ParsedCommand =
   | { type: "openProfiles" }
@@ -56,7 +56,7 @@ export function parseCommand(input: string): ParsedCommand {
   }
 
   if (command in SERVICE_REGISTRY) {
-    return { type: "switchService", serviceId: command as ServiceId };
+    return { type: "switchService", serviceId: command as AwsServiceId };
   }
 
   return { type: "unknown" };
@@ -66,9 +66,6 @@ interface UseCommandRouterArgs {
   setSelectedRegion: (region: string) => void;
   setSelectedProfile: (profile: string) => void;
   switchAdapter: (serviceId: ServiceId) => void;
-  openProfilePicker: () => void;
-  openRegionPicker: () => void;
-  openResourcePicker: () => void;
   openThemePicker: () => void;
   openBookmarksPicker: () => void;
   setWatch: (seconds: number) => void;
@@ -82,9 +79,6 @@ export function useCommandRouter({
   setSelectedRegion,
   setSelectedProfile,
   switchAdapter,
-  openProfilePicker,
-  openRegionPicker,
-  openResourcePicker,
   openThemePicker,
   openBookmarksPicker,
   setWatch,
@@ -98,13 +92,13 @@ export function useCommandRouter({
       const parsed = parseCommand(input);
       switch (parsed.type) {
         case "openProfiles":
-          openProfilePicker();
+          switchAdapter("_profiles");
           return;
         case "openRegions":
-          openRegionPicker();
+          switchAdapter("_regions");
           return;
         case "openResources":
-          openResourcePicker();
+          switchAdapter("_resources");
           return;
         case "openThemePicker":
           openThemePicker();
@@ -140,6 +134,6 @@ export function useCommandRouter({
           return;
       }
     },
-    [setSelectedRegion, setSelectedProfile, switchAdapter, openProfilePicker, openRegionPicker, openResourcePicker, openThemePicker, openBookmarksPicker, setWatch, clearWatch, setTagFilter, clearTagFilter, exit],
+    [setSelectedRegion, setSelectedProfile, switchAdapter, openThemePicker, openBookmarksPicker, setWatch, clearWatch, setTagFilter, clearTagFilter, exit],
   );
 }

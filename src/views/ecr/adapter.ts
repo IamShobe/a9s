@@ -1,9 +1,9 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import { singlePartKey } from "../../utils/bookmarks.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type { AwsECRRepository, AwsECRImage, ECRLevel, ECRRowMeta } from "./types.js";
 import { createECRDetailCapability } from "./capabilities/detailCapability.js";
 import { createECRYankCapability } from "./capabilities/yankCapability.js";
@@ -15,8 +15,6 @@ interface ECRNavFrame extends NavFrame {
   level: ECRLevel;
 }
 
-export const ecrLevelAtom = atom<ECRLevel>({ kind: "repositories" });
-export const ecrBackStackAtom = atom<ECRNavFrame[]>([]);
 
 function formatImageSize(bytes?: number): string {
   if (bytes == null) return "-";
@@ -28,13 +26,8 @@ export function createECRServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(ecrLevelAtom);
-  const setLevel = (level: ECRLevel) => store.set(ecrLevelAtom, level);
-  const getBackStack = () => store.get(ecrBackStackAtom);
-  const setBackStack = (stack: ECRNavFrame[]) => store.set(ecrBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<ECRLevel, ECRNavFrame>({ kind: "repositories" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -51,8 +44,8 @@ export function createECRServiceAdapter(
     return [
       { key: "tag", label: "Tag", width: 30 },
       { key: "digest", label: "Digest", width: 20 },
-      { key: "size", label: "Size", width: 10 },
-      { key: "pushedAt", label: "Pushed At", width: 22 },
+      { key: "size", label: "Size", width: 10, heatmap: { type: "numeric" } },
+      { key: "pushedAt", label: "Pushed At", width: 22, heatmap: { type: "date" } },
     ];
   };
 
@@ -180,8 +173,6 @@ export function createECRServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "repositories") return "ecr://";
@@ -217,12 +208,13 @@ export function createECRServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "repositories" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow) {
+      return singlePartKey("Repository", row);
     },
     capabilities: {
       detail: detailCapability,

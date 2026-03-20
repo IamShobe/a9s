@@ -1,10 +1,10 @@
 import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type { AwsRDSInstance, AwsRDSSnapshot, RDSLevel, RDSRowMeta } from "./types.js";
 import { createRDSDetailCapability } from "./capabilities/detailCapability.js";
 import { createRDSYankCapability } from "./capabilities/yankCapability.js";
@@ -18,20 +18,13 @@ interface RDSNavFrame extends NavFrame {
   level: RDSLevel;
 }
 
-export const rdsLevelAtom = atom<RDSLevel>({ kind: "instances" });
-export const rdsBackStackAtom = atom<RDSNavFrame[]>([]);
 
 export function createRDSServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(rdsLevelAtom);
-  const setLevel = (level: RDSLevel) => store.set(rdsLevelAtom, level);
-  const getBackStack = () => store.get(rdsBackStackAtom);
-  const setBackStack = (stack: RDSNavFrame[]) => store.set(rdsBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<RDSLevel, RDSNavFrame>({ kind: "instances" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -50,8 +43,8 @@ export function createRDSServiceAdapter(
       { key: "snapshotId", label: "Snapshot ID", width: 32 },
       { key: "status", label: "Status", width: 14 },
       { key: "type", label: "Type", width: 12 },
-      { key: "created", label: "Created", width: 22 },
-      { key: "size", label: "Size (GiB)", width: 12 },
+      { key: "created", label: "Created", width: 22, heatmap: { type: "date" } },
+      { key: "size", label: "Size (GiB)", width: 12, heatmap: { type: "numeric" } },
       { key: "encrypted", label: "Encrypted" },
     ];
   };
@@ -156,8 +149,6 @@ export function createRDSServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "instances") return "rds://";
@@ -254,13 +245,32 @@ export function createRDSServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getRelatedResources,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "instances" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      if (level.kind === "instances") {
+        return [{ label: "DB Instance", displayName: row.id, id: row.id }];
+      }
+      // snapshots level
+      return [
+        { label: "DB Instance", displayName: level.dbInstanceIdentifier, id: level.dbInstanceIdentifier },
+        { label: "Snapshot", displayName: row.id, id: row.id },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        setBackStack([]);
+        setLevel({ kind: "instances" });
+      } else if (key.length >= 2) {
+        const dbInstanceIdentifier = key[0]!.displayName;
+        setBackStack([{ level: { kind: "instances" }, selectedIndex: 0 }]);
+        setLevel({ kind: "snapshots", dbInstanceIdentifier, dbInstanceClass: "" });
+      }
     },
     capabilities: {
       detail: detailCapability,

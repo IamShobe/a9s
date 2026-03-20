@@ -1,10 +1,10 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type { AwsEBSSnapshot, AwsEBSVolume, EBSLevel, EBSRowMeta } from "./types.js";
 import { createEBSDetailCapability } from "./capabilities/detailCapability.js";
 import { createEBSYankCapability } from "./capabilities/yankCapability.js";
@@ -18,8 +18,6 @@ interface EBSNavFrame extends NavFrame {
   level: EBSLevel;
 }
 
-export const ebsLevelAtom = atom<EBSLevel>({ kind: "volumes" });
-export const ebsBackStackAtom = atom<EBSNavFrame[]>([]);
 
 function formatBytes(gib?: number): string {
   if (gib == null) return "-";
@@ -30,20 +28,15 @@ export function createEBSServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(ebsLevelAtom);
-  const setLevel = (level: EBSLevel) => store.set(ebsLevelAtom, level);
-  const getBackStack = () => store.get(ebsBackStackAtom);
-  const setBackStack = (stack: EBSNavFrame[]) => store.set(ebsBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<EBSLevel, EBSNavFrame>({ kind: "volumes" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
     if (level.kind === "volumes") {
       return [
         { key: "volumeId", label: "Volume ID", width: 24 },
-        { key: "size", label: "Size", width: 10 },
+        { key: "size", label: "Size", width: 10, heatmap: { type: "numeric" } },
         { key: "state", label: "State", width: 12 },
         { key: "type", label: "Type", width: 8 },
         { key: "az", label: "AZ", width: 18 },
@@ -55,7 +48,7 @@ export function createEBSServiceAdapter(
       { key: "snapshotId", label: "Snapshot ID", width: 24 },
       { key: "state", label: "State", width: 12 },
       { key: "progress", label: "Progress", width: 10 },
-      { key: "startTime", label: "Started", width: 22 },
+      { key: "startTime", label: "Started", width: 22, heatmap: { type: "date" } },
       { key: "description", label: "Description" },
     ];
   };
@@ -159,8 +152,6 @@ export function createEBSServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "volumes") return "ebs://";
@@ -200,12 +191,31 @@ export function createEBSServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "volumes" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      if (level.kind === "volumes") {
+        return [{ label: "Volume", displayName: row.id, id: row.id }];
+      }
+      // snapshots level
+      return [
+        { label: "Volume", displayName: level.volumeId, id: level.volumeId },
+        { label: "Snapshot", displayName: row.id, id: row.id },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        setBackStack([]);
+        setLevel({ kind: "volumes" });
+      } else if (key.length >= 2) {
+        const volumeId = key[0]!.displayName;
+        setBackStack([{ level: { kind: "volumes" }, selectedIndex: 0 }]);
+        setLevel({ kind: "snapshots", volumeId, volumeSize: 0 });
+      }
     },
     capabilities: {
       detail: detailCapability,

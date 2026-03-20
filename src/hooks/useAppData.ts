@@ -1,21 +1,21 @@
 import { useMemo, useLayoutEffect } from "react";
 import { SERVICE_REGISTRY } from "../services.js";
-import type { ServiceId } from "../services.js";
+import type { ServiceId, AwsServiceId } from "../services.js";
 import type { ServiceAdapter, RelatedResource } from "../adapters/ServiceAdapter.js";
 import { useServiceView } from "./useServiceView.js";
-import { useNavigation } from "./useNavigation.js";
-import { usePickerManager } from "./usePickerManager.js";
 import { debugLog } from "../utils/debugLogger.js";
 import { filterRowsByText } from "../utils/rowUtils.js";
-import { computeHeatmapColors, isNumericColumn } from "../utils/heatmap.js";
+import { applyHeatmapColors } from "../utils/heatmap.js";
 import type { AwsRegionOption } from "./useAwsRegions.js";
 import type { AwsProfileOption } from "./useAwsProfiles.js";
+import { createResourceAdapter } from "../views/_resources/adapter.js";
+import { createRegionAdapter } from "../views/_regions/adapter.js";
+import { createProfileAdapter } from "../views/_profiles/adapter.js";
 
 interface UseAppDataArgs {
   currentService: ServiceId;
   endpointUrl: string | undefined;
   selectedRegion: string;
-  tableHeight: number;
   filterText: string;
   availableRegions: AwsRegionOption[];
   availableProfiles: AwsProfileOption[];
@@ -30,11 +30,9 @@ export function useAppData({
   currentService,
   endpointUrl,
   selectedRegion,
-  tableHeight,
   filterText,
   availableRegions,
   availableProfiles,
-  relatedResources,
   tagFilter,
   sortState,
   heatmapEnabled,
@@ -42,8 +40,17 @@ export function useAppData({
 }: UseAppDataArgs) {
   const adapter = useMemo<ServiceAdapter>(() => {
     debugLog(currentService, `useAppData: adapter created`);
-    return SERVICE_REGISTRY[currentService](endpointUrl, selectedRegion);
-  }, [currentService, endpointUrl, selectedRegion]);
+    switch (currentService) {
+      case "_resources":
+        return createResourceAdapter();
+      case "_regions":
+        return createRegionAdapter(availableRegions);
+      case "_profiles":
+        return createProfileAdapter(availableProfiles);
+      default:
+        return SERVICE_REGISTRY[currentService as AwsServiceId](endpointUrl, selectedRegion);
+    }
+  }, [currentService, endpointUrl, selectedRegion, availableRegions, availableProfiles]);
 
   const { rows, columns, isLoading, error, select, edit, goBack, refresh, path } =
     useServiceView(adapter);
@@ -89,38 +96,11 @@ export function useAppData({
     [tagSortedRows, filterText],
   );
 
-  // Heatmap: apply per-cell color to first numeric column when enabled
-  const filteredRows = useMemo(() => {
-    if (!heatmapEnabled) return textFilteredRows;
-    const numericCol = columns.find((c) => isNumericColumn(textFilteredRows, c.key));
-    if (!numericCol) return textFilteredRows;
-    const colorMap = computeHeatmapColors(textFilteredRows, numericCol.key);
-    if (colorMap.size === 0) return textFilteredRows;
-    return textFilteredRows.map((row) => {
-      const color = colorMap.get(row.id);
-      if (!color) return row;
-      return {
-        ...row,
-        cells: {
-          ...row.cells,
-          [numericCol.key]: {
-            ...(row.cells[numericCol.key] ?? { displayName: "", type: "text" as const }),
-            color,
-          },
-        },
-      };
-    });
-  }, [textFilteredRows, heatmapEnabled, columns]);
-
-  const navigation = useNavigation(filteredRows.length, tableHeight);
-  const selectedRow = filteredRows[navigation.selectedIndex] ?? null;
-
-  const pickers = usePickerManager({
-    tableHeight,
-    availableRegions,
-    availableProfiles,
-    ...(relatedResources !== undefined ? { relatedResources } : {}),
-  });
+  // Heatmap: apply per-cell color to explicitly declared heatmap columns when enabled
+  const filteredRows = useMemo(
+    () => heatmapEnabled ? applyHeatmapColors(textFilteredRows, columns) : textFilteredRows,
+    [textFilteredRows, heatmapEnabled, columns],
+  );
 
   return {
     adapter,
@@ -134,8 +114,5 @@ export function useAppData({
     refresh,
     path,
     filteredRows,
-    selectedRow,
-    navigation,
-    pickers,
   };
 }

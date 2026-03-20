@@ -34,6 +34,8 @@ export function HelpPanel({
   scrollOffset,
 }: HelpPanelProps) {
   const theme = useTheme();
+  const borderColor = theme.panel.helpPanelBorderText;
+  const backgroundColor = theme.global.mainBg;
   const currentTab = tabs[activeTab] ?? tabs[0];
   const keyColWidth = 12;
   const descColWidth = Math.max(16, terminalWidth - keyColWidth - 8);
@@ -52,6 +54,7 @@ export function HelpPanel({
   const visibleItems = (currentTab?.items ?? []).slice(scrollOffset, scrollOffset + listRowsBudget);
 
   return (
+    <Box width="100%" borderStyle="round" borderColor={borderColor} backgroundColor={backgroundColor}>
     <Box flexDirection="column" paddingX={1} flexGrow={1}>
       <Text bold color={theme.panel.panelTitleText}>
         {title}
@@ -83,6 +86,7 @@ export function HelpPanel({
           </Box>
         ))}
       </Box>
+    </Box>
     </Box>
   );
 }

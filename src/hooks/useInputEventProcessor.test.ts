@@ -19,6 +19,7 @@ const baseRuntime: InputRuntimeState = {
   selectedRow: null,
   helpOpen: false,
   pickerMode: null,
+  activePickerId: null,
   describeOpen: false,
   uploadPending: false,
   pendingActionType: null,
@@ -157,6 +158,7 @@ describe("applyInputEvent", () => {
         top: vi.fn(),
         bottom: vi.fn(),
         confirm: vi.fn(),
+        deleteItem: vi.fn(),
       },
       mode: {
         cancelSearchOrCommand: vi.fn(),
@@ -201,6 +203,7 @@ describe("applyInputEvent", () => {
         enterYank: vi.fn(),
         cancelYank: vi.fn(),
         yankColumn: vi.fn(),
+        showDetails: vi.fn(),
       },
       scroll: {
         up: vi.fn(),

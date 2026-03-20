@@ -1,10 +1,9 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import { singlePartKey } from "../../utils/bookmarks.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom } from "jotai";
-import { getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type {
   AwsDynamoDBTableDescription,
   DynamoDBItem,
@@ -31,25 +30,18 @@ interface DynamoDBNavFrame extends NavFrame {
   level: DynamoDBLevel;
 }
 
-export const dynamoDBLevelAtom = atom<DynamoDBLevel>({ kind: "tables" });
-export const dynamoDBBackStackAtom = atom<DynamoDBNavFrame[]>([]);
 
 export function createDynamoDBServiceAdapter(
   endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset: resetLevelState } = createStackState<DynamoDBLevel, DynamoDBNavFrame>({ kind: "tables" });
 
   // Cache for table descriptions to avoid repeated AWS calls
   const tableDescriptionCache = new Map<string, AwsDynamoDBTableDescription>();
   // Cache for scanned items
   const itemsCache = new Map<string, { items: DynamoDBItem[]; table: AwsDynamoDBTableDescription }>();
-
-  const getLevel = () => store.get(dynamoDBLevelAtom);
-  const setLevel = (level: DynamoDBLevel) => store.set(dynamoDBLevelAtom, level);
-  const getBackStack = () => store.get(dynamoDBBackStackAtom);
-  const setBackStack = (stack: DynamoDBNavFrame[]) => store.set(dynamoDBBackStackAtom, stack);
 
   const getTableDescription = async (tableName: string): Promise<AwsDynamoDBTableDescription | null> => {
     const cached = tableDescriptionCache.get(tableName);
@@ -320,8 +312,6 @@ export function createDynamoDBServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "tables") return "dynamodb://";
@@ -359,14 +349,17 @@ export function createDynamoDBServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getBrowserUrl,
     reset() {
-      setLevel({ kind: "tables" });
-      setBackStack([]);
+      resetLevelState();
       tableDescriptionCache.clear();
       itemsCache.clear();
+    },
+    getBookmarkKey(row: TableRow) {
+      return singlePartKey("Table", row);
     },
     capabilities: {
       detail: detailCapability,

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useReducer } from "react";
-import { useAtomValue } from "jotai";
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from "react";
+import { useAtomValue, getDefaultStore } from "jotai";
 import open from "open";
 import { extname } from "path";
 import { execFileSync } from "child_process";
@@ -7,7 +7,7 @@ import { stat } from "fs/promises";
 import type { ServiceAdapter } from "../adapters/ServiceAdapter.js";
 import type { TableRow, ColumnDef, SelectResult, ServiceViewResult } from "../types.js";
 import { debugLog } from "../utils/debugLogger.js";
-import { adapterSessionAtom } from "../state/atoms.js";
+import { adapterSessionAtom, bookmarkRestoreAtom } from "../state/atoms.js";
 
 const TEXT_EXTENSIONS = new Set([
   ".txt",
@@ -120,9 +120,12 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
     error: null,
   });
 
+  const fetchGenRef = useRef(0);
+
   // Clear data atomically when adapter session changes (before paint)
   useLayoutEffect(() => {
     if (state.adapterId !== adapterId) {
+      fetchGenRef.current += 1; // invalidate in-flight fetches
       debugLog(adapterId, "useLayoutEffect: adapter changed, clearing data");
       dispatch({ type: "ADAPTER_CHANGED", adapterId });
 
@@ -155,14 +158,24 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
   );
 
   const performFetch = useCallback(async () => {
+    const gen = fetchGenRef.current;
     debugLog(adapterId, "fetching rows...");
+    // Apply pending bookmark restore before reading level state
+    const store = getDefaultStore();
+    const pending = store.get(bookmarkRestoreAtom);
+    if (pending?.serviceId === adapterId && adapter.restoreFromKey) {
+      store.set(bookmarkRestoreAtom, null);
+      adapter.restoreFromKey(pending.key);
+    }
     const columns = adapter.getColumns();
     dispatch({ type: "SET_ERROR", error: null });
     try {
       const r = await adapter.getRows();
+      if (fetchGenRef.current !== gen) return; // stale — discard
       debugLog(adapterId, `got ${r.length} rows from adapter`);
       dispatch({ type: "SET_DATA", rows: r, columns });
     } catch (e) {
+      if (fetchGenRef.current !== gen) return; // stale — discard
       const message = e instanceof Error ? e.message : String(e);
       debugLog(adapterId, "fetch error", message);
       dispatch({ type: "SET_ERROR", error: message });
@@ -232,11 +245,12 @@ export function useServiceView(adapter: ServiceAdapter, navKey?: number) {
     [adapter, processResult, runWithLoading],
   );
 
-  const goBack = useCallback(async () => {
-    if (!adapter.canGoBack()) return;
-    await runWithLoading(async () => {
-      adapter.goBack();
+  const goBack = useCallback(async (): Promise<{ filterText: string; selectedIndex: number } | undefined> => {
+    if (!adapter.canGoBack()) return undefined;
+    return runWithLoading(async () => {
+      const restored = adapter.goBack();
       await refresh();
+      return restored;
     });
   }, [adapter, refresh, runWithLoading]);
 

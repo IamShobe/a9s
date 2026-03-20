@@ -1,9 +1,9 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type { AwsSSMParameter, AwsSSMParameterHistory, SSMLevel, SSMRowMeta } from "./types.js";
 import { createSSMDetailCapability } from "./capabilities/detailCapability.js";
 import { createSSMYankCapability } from "./capabilities/yankCapability.js";
@@ -15,8 +15,6 @@ interface SSMNavFrame extends NavFrame {
   level: SSMLevel;
 }
 
-export const ssmLevelAtom = atom<SSMLevel>({ kind: "parameters" });
-export const ssmBackStackAtom = atom<SSMNavFrame[]>([]);
 
 function formatDate(raw?: string): string {
   if (!raw) return "-";
@@ -27,13 +25,8 @@ export function createSSMServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(ssmLevelAtom);
-  const setLevel = (level: SSMLevel) => store.set(ssmLevelAtom, level);
-  const getBackStack = () => store.get(ssmBackStackAtom);
-  const setBackStack = (stack: SSMNavFrame[]) => store.set(ssmBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<SSMLevel, SSMNavFrame>({ kind: "parameters" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -144,8 +137,6 @@ export function createSSMServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "parameters") return "ssm://";
@@ -182,12 +173,33 @@ export function createSSMServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "parameters" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      const meta = row.meta as SSMRowMeta | undefined;
+      if (level.kind === "parameters") {
+        const parameterName = meta?.type === "parameter" ? meta.parameterName : row.id;
+        return [{ label: "Parameter", displayName: parameterName, id: row.id }];
+      }
+      // history level
+      return [
+        { label: "Parameter", displayName: level.parameterName, id: level.parameterName },
+        { label: "Version", displayName: row.id, id: row.id },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        setBackStack([]);
+        setLevel({ kind: "parameters" });
+      } else if (key.length >= 2) {
+        const parameterName = key[0]!.displayName;
+        setBackStack([{ level: { kind: "parameters" }, selectedIndex: 0 }]);
+        setLevel({ kind: "history", parameterName });
+      }
     },
     capabilities: {
       detail: detailCapability,

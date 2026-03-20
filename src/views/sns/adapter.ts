@@ -1,10 +1,10 @@
 import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type { AwsSNSTopic, AwsSNSTopicAttributes, AwsSNSSubscription, SNSLevel, SNSRowMeta } from "./types.js";
 import { createSNSDetailCapability } from "./capabilities/detailCapability.js";
 import { createSNSYankCapability } from "./capabilities/yankCapability.js";
@@ -16,8 +16,6 @@ interface SNSNavFrame extends NavFrame {
   level: SNSLevel;
 }
 
-export const snsLevelAtom = atom<SNSLevel>({ kind: "topics" });
-export const snsBackStackAtom = atom<SNSNavFrame[]>([]);
 
 function topicNameFromArn(arn: string): string {
   return arn.split(":").pop() ?? arn;
@@ -27,13 +25,8 @@ export function createSNSServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(snsLevelAtom);
-  const setLevel = (level: SNSLevel) => store.set(snsLevelAtom, level);
-  const getBackStack = () => store.get(snsBackStackAtom);
-  const setBackStack = (stack: SNSNavFrame[]) => store.set(snsBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<SNSLevel, SNSNavFrame>({ kind: "topics" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -173,8 +166,6 @@ export function createSNSServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "topics") return "sns://";
@@ -243,13 +234,35 @@ export function createSNSServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getRelatedResources,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "topics" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      const meta = row.meta as SNSRowMeta | undefined;
+      if (level.kind === "topics") {
+        const topicName = meta?.type === "topic" ? meta.topicName : topicNameFromArn(row.id);
+        return [{ label: "Topic", displayName: topicName, id: row.id }];
+      }
+      // subscriptions level
+      return [
+        { label: "Topic", displayName: level.topicName, id: level.topicArn },
+        { label: "Subscription", displayName: row.id, id: row.id },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        setBackStack([]);
+        setLevel({ kind: "topics" });
+      } else if (key.length >= 2) {
+        const topicArn = key[0]!.id ?? key[0]!.displayName;
+        const topicName = key[0]!.displayName;
+        setBackStack([{ level: { kind: "topics" }, selectedIndex: 0 }]);
+        setLevel({ kind: "subscriptions", topicArn, topicName });
+      }
     },
     capabilities: {
       detail: detailCapability,

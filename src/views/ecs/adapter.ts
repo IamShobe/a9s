@@ -1,10 +1,10 @@
 import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type { AwsEcsCluster, AwsEcsService, AwsEcsTask, ECSLevel, ECSRowMeta } from "./types.js";
 import { createECSDetailCapability } from "./capabilities/detailCapability.js";
 import { createECSYankCapability } from "./capabilities/yankCapability.js";
@@ -17,8 +17,6 @@ interface ECSNavFrame extends NavFrame {
   level: ECSLevel;
 }
 
-export const ecsLevelAtom = atom<ECSLevel>({ kind: "clusters" });
-export const ecsBackStackAtom = atom<ECSNavFrame[]>([]);
 
 function shortArn(arn: string): string {
   // arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster → my-cluster
@@ -36,13 +34,8 @@ export function createECSServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(ecsLevelAtom);
-  const setLevel = (level: ECSLevel) => store.set(ecsLevelAtom, level);
-  const getBackStack = () => store.get(ecsBackStackAtom);
-  const setBackStack = (stack: ECSNavFrame[]) => store.set(ecsBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<ECSLevel, ECSNavFrame>({ kind: "clusters" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -50,18 +43,18 @@ export function createECSServiceAdapter(
       return [
         { key: "name", label: "Name" },
         { key: "status", label: "Status", width: 10 },
-        { key: "services", label: "Services", width: 10 },
-        { key: "running", label: "Running", width: 10 },
-        { key: "pending", label: "Pending", width: 10 },
+        { key: "services", label: "Services", width: 10, heatmap: { type: "numeric" } },
+        { key: "running", label: "Running", width: 10, heatmap: { type: "numeric" } },
+        { key: "pending", label: "Pending", width: 10, heatmap: { type: "numeric" } },
       ];
     }
     if (level.kind === "services") {
       return [
         { key: "name", label: "Name" },
         { key: "status", label: "Status", width: 10 },
-        { key: "desired", label: "Desired", width: 9 },
-        { key: "running", label: "Running", width: 9 },
-        { key: "pending", label: "Pending", width: 9 },
+        { key: "desired", label: "Desired", width: 9, heatmap: { type: "numeric" } },
+        { key: "running", label: "Running", width: 9, heatmap: { type: "numeric" } },
+        { key: "pending", label: "Pending", width: 9, heatmap: { type: "numeric" } },
         { key: "taskDef", label: "Task Definition", width: 30 },
       ];
     }
@@ -69,9 +62,9 @@ export function createECSServiceAdapter(
     return [
       { key: "taskId", label: "Task ID", width: 14 },
       { key: "status", label: "Status", width: 12 },
-      { key: "cpu", label: "CPU", width: 8 },
-      { key: "memory", label: "Memory", width: 8 },
-      { key: "startedAt", label: "Started At", width: 22 },
+      { key: "cpu", label: "CPU", width: 8, heatmap: { type: "numeric" } },
+      { key: "memory", label: "Memory", width: 8, heatmap: { type: "numeric" } },
+      { key: "startedAt", label: "Started At", width: 22, heatmap: { type: "date" } },
     ];
   };
 
@@ -250,8 +243,6 @@ export function createECSServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "clusters") return "ecs://";
@@ -334,13 +325,58 @@ export function createECSServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getRelatedResources,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "clusters" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      const meta = row.meta as ECSRowMeta | undefined;
+      if (level.kind === "clusters") {
+        const clusterName = typeof row.cells.name === "object"
+          ? (row.cells.name?.displayName ?? row.id)
+          : (row.cells.name ?? row.id);
+        return [{ label: "Cluster", displayName: clusterName, id: row.id }];
+      }
+      if (level.kind === "services") {
+        const serviceName = typeof row.cells.name === "object"
+          ? (row.cells.name?.displayName ?? row.id)
+          : (row.cells.name ?? row.id);
+        return [
+          { label: "Cluster", displayName: level.clusterName, id: level.clusterArn },
+          { label: "Service", displayName: serviceName, id: row.id },
+        ];
+      }
+      // tasks level
+      const shortId = meta?.type === "task" ? shortTaskArn(row.id) : row.id;
+      return [
+        { label: "Cluster", displayName: shortArn(level.clusterArn), id: level.clusterArn },
+        { label: "Service", displayName: level.serviceName, id: level.serviceArn },
+        { label: "Task", displayName: shortId, id: row.id },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        setBackStack([]);
+        setLevel({ kind: "clusters" });
+      } else if (key.length === 2) {
+        const clusterArn = key[0]!.id ?? key[0]!.displayName;
+        const clusterName = key[0]!.displayName;
+        setBackStack([{ level: { kind: "clusters" }, selectedIndex: 0 }]);
+        setLevel({ kind: "services", clusterArn, clusterName });
+      } else if (key.length >= 3) {
+        const clusterArn = key[0]!.id ?? key[0]!.displayName;
+        const clusterName = key[0]!.displayName;
+        const serviceName = key[1]!.displayName;
+        const serviceArn = key[1]!.id ?? key[1]!.displayName;
+        setBackStack([
+          { level: { kind: "clusters" }, selectedIndex: 0 },
+          { level: { kind: "services", clusterArn, clusterName }, selectedIndex: 0 },
+        ]);
+        setLevel({ kind: "tasks", clusterArn, serviceName, serviceArn });
+      }
     },
     capabilities: {
       detail: detailCapability,

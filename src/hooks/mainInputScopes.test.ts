@@ -17,10 +17,10 @@ describe("mainInputScopes", () => {
   });
 
   it("resolves picker search consume behavior", () => {
-    expect(resolvePickerScopeAction(plainKey, "search", null)).toEqual({
+    expect(resolvePickerScopeAction("", plainKey, "search", null, null)).toEqual({
       type: "consume",
     });
-    expect(resolvePickerScopeAction(escapeKey, "search", KB.PICKER_CLOSE)).toEqual({
+    expect(resolvePickerScopeAction("", escapeKey, "search", KB.PICKER_CLOSE, null)).toEqual({
       type: "close",
     });
   });

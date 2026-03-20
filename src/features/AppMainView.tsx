@@ -46,6 +46,7 @@ interface AppMainViewProps {
   adapter: ServiceAdapter;
   termCols: number;
   tableHeight: number;
+  contentBudget?: number;
   headerMarkers?: Record<string, string[]>;
   sortState?: { colKey: string; dir: "asc" | "desc" } | null;
   yankHelpOpen: boolean;
@@ -85,6 +86,7 @@ export function AppMainView({
   adapter,
   termCols,
   tableHeight,
+  contentBudget = tableHeight,
   headerMarkers,
   sortState,
   yankHelpOpen,
@@ -163,17 +165,15 @@ export function AppMainView({
 
   if (helpPanel.helpOpen) {
     return (
-      <Box width="100%" borderStyle="round" borderColor={theme.panel.helpPanelBorderText} backgroundColor={theme.global.mainBg}>
-        <HelpPanel
-          title="Keyboard Help"
-          scopeLabel="All modes reference"
-          tabs={helpTabs}
-          activeTab={helpPanel.helpTabIndex}
-          terminalWidth={termCols}
-          maxRows={helpPanel.helpVisibleRows}
-          scrollOffset={helpPanel.helpScrollOffset}
-        />
-      </Box>
+      <HelpPanel
+        title="Keyboard Help"
+        scopeLabel="All modes reference"
+        tabs={helpTabs}
+        activeTab={helpPanel.helpTabIndex}
+        terminalWidth={termCols}
+        maxRows={helpPanel.helpVisibleRows}
+        scrollOffset={helpPanel.helpScrollOffset}
+      />
     );
   }
 
@@ -203,8 +203,10 @@ export function AppMainView({
   }
 
   if (uploadPending) {
-    // Overhead: border 2 + header 4 + separators 2 + DiffViewer header+divider 2 = 10
-    const diffVisibleLines = Math.max(1, tableHeight - 10);
+    // Upload dialog chrome (everything except DiffViewer content):
+    // border(2) + header paddingY+title+subtitle(4) + diff borderTop+paddingY(3) + confirm borderTop+paddingY+text(4) = 13
+    const UPLOAD_DIALOG_CHROME = 13;
+    const diffAvailableHeight = Math.max(3, contentBudget - UPLOAD_DIALOG_CHROME);
     return (
       <Box width="100%" borderStyle="round" borderColor={theme.upload.uploadBorderText} backgroundColor={theme.global.mainBg} flexDirection="column">
         <Box paddingX={1} paddingY={1} flexDirection="column">
@@ -219,7 +221,7 @@ export function AppMainView({
               oldValue={uploadPreview.old}
               newValue={uploadPreview.new}
               scrollOffset={panelScrollOffset}
-              visibleLines={diffVisibleLines}
+              availableHeight={diffAvailableHeight}
             />
           ) : (
             <Text color={theme.upload.uploadLoadingText}>Loading preview...</Text>
@@ -243,18 +245,14 @@ export function AppMainView({
   }
 
   if (describeState) {
-    // Overhead: border 2 + title 1 + separator 1 + footer 2 = 6
-    const detailVisibleLines = Math.max(1, tableHeight - 6);
     return (
-      <Box width="100%" borderStyle="round" borderColor={theme.panel.detailPanelBorderText} backgroundColor={theme.global.mainBg}>
-        <DetailPanel
-          title={getCellLabel(describeState.row.cells.name) ?? describeState.row.id}
-          fields={describeState.fields ?? []}
-          isLoading={describeState.loading}
-          scrollOffset={panelScrollOffset}
-          visibleLines={detailVisibleLines}
-        />
-      </Box>
+      <DetailPanel
+        title={getCellLabel(describeState.row.cells.name) ?? describeState.row.id}
+        fields={describeState.fields ?? []}
+        isLoading={describeState.loading}
+        scrollOffset={panelScrollOffset}
+        availableHeight={contentBudget}
+      />
     );
   }
 
@@ -272,7 +270,7 @@ export function AppMainView({
         previewState={filePreviewState}
         navigation={filePreviewNavigation}
         termCols={termCols}
-        tableHeight={tableHeight - 3}
+        availableHeight={contentBudget}
         onFilterChange={onPreviewFilterChange ?? (() => {})}
         onFilterSubmit={onPreviewFilterSubmit ?? (() => {})}
         previewYankMode={filePreviewYankMode}

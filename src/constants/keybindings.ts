@@ -18,6 +18,7 @@ export type SpecialKeyName =
 
 export type KeyTrigger =
   | { type: "key"; char: string } // single printable char e.g. "j"
+  | { type: "ctrl"; char: string } // Ctrl+<letter> e.g. "A" for Ctrl+A
   | { type: "special"; name: SpecialKeyName }
   | { type: "chord"; keys: string[] } // sequence of chars e.g. ["g","g"]
   | { type: "any"; of: KeyTrigger[] }; // matches any of the sub-triggers
@@ -26,7 +27,10 @@ export type KeyTrigger =
 export function triggerToString(t: KeyTrigger): string {
   switch (t.type) {
     case "key":
+      if (t.char === " ") return "Space";
       return t.char;
+    case "ctrl":
+      return `Ctrl+${t.char}`;
     case "special":
       return SPECIAL_DISPLAY[t.name];
     case "chord":
@@ -145,7 +149,7 @@ export const KEYBINDINGS: KeyBinding[] = [
     action: KB.NAVIGATE_INTO,
     trigger: { type: "special", name: "return" },
     scope: "navigate",
-    label: "Navigate into / select",
+    label: "Navigate into / preview file",
     shortLabel: "navigate",
   },
   {
@@ -198,15 +202,6 @@ export const KEYBINDINGS: KeyBinding[] = [
     shortLabel: "related",
   },
   {
-    action: KB.PREVIEW_FILE,
-    trigger: { type: "key", char: "v" },
-    scope: "navigate",
-    label: "Preview CSV/Parquet file",
-    shortLabel: "view",
-    priority: 30,
-    showIf: (ctx) => ctx.hasPreviewableRow && !ctx.hasHiddenSecrets,
-  },
-  {
     action: KB.REVEAL_TOGGLE,
     trigger: { type: "key", char: "v" },
     scope: "navigate",
@@ -252,7 +247,7 @@ export const KEYBINDINGS: KeyBinding[] = [
   },
   {
     action: KB.MULTI_SELECT_ALL,
-    trigger: { type: "key", char: "\x01" },
+    trigger: { type: "ctrl", char: "A" },
     scope: "navigate",
     label: "Select all visible rows",
     shortLabel: "select all",
@@ -476,10 +471,17 @@ export const KEYBINDINGS: KeyBinding[] = [
   // --- Preview ---
   {
     action: KB.PREVIEW_FILE,
-    trigger: { type: "key", char: "v" },
+    trigger: { type: "special", name: "return" },
     scope: "preview",
-    label: "Open: press v on a CSV/Parquet file",
+    label: "Open: press Enter on a CSV/Parquet file",
     shortLabel: "open preview",
+  },
+  {
+    action: KB.DETAILS,
+    trigger: { type: "key", char: "d" },
+    scope: "preview",
+    label: "Detail view of selected row",
+    shortLabel: "details",
   },
   {
     action: KB.PREVIEW_NEXT_PAGE,
