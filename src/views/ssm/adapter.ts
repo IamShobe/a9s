@@ -167,7 +167,8 @@ export function createSSMServiceAdapter(
     const meta = row.meta as SSMRowMeta | undefined;
     if (!meta) return null;
     if (meta.type === "parameter") {
-      return `https://${r}.console.aws.amazon.com/systems-manager/parameters${meta.parameterName}/description?region=${r}`;
+      const paramPath = meta.parameterName.startsWith("/") ? meta.parameterName : `/${meta.parameterName}`;
+      return `https://${r}.console.aws.amazon.com/systems-manager/parameters${paramPath}/description?region=${r}`;
     }
     return null;
   };

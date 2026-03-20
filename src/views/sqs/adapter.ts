@@ -157,6 +157,7 @@ export function createSQSServiceAdapter(
             messageId: msg.MessageId,
             receiptHandle: msg.ReceiptHandle,
             queueUrl,
+            messageBody: msg.Body ?? "",
           } satisfies SQSRowMeta,
         };
       });
@@ -216,6 +217,7 @@ export function createSQSServiceAdapter(
       {
         serviceId: "sns",
         label: "SNS topics (find subscribed topic)",
+        filterHint: queueName,
       },
     ];
     return resources;

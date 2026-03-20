@@ -68,6 +68,7 @@ export interface EC2InstanceMeta extends Record<string, unknown> {
   state: string;
   publicIp: string;
   privateIp: string;
+  vpcId?: string;
 }
 
 export interface EC2VolumeMeta extends Record<string, unknown> {

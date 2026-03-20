@@ -16,6 +16,7 @@ import {
   formatBillingMode,
   formatKeySchema,
   formatDynamoValue,
+  formatDynamoValueForCopy,
   getDynamoType,
   extractPkValue,
   extractSkValue,
@@ -33,17 +34,17 @@ interface DynamoDBNavFrame extends NavFrame {
 export const dynamoDBLevelAtom = atom<DynamoDBLevel>({ kind: "tables" });
 export const dynamoDBBackStackAtom = atom<DynamoDBNavFrame[]>([]);
 
-// Cache for table descriptions to avoid repeated AWS calls
-const tableDescriptionCache = new Map<string, AwsDynamoDBTableDescription>();
-// Cache for scanned items
-const itemsCache = new Map<string, { items: DynamoDBItem[]; table: AwsDynamoDBTableDescription }>();
-
 export function createDynamoDBServiceAdapter(
   endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
   const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
+
+  // Cache for table descriptions to avoid repeated AWS calls
+  const tableDescriptionCache = new Map<string, AwsDynamoDBTableDescription>();
+  // Cache for scanned items
+  const itemsCache = new Map<string, { items: DynamoDBItem[]; table: AwsDynamoDBTableDescription }>();
 
   const getLevel = () => store.get(dynamoDBLevelAtom);
   const setLevel = (level: DynamoDBLevel) => store.set(dynamoDBLevelAtom, level);
@@ -267,6 +268,7 @@ export function createDynamoDBServiceAdapter(
             itemIndex,
             fieldName: attrName,
             fieldValue: displayValue,
+            fieldValueFull: formatDynamoValueForCopy(attrValue),
             fieldType: type,
             fieldRawValue: unwrapDynamoValue(attrValue),
           } satisfies DynamoDBRowMeta,

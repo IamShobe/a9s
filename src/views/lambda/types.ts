@@ -15,6 +15,10 @@ export interface AwsLambdaFunction {
     SecurityGroupIds?: string[];
   };
   ReservedConcurrentExecutions?: number;
+  Role?: string;
+  Architectures?: string[];
+  PackageType?: string;
+  CodeSize?: number;
 }
 
 export interface AwsLambdaVersion {

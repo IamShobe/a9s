@@ -17,6 +17,16 @@ export interface AwsEcsService {
   runningCount?: number;
   pendingCount?: number;
   taskDefinition?: string;
+  launchType?: string;
+  platformVersion?: string;
+  schedulingStrategy?: string;
+  networkConfiguration?: {
+    awsvpcConfiguration?: {
+      subnets?: string[];
+      securityGroups?: string[];
+      assignPublicIp?: string;
+    };
+  };
   loadBalancers?: Array<{
     targetGroupArn?: string;
     loadBalancerName?: string;
@@ -34,6 +44,14 @@ export interface AwsEcsTask {
   cpu?: string;
   memory?: string;
   startedAt?: string;
+  launchType?: string;
+  platformVersion?: string;
+  stoppedReason?: string;
+  stoppedAt?: string;
+  attachments?: Array<{
+    type?: string;
+    details?: Array<{ name?: string; value?: string }>;
+  }>;
   containers?: Array<{ name: string; lastStatus?: string }>;
 }
 
@@ -53,6 +71,7 @@ export interface ECSServiceMeta extends Record<string, unknown> {
   serviceArn: string;
   serviceName: string;
   clusterArn: string;
+  taskDefinition?: string;
 }
 
 export interface ECSTaskMeta extends Record<string, unknown> {

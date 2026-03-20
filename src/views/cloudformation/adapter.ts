@@ -165,7 +165,7 @@ export function createCloudFormationServiceAdapter(
     const name = meta.stackName ?? row.id;
     return [
       { serviceId: "cloudwatch", label: `CloudWatch events for ${name}`, filterHint: name },
-      { serviceId: "iam", label: `IAM roles for ${name}` },
+      { serviceId: "iam", label: `IAM roles for ${name}`, filterHint: name },
     ];
   };
 

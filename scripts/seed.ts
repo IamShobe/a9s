@@ -4,9 +4,10 @@ import {
   PutObjectCommand,
   ListBucketsCommand,
 } from "@aws-sdk/client-s3";
+import pl from "nodejs-polars";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { writeFile, mkdir, rm } from "node:fs/promises";
+import { writeFile, readFile, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -1893,6 +1894,191 @@ async function seedEventBridge() {
   }
 }
 
+async function seedPreviewFiles() {
+  console.log("\nSeeding preview test files (CSV/Parquet):");
+
+  const PREVIEW_BUCKET = "ml-datasets";
+
+  // --- CSV files ---
+  const csvFiles = [
+    {
+      key: "preview/users.csv",
+      content: [
+        "user_id,name,email,age,country,plan,monthly_spend",
+        "1,Alice Johnson,alice@example.com,32,US,pro,149.99",
+        "2,Bob Smith,bob@example.com,45,UK,starter,29.99",
+        "3,Charlie Brown,charlie@example.com,28,CA,pro,149.99",
+        "4,Diana Prince,diana@example.com,36,AU,enterprise,499.00",
+        "5,Eve Adams,eve@example.com,24,US,starter,29.99",
+        "6,Frank Castle,frank@example.com,41,DE,pro,149.99",
+        "7,Grace Hopper,grace@example.com,89,US,enterprise,499.00",
+        "8,Hank Pym,hank@example.com,53,US,starter,29.99",
+        "9,Iris West,iris@example.com,31,US,pro,149.99",
+        "10,Jack Frost,jack@example.com,27,NO,starter,29.99",
+      ].join("\n"),
+    },
+    {
+      key: "preview/products.csv",
+      content: [
+        "product_id,name,category,price,stock,sku,rating",
+        "P001,Widget Alpha,Electronics,19.99,250,SKU-WA001,4.5",
+        "P002,Gadget Beta,Electronics,34.99,80,SKU-GB002,3.8",
+        "P003,Thingamajig Gamma,Hardware,8.50,500,SKU-TG003,4.9",
+        "P004,Doohickey Delta,Hardware,12.00,320,SKU-DD004,4.1",
+        "P005,Gizmo Epsilon,Electronics,99.99,15,SKU-GE005,4.7",
+        "P006,Contraption Zeta,Software,249.00,999,SKU-CZ006,4.3",
+        "P007,Apparatus Eta,Software,59.99,999,SKU-AE007,3.9",
+        "P008,Device Theta,Hardware,74.50,42,SKU-DT008,4.6",
+      ].join("\n"),
+    },
+    {
+      key: "preview/orders.csv",
+      content: [
+        "order_id,user_id,product_id,quantity,unit_price,total,status,created_at",
+        "ORD-001,1,P001,2,19.99,39.98,completed,2024-01-15T10:00:00Z",
+        "ORD-002,2,P005,1,99.99,99.99,shipped,2024-01-16T14:30:00Z",
+        "ORD-003,3,P003,10,8.50,85.00,completed,2024-01-17T09:00:00Z",
+        "ORD-004,1,P006,1,249.00,249.00,pending,2024-01-18T11:45:00Z",
+        "ORD-005,4,P002,3,34.99,104.97,completed,2024-01-19T16:00:00Z",
+        "ORD-006,5,P004,5,12.00,60.00,cancelled,2024-01-20T08:30:00Z",
+        "ORD-007,6,P007,2,59.99,119.98,shipped,2024-01-21T13:15:00Z",
+        "ORD-008,7,P008,1,74.50,74.50,completed,2024-01-22T10:00:00Z",
+        "ORD-009,2,P001,4,19.99,79.96,completed,2024-01-23T15:00:00Z",
+        "ORD-010,3,P006,2,249.00,498.00,pending,2024-01-24T12:00:00Z",
+      ].join("\n"),
+    },
+  ];
+
+  for (const file of csvFiles) {
+    try {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: PREVIEW_BUCKET,
+          Key: file.key,
+          Body: file.content,
+          ContentType: "text/csv",
+        }),
+      );
+      console.log(`  Uploaded CSV: ${file.key}`);
+    } catch (e: unknown) {
+      console.log(`  Warning uploading ${file.key}: ${(e as Error).message}`);
+    }
+  }
+
+  // --- Parquet files (generated via nodejs-polars) ---
+  const pick = <T>(arr: T[], i: number): T => arr[i % arr.length]!;
+
+  // employees_wide.parquet — 30 columns, 100 rows
+  const n = 100;
+  const depts = ["Engineering", "Marketing", "Sales", "HR", "Finance", "Legal", "Product", "Design"];
+  const roles = ["Senior", "Staff", "Principal", "Junior", "Lead", "Manager", "Director", "IC"];
+  const levels = ["L3", "L4", "L5", "L6", "L7", "L8"];
+  const cities = ["New York", "San Francisco", "London", "Berlin", "Tokyo", "Sydney", "Toronto", "Paris"];
+  const countries = ["US", "UK", "DE", "JP", "AU", "CA", "FR", "SG"];
+  const timezones = ["America/New_York", "America/Los_Angeles", "Europe/London", "Europe/Berlin", "Asia/Tokyo", "Australia/Sydney"];
+  const costCenters = ["CC-ENG", "CC-MKTG", "CC-SALES", "CC-G&A", "CC-PROD"];
+  const equipmentTiers = ["Standard", "Premium", "Executive"];
+
+  const empDf = pl.DataFrame({
+    employee_id:       Array.from({length: n}, (_, i) => i + 1001),
+    name:              Array.from({length: n}, (_, i) => `Employee ${i + 1}`),
+    email:             Array.from({length: n}, (_, i) => `emp${i + 1}@acme.com`),
+    department:        Array.from({length: n}, (_, i) => pick(depts, i)),
+    team:              Array.from({length: n}, (_, i) => `team-${(i % 8) + 1}`),
+    role:              Array.from({length: n}, (_, i) => pick(roles, i)),
+    level:             Array.from({length: n}, (_, i) => pick(levels, i)),
+    salary:            Array.from({length: n}, (_, i) => 60000 + (i % 10) * 10000 + (i % 5) * 5000),
+    bonus_pct:         Array.from({length: n}, (_, i) => 5 + (i % 20)),
+    years_at_company:  Array.from({length: n}, (_, i) => (i % 15) + 1),
+    vacation_days:     Array.from({length: n}, (_, i) => 15 + (i % 10)),
+    sick_days_ytd:     Array.from({length: n}, (_, i) => i % 8),
+    active:            Array.from({length: n}, (_, i) => i % 10 !== 0),
+    hire_date:         Array.from({length: n}, (_, i) => `202${i % 4}-${String((i % 12) + 1).padStart(2, "0")}-01`),
+    birth_date:        Array.from({length: n}, (_, i) => `${1970 + (i % 30)}-${String((i % 12) + 1).padStart(2, "0")}-15`),
+    office:            Array.from({length: n}, (_, i) => `Office-${(i % 5) + 1}`),
+    city:              Array.from({length: n}, (_, i) => pick(cities, i)),
+    country:           Array.from({length: n}, (_, i) => pick(countries, i)),
+    timezone:          Array.from({length: n}, (_, i) => pick(timezones, i)),
+    phone:             Array.from({length: n}, (_, i) => `+1-555-${String(1000 + i).padStart(4, "0")}`),
+    github_username:   Array.from({length: n}, (_, i) => `emp${i + 1}`),
+    slack_handle:      Array.from({length: n}, (_, i) => `@emp${i + 1}`),
+    performance_score: Array.from({length: n}, (_, i) => parseFloat((3.0 + (i % 20) * 0.1).toFixed(1))),
+    projects_count:    Array.from({length: n}, (_, i) => (i % 8) + 1),
+    certifications:    Array.from({length: n}, (_, i) => i % 5),
+    last_review_date:  Array.from({length: n}, (_, i) => `2025-${String((i % 12) + 1).padStart(2, "0")}-01`),
+    next_review_date:  Array.from({length: n}, (_, i) => `2026-${String((i % 12) + 1).padStart(2, "0")}-01`),
+    cost_center:       Array.from({length: n}, (_, i) => pick(costCenters, i)),
+    equipment_tier:    Array.from({length: n}, (_, i) => pick(equipmentTiers, i)),
+    notes:             Array.from({length: n}, (_, i) => i % 3 === 0 ? `Note for emp ${i + 1}` : ""),
+  });
+
+  // metrics.parquet — 30 columns, 500 rows
+  const m = 500;
+  const metrics = ["cpu_usage", "memory_usage", "disk_io", "network_in", "network_out"];
+  const regions = ["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1"];
+  const envs = ["prod", "staging", "dev"];
+  const datacenters = ["dc-1", "dc-2", "dc-3", "dc-4"];
+  const oses = ["linux", "windows", "macos"];
+  const clusters = ["k8s-prod", "k8s-staging", "ecs-prod", "ecs-staging"];
+
+  const metricDf = pl.DataFrame({
+    timestamp:        Array.from({length: m}, (_, i) => `2024-01-01T${String(i % 24).padStart(2,"0")}:00:00Z`),
+    metric:           Array.from({length: m}, (_, i) => pick(metrics, i)),
+    value:            Array.from({length: m}, (_, i) => parseFloat((Math.abs(Math.sin(i * 0.1) * 100)).toFixed(2))),
+    host:             Array.from({length: m}, (_, i) => `server-${String((i % 10) + 1).padStart(2, "0")}`),
+    region:           Array.from({length: m}, (_, i) => pick(regions, i)),
+    environment:      Array.from({length: m}, (_, i) => pick(envs, i)),
+    datacenter:       Array.from({length: m}, (_, i) => pick(datacenters, i)),
+    os:               Array.from({length: m}, (_, i) => pick(oses, i)),
+    cluster:          Array.from({length: m}, (_, i) => pick(clusters, i)),
+    instance_type:    Array.from({length: m}, (_, i) => `t3.${["micro","small","medium","large"][i % 4]}`),
+    cpu_cores:        Array.from({length: m}, (_, i) => [1, 2, 4, 8, 16][i % 5]!),
+    ram_gb:           Array.from({length: m}, (_, i) => [1, 2, 4, 8, 16, 32][i % 6]!),
+    disk_gb:          Array.from({length: m}, (_, i) => [20, 50, 100, 200, 500][i % 5]!),
+    p50_ms:           Array.from({length: m}, (_, i) => parseFloat((5 + (i % 50) * 0.5).toFixed(1))),
+    p95_ms:           Array.from({length: m}, (_, i) => parseFloat((20 + (i % 100) * 0.8).toFixed(1))),
+    p99_ms:           Array.from({length: m}, (_, i) => parseFloat((50 + (i % 200) * 1.2).toFixed(1))),
+    requests_per_sec: Array.from({length: m}, (_, i) => (i % 1000) + 1),
+    error_rate:       Array.from({length: m}, (_, i) => parseFloat(((i % 10) * 0.01).toFixed(3))),
+    bytes_in:         Array.from({length: m}, (_, i) => (i % 10000) * 1024),
+    bytes_out:        Array.from({length: m}, (_, i) => (i % 8000) * 512),
+    connections:      Array.from({length: m}, (_, i) => (i % 500) + 10),
+    queue_depth:      Array.from({length: m}, (_, i) => i % 100),
+    cache_hit_rate:   Array.from({length: m}, (_, i) => parseFloat((0.5 + (i % 50) * 0.01).toFixed(2))),
+    uptime_seconds:   Array.from({length: m}, (_, i) => i * 3600),
+    restart_count:    Array.from({length: m}, (_, i) => i % 5),
+    alert_level:      Array.from({length: m}, (_, i) => ["ok","warn","critical"][i % 3]!),
+    scrape_interval:  Array.from({length: m}, (_, i) => [10, 15, 30, 60][i % 4]!),
+    retention_days:   Array.from({length: m}, (_, i) => [7, 14, 30, 90][i % 4]!),
+    job_id:           Array.from({length: m}, (_, i) => `job-${String(i + 1).padStart(4, "0")}`),
+    service:          Array.from({length: m}, (_, i) => `svc-${String((i % 20) + 1).padStart(2, "0")}`),
+  });
+
+  const parquetUploads = [
+    { key: "preview/employees_wide.parquet", df: empDf },
+    { key: "preview/metrics.parquet", df: metricDf },
+  ];
+
+  for (const upload of parquetUploads) {
+    const tmpPath = join(tmpdir(), `a9s_seed_${Date.now()}_${upload.key.replace(/\//g, "_")}`);
+    try {
+      upload.df.writeParquet(tmpPath);
+      const parquetBytes = await readFile(tmpPath);
+      await client.send(
+        new PutObjectCommand({
+          Bucket: PREVIEW_BUCKET,
+          Key: upload.key,
+          Body: parquetBytes,
+          ContentType: "application/octet-stream",
+        }),
+      );
+      console.log(`  Uploaded Parquet: ${upload.key} (${upload.df.shape.height} rows × ${upload.df.shape.width} cols)`);
+    } catch (e: unknown) {
+      console.log(`  Warning uploading ${upload.key}: ${(e as Error).message}`);
+    }
+  }
+}
+
 async function main() {
   console.log("Checking LocalStack connection...");
   await checkLocalStack();
@@ -2005,6 +2191,12 @@ async function main() {
     await seedEventBridge();
   } catch (e) {
     console.error(`\nEventBridge seeding failed: ${(e as Error).message}`);
+  }
+
+  try {
+    await seedPreviewFiles();
+  } catch (e) {
+    console.error(`\nPreview files seeding failed: ${(e as Error).message}`);
   }
 
   // RDS: skipped — LocalStack Community does not support RDS (Pro only).

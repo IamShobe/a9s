@@ -86,6 +86,9 @@ export function createRDSServiceAdapter(
             dbInstanceClass: inst.DBInstanceClass ?? "",
             status: inst.DBInstanceStatus ?? "",
             multiAZ: inst.MultiAZ ?? false,
+            dbClusterIdentifier: inst.DBClusterIdentifier ?? "",
+            masterUserSecretArn: inst.MasterUserSecret?.SecretArn ?? "",
+            enabledCloudwatchLogs: inst.EnabledCloudwatchLogsExports ?? [],
           } satisfies RDSRowMeta,
         }));
       } catch (e) {
@@ -172,14 +175,61 @@ export function createRDSServiceAdapter(
   const editCapability = createRDSEditCapability(region, getLevel);
   const actionCapability = createRDSActionCapability(region, getLevel);
 
-  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+  const getRelatedResources = async (row: TableRow): Promise<RelatedResource[]> => {
     const meta = row.meta as RDSRowMeta | undefined;
     if (!meta || meta.type !== "instance") return [];
     const id = meta.dbInstanceIdentifier ?? row.id;
-    return [
-      { serviceId: "cloudwatch", label: `CloudWatch logs for ${id}`, filterHint: `/aws/rds/instance/${id}` },
-      { serviceId: "secretsmanager", label: `Secrets for ${id}`, filterHint: id },
-    ];
+    const resources: RelatedResource[] = [];
+
+    // CloudWatch: only if logs are actually exported — query CloudWatch for actual log groups
+    if (meta.enabledCloudwatchLogs && meta.enabledCloudwatchLogs.length > 0) {
+      // Search by the cluster or instance identifier as a substring pattern — no path assumed
+      const searchId = meta.dbClusterIdentifier || id;
+      let filterHint: string | undefined;
+      try {
+        const logData = await runAwsJsonAsync<{ logGroups: Array<{ logGroupName: string }> }>([
+          "logs", "describe-log-groups",
+          "--log-group-name-pattern", searchId,
+          ...regionArgs,
+        ]);
+        const groups = logData.logGroups ?? [];
+        if (groups.length > 0) {
+          // Derive the common parent path by stripping the last segment (log type) from the first result
+          const firstName = groups[0].logGroupName;
+          const parent = firstName.includes("/") ? firstName.slice(0, firstName.lastIndexOf("/")) : firstName;
+          filterHint = parent;
+        }
+      } catch {
+        // no CloudWatch entry if we can't confirm the groups exist
+      }
+
+      if (filterHint !== undefined) {
+        resources.push({
+          serviceId: "cloudwatch",
+          label: `CloudWatch logs for ${id}`,
+          filterHint,
+        });
+      }
+    }
+
+    // Secrets Manager: use actual managed secret name from ARN if available
+    if (meta.masterUserSecretArn) {
+      // ARN format: arn:aws:secretsmanager:region:account:secret:<name>
+      const secretName = meta.masterUserSecretArn.split(":secret:")[1] ?? id;
+      resources.push({
+        serviceId: "secretsmanager",
+        label: `Managed secret for ${id}`,
+        filterHint: secretName,
+      });
+    } else {
+      resources.push({
+        serviceId: "secretsmanager",
+        label: `Secrets for ${id}`,
+        filterHint: id,
+      });
+    }
+
+    return resources;
   };
 
   const getBrowserUrl = (row: TableRow): string | null => {

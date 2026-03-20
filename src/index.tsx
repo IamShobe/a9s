@@ -4,6 +4,7 @@ import { App } from "./App.js";
 import { SERVICE_REGISTRY, type ServiceId } from "./services.js";
 import { withFullscreen } from "./utils/withFullscreen.js";
 import { ThemeProvider } from "./contexts/ThemeContext.js";
+import { cleanupStaleBrowserProfiles } from "./utils/consoleUrl.js";
 
 const SERVICE_IDS = Object.keys(SERVICE_REGISTRY) as ServiceId[];
 
@@ -27,6 +28,9 @@ program.parse();
 
 // opts() return type is fully inferred from addOption() calls via extra-typings
 const options = program.opts();
+
+// Best-effort cleanup of stale isolated browser profile dirs (non-blocking)
+cleanupStaleBrowserProfiles();
 
 void (async () => {
   const { instance, cleanup } = withFullscreen(

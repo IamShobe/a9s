@@ -69,6 +69,17 @@ export function createECSDetailCapability(
           { label: "Running Count", value: String(svc.runningCount ?? 0) },
           { label: "Pending Count", value: String(svc.pendingCount ?? 0) },
           { label: "Task Definition", value: svc.taskDefinition ?? "-" },
+          { label: "Launch Type", value: svc.launchType ?? "-" },
+          { label: "Platform Version", value: svc.platformVersion ?? "-" },
+          { label: "Scheduling Strategy", value: svc.schedulingStrategy ?? "-" },
+          {
+            label: "Subnets",
+            value: (svc.networkConfiguration?.awsvpcConfiguration?.subnets ?? []).join(", ") || "-",
+          },
+          {
+            label: "Security Groups",
+            value: (svc.networkConfiguration?.awsvpcConfiguration?.securityGroups ?? []).join(", ") || "-",
+          },
           {
             label: "Load Balancers",
             value:
@@ -104,22 +115,40 @@ export function createECSDetailCapability(
         const task = data.tasks?.[0];
         if (!task) return [];
 
-        return [
+        const eniAttachment = (task.attachments ?? []).find((a) => a.type === "ElasticNetworkInterface");
+        const privateIp = eniAttachment?.details?.find((d) => d.name === "privateIPv4Address")?.value;
+
+        const fields: DetailField[] = [
           { label: "Task ARN", value: task.taskArn },
           { label: "Task Definition", value: task.taskDefinitionArn ?? "-" },
           { label: "Status", value: task.lastStatus ?? "-" },
           { label: "Desired Status", value: task.desiredStatus ?? "-" },
+          { label: "Launch Type", value: task.launchType ?? "-" },
+          { label: "Platform Version", value: task.platformVersion ?? "-" },
           { label: "CPU", value: task.cpu ?? "-" },
           { label: "Memory", value: task.memory ?? "-" },
           { label: "Started At", value: task.startedAt ?? "-" },
-          {
-            label: "Containers",
-            value:
-              (task.containers ?? [])
-                .map((c) => `${c.name} (${c.lastStatus ?? "?"})`)
-                .join(", ") || "-",
-          },
         ];
+
+        if (task.stoppedReason) {
+          fields.push({ label: "Stopped Reason", value: task.stoppedReason });
+        }
+        if (task.stoppedAt) {
+          fields.push({ label: "Stopped At", value: task.stoppedAt });
+        }
+        if (privateIp) {
+          fields.push({ label: "Private IP", value: privateIp });
+        }
+
+        fields.push({
+          label: "Containers",
+          value:
+            (task.containers ?? [])
+              .map((c) => `${c.name} (${c.lastStatus ?? "?"})`)
+              .join(", ") || "-",
+        });
+
+        return fields;
       } catch (e) {
         debugLog("ecs", "getDetails (task) failed", e);
         return [];

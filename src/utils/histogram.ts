@@ -1,3 +1,5 @@
+import { parseNumericValue } from "./heatmap.js";
+
 export interface HistogramBar {
   rangeLabel: string;
   count: number;
@@ -7,7 +9,7 @@ export interface HistogramBar {
 const BLOCK_CHARS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
 
 export function buildHistogram(values: string[], buckets = 8): HistogramBar[] | null {
-  const nums = values.map((v) => parseFloat(v.replace(/[,KMGkgb ]/gi, ""))).filter((n) => !isNaN(n));
+  const nums = values.map((v) => parseNumericValue(v)).filter((n) => !isNaN(n));
   if (nums.length === 0) return null;
 
   const min = Math.min(...nums);

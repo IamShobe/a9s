@@ -21,6 +21,10 @@ export interface AwsRDSInstance {
   BackupRetentionPeriod?: number;
   KmsKeyId?: string;
   TagList?: AwsRDSTag[];
+  DBClusterIdentifier?: string;
+  MasterUserSecret?: { SecretArn?: string };
+  EnabledCloudwatchLogsExports?: string[];
+  AssociatedRoles?: Array<{ RoleArn: string; FeatureName?: string; Status?: string }>;
 }
 
 export interface AwsRDSSnapshot {
@@ -50,6 +54,9 @@ export interface RDSInstanceMeta extends Record<string, unknown> {
   dbInstanceClass: string;
   status: string;
   multiAZ: boolean;
+  dbClusterIdentifier?: string;
+  masterUserSecretArn?: string;
+  enabledCloudwatchLogs?: string[];
 }
 
 export interface RDSSnapshotMeta extends Record<string, unknown> {

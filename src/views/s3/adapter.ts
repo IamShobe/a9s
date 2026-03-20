@@ -13,6 +13,7 @@ import { createS3EditCapability } from "./capabilities/editCapability.js";
 import { createS3DetailCapability } from "./capabilities/detailCapability.js";
 import { createS3YankCapability } from "./capabilities/yankCapability.js";
 import { createS3ActionCapability } from "./capabilities/actionCapability.js";
+import { createS3PreviewCapability } from "./capabilities/previewCapability.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
 
 export type S3Level = { kind: "buckets" } | { kind: "objects"; bucket: string; prefix: string };
@@ -157,6 +158,7 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
     setBackStack,
     setLevel,
   );
+  const previewCapability = createS3PreviewCapability(client, getLevel);
 
   const getRelatedResources = (row: TableRow): RelatedResource[] => {
     const level = getLevel();
@@ -164,7 +166,7 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
       const bucketName = row.id;
       return [
         { serviceId: "cloudwatch", label: `CloudWatch metrics for ${bucketName}`, filterHint: bucketName },
-        { serviceId: "eventbridge", label: `EventBridge rules for ${bucketName}` },
+        { serviceId: "eventbridge", label: `EventBridge rules for ${bucketName}`, filterHint: bucketName },
       ];
     }
     return [];
@@ -201,6 +203,7 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
       detail: detailCapability,
       yank: yankCapability,
       actions: actionCapability,
+      preview: previewCapability,
     },
   };
 }

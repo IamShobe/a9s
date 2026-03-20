@@ -43,6 +43,16 @@ export function createRDSDetailCapability(
           { label: "KMS Key", value: inst.KmsKeyId ?? "(unencrypted)" },
         ];
 
+        const roles = inst.AssociatedRoles ?? [];
+        if (roles.length > 0) {
+          fields.push({
+            label: "IAM Roles",
+            value: roles
+              .map((r) => `${r.FeatureName ?? "unknown"} — ${r.RoleArn} (${r.Status ?? "-"})`)
+              .join("\n"),
+          });
+        }
+
         const tags = inst.TagList ?? [];
         if (tags.length > 0) {
           fields.push({

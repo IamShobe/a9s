@@ -40,6 +40,8 @@ import { loadBookmarks, toggleBookmark } from "./utils/bookmarks.js";
 import { buildHistogram } from "./utils/histogram.js";
 import { isNumericColumn } from "./utils/heatmap.js";
 import type { HistogramBar } from "./utils/histogram.js";
+import { useFilePreview } from "./hooks/useFilePreview.js";
+import { MIN_COL_WIDTH, GAP } from "./components/FilePreviewPanel.js";
 import {
   currentlySelectedServiceAtom,
   selectedRegionAtom,
@@ -154,6 +156,9 @@ export function App({ initialService, endpointUrl }: AppProps) {
   // Histogram state
   const [histogramState, setHistogramState] = useState<{ columnKey: string; columnLabel: string; bars: HistogramBar[] | null } | null>(null);
 
+  // File preview state
+  const filePreview = useFilePreview(tableHeight - 3);
+
   const {
     adapter,
     columns,
@@ -193,21 +198,6 @@ export function App({ initialService, endpointUrl }: AppProps) {
   useEffect(() => {
     navigateToRoot();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Refresh bookmarked IDs when service changes
-  useEffect(() => {
-    const entries = loadBookmarks();
-    setBookmarkedIds(new Set(
-      entries.filter((e) => e.serviceId === currentService).map((e) => e.rowId)
-    ));
-  }, [currentService]);
-
-  // Load search history on service switch
-  useEffect(() => {
-    setSearchHistory(loadSearchHistory(currentService));
-    setSearchHistoryIndex(-1);
-    setShowSearchHistory(false);
-  }, [currentService]);
 
   // Refresh bookmarked IDs when service changes
   useEffect(() => {
@@ -380,8 +370,14 @@ export function App({ initialService, endpointUrl }: AppProps) {
       Object.values(row.cells).some((cell) => typeof cell === "object" && cell?.type === "secret"),
     );
     // Only show reveal toggle if there are secrets AND they're currently hidden
-    return { hasHiddenSecrets: hasSecretData && !revealSecrets };
-  }, [filteredRows, revealSecrets]);
+    const hasPreviewableRow = Boolean(
+      selectedRow && adapter.capabilities?.preview?.canPreview(selectedRow),
+    );
+    return {
+      hasHiddenSecrets: hasSecretData && !revealSecrets,
+      hasPreviewableRow,
+    };
+  }, [filteredRows, revealSecrets, selectedRow, adapter]);
 
   const helpTabs = useMemo(
     () => buildHelpTabs(adapter.id, adapterBindings, uiHintsContext),
@@ -684,8 +680,11 @@ export function App({ initialService, endpointUrl }: AppProps) {
       uploadPending: Boolean(state.uploadPending),
       pendingActionType: state.pendingAction?.effect.type ?? null,
       histogramOpen: Boolean(histogramState),
+      filePreviewOpen: Boolean(filePreview.previewState),
+      previewFilterActive: filePreview.previewState?.filterActive ?? false,
+      previewYankMode: filePreview.previewState?.previewYankMode ?? false,
     }),
-    [helpPanel.helpOpen, pickers.activePicker?.pickerMode, selectedRow, state, histogramState],
+    [helpPanel.helpOpen, pickers.activePicker?.pickerMode, selectedRow, state, histogramState, filePreview.previewState],
   );
 
   const inputDispatch = useInputEventProcessor({
@@ -826,11 +825,25 @@ export function App({ initialService, endpointUrl }: AppProps) {
           actions.pushFeedback(added ? `★ Bookmarked` : `Removed bookmark`, 1500);
         },
         showHistogram: () => {
-          const numericCol = columns.find((c) => isNumericColumn(filteredRows, c.key)) ?? columns[1];
-          if (!numericCol) return;
-          const values = filteredRows.map((r) => r.cells[numericCol.key]?.displayName ?? "");
+          const numericCols = columns.filter((c) => isNumericColumn(filteredRows, c.key));
+          const fallback = numericCols[0] ?? columns[1];
+
+          let targetCol: typeof columns[number] | undefined;
+
+          if (histogramState) {
+            // Already open → cycle to next numeric column
+            const currentIdx = numericCols.findIndex((c) => c.key === histogramState.columnKey);
+            targetCol = numericCols[(currentIdx + 1) % numericCols.length] ?? fallback;
+          } else {
+            // Opening → prefer currently sorted column if numeric
+            const sortedCol = sortState ? numericCols.find((c) => c.key === sortState.colKey) : undefined;
+            targetCol = sortedCol ?? fallback;
+          }
+
+          if (!targetCol) return;
+          const values = filteredRows.map((r) => r.cells[targetCol!.key]?.displayName ?? "");
           const bars = buildHistogram(values);
-          setHistogramState({ columnKey: numericCol.key, columnLabel: numericCol.label, bars });
+          setHistogramState({ columnKey: targetCol.key, columnLabel: targetCol.label, bars });
         },
         sortColumn: handleSortColumn,
         openInBrowser: () => {
@@ -850,6 +863,15 @@ export function App({ initialService, endpointUrl }: AppProps) {
         revealToggle: () => {
           setRevealSecrets(!revealSecrets);
         },
+        previewFile: () => {
+          if (!selectedRow) return;
+          if (adapter.capabilities?.preview?.canPreview(selectedRow)) {
+            filePreview.showPreview(selectedRow, adapter);
+          } else {
+            // Fall back to reveal toggle for non-previewable rows (e.g. secrets)
+            setRevealSecrets(!revealSecrets);
+          }
+        },
         showDetails: () => showDetails(selectedRow),
         editSelection,
         top: navigation.toTop,
@@ -857,22 +879,23 @@ export function App({ initialService, endpointUrl }: AppProps) {
         enter: navigateIntoSelection,
         jumpToRelated: () => {
           if (!selectedRow) return;
-          const resources = adapter.getRelatedResources?.(selectedRow) ?? [];
-          if (resources.length === 0) {
-            actions.pushFeedback("No related resources", 2000);
-            return;
-          }
-          setRelatedResources(resources);
-          if (resources.length === 1) {
-            // Jump directly if there's only one option
-            const r = resources[0];
-            switchAdapter(r.serviceId as ServiceId);
-            if (r.filterHint) actions.setFilterText(r.filterHint);
-            setRelatedResources([]);
-            return;
-          }
-          // Multiple options — open picker
-          pickers.openPicker("related");
+          void Promise.resolve(adapter.getRelatedResources?.(selectedRow) ?? []).then((resources) => {
+            if (resources.length === 0) {
+              actions.pushFeedback("No related resources", 2000);
+              return;
+            }
+            setRelatedResources(resources);
+            if (resources.length === 1) {
+              // Jump directly if there's only one option
+              const r = resources[0];
+              switchAdapter(r.serviceId as ServiceId);
+              if (r.filterHint) actions.setFilterText(r.filterHint);
+              setRelatedResources([]);
+              return;
+            }
+            // Multiple options — open picker
+            pickers.openPicker("related");
+          });
         },
       },
       scroll: {
@@ -910,6 +933,38 @@ export function App({ initialService, endpointUrl }: AppProps) {
       details: {
         close: closeDetails,
         closeHistogram: () => setHistogramState(null),
+      },
+      preview: {
+        close: filePreview.closePreview,
+        openFilter: filePreview.openFilter,
+        closeFilter: filePreview.closeFilter,
+        nextPage: filePreview.nextPage,
+        prevPage: filePreview.prevPage,
+        scrollUp: filePreview.previewNavigation.moveUp,
+        scrollDown: filePreview.previewNavigation.moveDown,
+        colLeft: filePreview.colScrollLeft,
+        colRight: filePreview.colScrollRight,
+        toTop: filePreview.previewNavigation.toTop,
+        toBottom: filePreview.previewNavigation.toBottom,
+        enterYank: filePreview.enterPreviewYank,
+        cancelYank: filePreview.cancelPreviewYank,
+        yankColumn: (colIndex: number) => {
+          const ps = filePreview.previewState;
+          if (!ps) return;
+          const colsPerScreen = Math.max(1, Math.floor((termCols - 2) / (MIN_COL_WIDTH + GAP)));
+          const visibleCols = ps.columns.slice(ps.colOffset, ps.colOffset + colsPerScreen);
+          const col = visibleCols[colIndex];
+          if (!col) return;
+          const filterText = ps.filterText.trim().toLowerCase();
+          const filteredRows = filterText
+            ? ps.rows.filter((r) => Object.values(r.cells).some((c) => (c?.displayName ?? "").toLowerCase().includes(filterText)))
+            : ps.rows;
+          const row = filteredRows[filePreview.previewNavigation.selectedIndex];
+          const value = row?.cells[col.key]?.displayName?.trim() ?? "";
+          if (!value) return;
+          filePreview.cancelPreviewYank();
+          void clipboardy.write(value).then(() => actions.pushFeedback(`Copied ${col.label}`, 1500));
+        },
       },
       pending: {
         cancelPrompt: () => actions.setPendingAction(null),
@@ -976,6 +1031,11 @@ export function App({ initialService, endpointUrl }: AppProps) {
             searchHistoryIndex={searchHistoryIndex}
             showSearchHistory={showSearchHistory}
             histogramState={histogramState}
+            filePreviewState={filePreview.previewState}
+            filePreviewNavigation={filePreview.previewNavigation}
+            filePreviewYankMode={filePreview.previewState?.previewYankMode ?? false}
+            onPreviewFilterChange={filePreview.setFilterText}
+            onPreviewFilterSubmit={filePreview.closeFilter}
             {...(yankHeaderMarkers ? { headerMarkers: yankHeaderMarkers } : {})}
             {...(sortState ? { sortState } : {})}
           />

@@ -6,20 +6,20 @@ export function isNumericColumn(rows: TableRow[], colKey: string): boolean {
     .map((r) => r.cells[colKey]?.displayName ?? "")
     .filter((v) => v !== "" && v !== "-");
   if (values.length === 0) return false;
-  const numericCount = values.filter((v) => !isNaN(parseFloat(v.replace(/[,KMGTkMGkB% ]/g, "")))).length;
+  const numericCount = values.filter((v) => !isNaN(parseFloat(v.replace(/[,KMGTkmgtB% ]/g, "")))).length;
   return numericCount / values.length >= 0.8;
 }
 
 /** Parse a display value to a float, stripping common suffixes */
-function parseNumericValue(v: string): number {
+export function parseNumericValue(v: string): number {
   const cleaned = v.replace(/,/g, "").trim();
   const match = cleaned.match(/^([\d.]+)\s*([KMGTkmgt]?[Bb]?)?/);
   if (!match) return NaN;
   const num = parseFloat(match[1]!);
   const suffix = (match[2] ?? "").toUpperCase();
-  if (suffix.startsWith("K")) return num * 1024;
-  if (suffix.startsWith("M")) return num * 1024 * 1024;
-  if (suffix.startsWith("G")) return num * 1024 * 1024 * 1024;
+  if (suffix.startsWith("K")) return num * 1000;
+  if (suffix.startsWith("M")) return num * 1000 * 1000;
+  if (suffix.startsWith("G")) return num * 1000 * 1000 * 1000;
   return num;
 }
 
