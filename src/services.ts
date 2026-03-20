@@ -51,4 +51,6 @@ export const SERVICE_REGISTRY = {
     createApiGatewayServiceAdapter(undefined, region),
 } as const;
 
-export type ServiceId = keyof typeof SERVICE_REGISTRY;
+export type AwsServiceId = keyof typeof SERVICE_REGISTRY;
+export type MetaAdapterId = "_resources" | "_regions" | "_profiles";
+export type ServiceId = AwsServiceId | MetaAdapterId;

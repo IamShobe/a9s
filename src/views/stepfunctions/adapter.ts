@@ -1,10 +1,10 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import { singlePartKey } from "../../utils/bookmarks.js";
 import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type { AwsSFNStateMachine, AwsSFNExecution, StepFunctionsLevel, SFNRowMeta } from "./types.js";
 import { createSFNDetailCapability } from "./capabilities/detailCapability.js";
 import { createSFNYankCapability } from "./capabilities/yankCapability.js";
@@ -16,8 +16,6 @@ interface SFNNavFrame extends NavFrame {
   level: StepFunctionsLevel;
 }
 
-export const sfnLevelAtom = atom<StepFunctionsLevel>({ kind: "state-machines" });
-export const sfnBackStackAtom = atom<SFNNavFrame[]>([]);
 
 function formatDuration(startDate?: string, stopDate?: string): string {
   if (!startDate) return "-";
@@ -34,13 +32,8 @@ export function createStepFunctionsServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(sfnLevelAtom);
-  const setLevel = (level: StepFunctionsLevel) => store.set(sfnLevelAtom, level);
-  const getBackStack = () => store.get(sfnBackStackAtom);
-  const setBackStack = (stack: SFNNavFrame[]) => store.set(sfnBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<StepFunctionsLevel, SFNNavFrame>({ kind: "state-machines" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -145,8 +138,6 @@ export function createStepFunctionsServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "state-machines") return "sfn://";
@@ -185,12 +176,13 @@ export function createStepFunctionsServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "state-machines" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow) {
+      return singlePartKey("State Machine", row);
     },
     capabilities: {
       detail: detailCapability,

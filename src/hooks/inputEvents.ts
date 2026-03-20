@@ -11,6 +11,7 @@ export interface InputRuntimeState {
   selectedRow: TableRow | null;
   helpOpen: boolean;
   pickerMode: "navigate" | "search" | null;
+  activePickerId: string | null;
   describeOpen: boolean;
   uploadPending: boolean;
   pendingActionType: "prompt" | "confirm" | null;
@@ -27,7 +28,7 @@ export type InputEvent =
   | { scope: "help"; type: "goToTab"; input: string }
   | {
       scope: "picker";
-      type: "close" | "cancelSearch" | "startSearch" | "down" | "up" | "top" | "bottom" | "confirm";
+      type: "close" | "cancelSearch" | "startSearch" | "down" | "up" | "top" | "bottom" | "confirm" | "deleteItem";
     }
   | {
       scope: "modal";
@@ -81,7 +82,7 @@ export type InputEvent =
         | "showHistogram"
         | "previewFile";
     }
-  | { scope: "preview"; type: "nextPage" | "prevPage" | "scrollUp" | "scrollDown" | "colLeft" | "colRight" | "toTop" | "toBottom" }
+  | { scope: "preview"; type: "nextPage" | "prevPage" | "scrollUp" | "scrollDown" | "colLeft" | "colRight" | "toTop" | "toBottom" | "showDetails" }
   | { scope: "preview"; type: "yankColumn"; colIndex: number }
   | { scope: "scroll"; type: "up" | "down" }
   | { scope: "adapterAction"; type: "run"; actionId: string; row: TableRow | null };

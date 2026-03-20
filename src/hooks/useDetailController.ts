@@ -53,14 +53,10 @@ export function useDetailController({ adapter, setDescribeState }: UseDetailCont
         try {
           const fields = adapter.capabilities?.detail
             ? await adapter.capabilities.detail.getDetails(selectedRow)
-            : [
-                {
-                  label: "Name",
-                  value: getCellLabel(selectedRow.cells.name) ?? selectedRow.id,
-                },
-                { label: "Type", value: String(selectedRow.meta?.type ?? "Unknown") },
-                { label: "Details", value: "Not available for this service" },
-              ];
+            : adapter.getColumns().map((col) => ({
+                label: col.label,
+                value: getCellLabel(selectedRow.cells[col.key]) ?? "-",
+              }));
 
           setDescribeState((prev) => applyDetailSuccess(prev, requestId, fields));
         } catch (error) {

@@ -30,7 +30,7 @@ export function summarizeRowStatuses(rows: TableRow[]): StatusSummary {
 
   for (const row of rows) {
     for (const cell of Object.values(row.cells)) {
-      if (typeof cell === "object" && cell?.color) {
+      if (typeof cell === "object" && cell?.color && !cell.isHeatmap) {
         colorCounts.set(cell.color, (colorCounts.get(cell.color) ?? 0) + 1);
         break; // only count first colored cell per row
       }

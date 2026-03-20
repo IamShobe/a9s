@@ -37,12 +37,15 @@ export type PickerScopeAction =
   | { type: "top" }
   | { type: "bottom" }
   | { type: "confirm" }
+  | { type: "delete" }
   | { type: "none" };
 
 export function resolvePickerScopeAction(
+  input: string,
   key: Key,
   pickerMode: "navigate" | "search",
   action: KeyAction | null,
+  activePickerId: string | null,
 ): PickerScopeAction {
   if (pickerMode === "search" && !key.escape) {
     return { type: "consume" };
@@ -64,6 +67,10 @@ export function resolvePickerScopeAction(
     case KB.PICKER_CONFIRM:
       return { type: "confirm" };
     default:
+      // d key deletes selected item (only for bookmarks picker)
+      if (pickerMode === "navigate" && activePickerId === "bookmarks" && input === "d") {
+        return { type: "delete" };
+      }
       return { type: "none" };
   }
 }

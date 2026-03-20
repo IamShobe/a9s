@@ -1,4 +1,5 @@
 import type { ColumnDef, TableRow, SelectResult } from "../types.js";
+import type { BookmarkKeyPart } from "../utils/bookmarks.js";
 import type { EditCapability } from "./capabilities/EditCapability.js";
 import type { DetailCapability } from "./capabilities/DetailCapability.js";
 import type { YankCapability } from "./capabilities/YankCapability.js";
@@ -33,10 +34,17 @@ export interface ServiceAdapter {
   getRows(): Promise<TableRow[]>;
   onSelect(row: TableRow): Promise<SelectResult>;
   canGoBack(): boolean;
-  goBack(): void;
+  goBack(): { filterText: string; selectedIndex: number } | undefined;
+  pushUiLevel(filterText: string, selectedIndex: number): void;
   getPath(): string;
   getContextLabel?(): string; // e.g., "🪣 Buckets" or "📦 Objects"
+
   reset?(): void;
+
+  /** Return a structured key describing the selected row for bookmark persistence. */
+  getBookmarkKey(row: TableRow): BookmarkKeyPart[];
+  /** Restore navigation to the level described by a structured bookmark key. */
+  restoreFromKey?(key: BookmarkKeyPart[]): void;
 
   /** Return related resources for a selected row (e.g. Lambda → CloudWatch log group). */
   getRelatedResources?(row: TableRow): RelatedResource[] | Promise<RelatedResource[]>;

@@ -1,9 +1,9 @@
 import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult } from "../../types.js";
 import { textCell } from "../../types.js";
+import { singlePartKey } from "../../utils/bookmarks.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
 import { debugLog } from "../../utils/debugLogger.js";
 import type {
@@ -24,22 +24,14 @@ import type {
 import { createApiGatewayDetailCapability } from "./capabilities/detailCapability.js";
 import { createApiGatewayYankCapability } from "./capabilities/yankCapability.js";
 
-export const apiGatewayLevelAtom = atom<ApiGatewayLevel>({ kind: "apis" });
-export const apiGatewayBackStackAtom = atom<ApiGatewayNavFrame[]>([]);
 
 export function createApiGatewayServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
   const r = resolveRegion(region);
-
-  const getLevel = () => store.get(apiGatewayLevelAtom);
-  const setLevel = (level: ApiGatewayLevel) => store.set(apiGatewayLevelAtom, level);
-  const getBackStack = () => store.get(apiGatewayBackStackAtom);
-  const setBackStack = (stack: ApiGatewayNavFrame[]) =>
-    store.set(apiGatewayBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<ApiGatewayLevel, ApiGatewayNavFrame>({ kind: "apis" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -202,7 +194,6 @@ export function createApiGatewayServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
   const detailCapability = createApiGatewayDetailCapability(region, getLevel);
   const yankCapability = createApiGatewayYankCapability();
 
@@ -272,12 +263,13 @@ export function createApiGatewayServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getRelatedResources,
-    reset() {
-      setLevel({ kind: "apis" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow) {
+      return singlePartKey("API", row);
     },
     getBrowserUrl(row) {
       const meta = row.meta as ApiGatewayRowMeta | undefined;

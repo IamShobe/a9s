@@ -1,10 +1,10 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import { singlePartKey } from "../../utils/bookmarks.js";
 import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type {
   AwsVPC,
   AwsSecurityGroup,
@@ -21,8 +21,6 @@ interface VPCNavFrame extends NavFrame {
   level: VPCLevel;
 }
 
-export const vpcLevelAtom = atom<VPCLevel>({ kind: "vpcs" });
-export const vpcBackStackAtom = atom<VPCNavFrame[]>([]);
 
 function getTagName(tags?: { Key: string; Value: string }[]): string {
   return tags?.find((t) => t.Key === "Name")?.Value ?? "";
@@ -113,13 +111,8 @@ export function createVPCServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(vpcLevelAtom);
-  const setLevel = (level: VPCLevel) => store.set(vpcLevelAtom, level);
-  const getBackStack = () => store.get(vpcBackStackAtom);
-  const setBackStack = (stack: VPCNavFrame[]) => store.set(vpcBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<VPCLevel, VPCNavFrame>({ kind: "vpcs" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -257,8 +250,6 @@ export function createVPCServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "vpcs") return "vpc://";
@@ -298,12 +289,13 @@ export function createVPCServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "vpcs" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow) {
+      return singlePartKey("VPC", row);
     },
     capabilities: {
       detail: detailCapability,

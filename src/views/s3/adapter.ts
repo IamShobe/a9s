@@ -1,12 +1,11 @@
 import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { createS3Client } from "./client.js";
 import { fetchBuckets, fetchObjects, downloadObject } from "./fetcher.js";
 import type { S3Client } from "@aws-sdk/client-s3";
-import { atom } from "jotai";
-import { getDefaultStore } from "jotai";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
+import { createStackState } from "../../utils/createStackState.js";
 import { resolveRegion } from "../../utils/aws.js";
 import { formatSize } from "./utils.js";
 import { createS3EditCapability } from "./capabilities/editCapability.js";
@@ -22,18 +21,10 @@ interface S3NavFrame extends NavFrame {
   level: S3Level;
 }
 
-export const s3LevelAtom = atom<S3Level>({ kind: "buckets" });
-export const s3BackStackAtom = atom<S3NavFrame[]>([]);
 
 export function createS3ServiceAdapter(endpointUrl?: string, region?: string): ServiceAdapter {
-  const store = getDefaultStore();
   const client: S3Client = createS3Client(endpointUrl, region);
-
-  // Getters and setters for level/backStack from atoms
-  const getLevel = () => store.get(s3LevelAtom);
-  const setLevel = (level: S3Level) => store.set(s3LevelAtom, level);
-  const getBackStack = () => store.get(s3BackStackAtom);
-  const setBackStack = (stack: S3NavFrame[]) => store.set(s3BackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<S3Level, S3NavFrame>({ kind: "buckets" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -41,14 +32,14 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
       return [
         { key: "name", label: "Name" },
         { key: "type", label: "Type", width: 10 },
-        { key: "creationDate", label: "Creation Date", width: 22 },
+        { key: "creationDate", label: "Creation Date", width: 22, heatmap: { type: "date" } },
       ];
     }
     return [
       { key: "name", label: "Name" },
       { key: "type", label: "Type", width: 10 },
-      { key: "size", label: "Size", width: 12 },
-      { key: "lastModified", label: "Last Modified", width: 22 },
+      { key: "size", label: "Size", width: 12, heatmap: { type: "numeric" } },
+      { key: "lastModified", label: "Last Modified", width: 22, heatmap: { type: "date" } },
     ];
   };
 
@@ -128,8 +119,6 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "buckets") return "s3://";
@@ -190,13 +179,45 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getRelatedResources,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "buckets" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      if (level.kind === "buckets") {
+        return [{ label: "Bucket", displayName: row.id, id: row.id }];
+      }
+      // objects level
+      const { bucket } = level;
+      const fullKey = row.id;
+      return [
+        { label: "Bucket", displayName: bucket, id: bucket },
+        { label: "Key", displayName: fullKey, id: fullKey },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        const bucket = key[0]!.id ?? key[0]!.displayName;
+        setBackStack([{ level: { kind: "buckets" }, selectedIndex: 0 }]);
+        setLevel({ kind: "objects", bucket, prefix: "" });
+      } else if (key.length >= 2) {
+        const bucket = key[0]!.id ?? key[0]!.displayName;
+        const fullKey = key[1]!.id ?? key[1]!.displayName;
+        // Derive prefix by stripping last segment
+        const lastSlash = fullKey.lastIndexOf("/");
+        const prefix = lastSlash >= 0 ? fullKey.slice(0, lastSlash + 1) : "";
+        const parts = prefix.split("/").filter(Boolean);
+        const backStack: S3NavFrame[] = [{ level: { kind: "buckets" }, selectedIndex: 0 }];
+        for (let i = 0; i < parts.length; i++) {
+          const framePrefix = i === 0 ? "" : parts.slice(0, i).join("/") + "/";
+          backStack.push({ level: { kind: "objects", bucket, prefix: framePrefix }, selectedIndex: 0 });
+        }
+        setBackStack(backStack);
+        setLevel({ kind: "objects", bucket, prefix });
+      }
     },
     capabilities: {
       edit: editCapability,

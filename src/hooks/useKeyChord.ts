@@ -30,6 +30,9 @@ export function matchesTrigger(input: string, inkKey: Key, trigger: KeyTrigger):
   switch (trigger.type) {
     case "key":
       return input === trigger.char;
+    case "ctrl":
+      // Ctrl+A = \x01, Ctrl+B = \x02, etc.
+      return input === String.fromCharCode(trigger.char.toUpperCase().charCodeAt(0) - 0x40);
     case "special":
       return matchSpecial(inkKey, trigger.name);
     case "chord":

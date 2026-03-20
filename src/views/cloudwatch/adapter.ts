@@ -1,9 +1,9 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type { AwsLogEvent, AwsLogGroup, AwsLogStream, CloudWatchLevel, CloudWatchRowMeta } from "./types.js";
 import { createCloudWatchDetailCapability } from "./capabilities/detailCapability.js";
 import { createCloudWatchYankCapability } from "./capabilities/yankCapability.js";
@@ -16,8 +16,6 @@ interface CloudWatchNavFrame extends NavFrame {
   level: CloudWatchLevel;
 }
 
-export const cloudWatchLevelAtom = atom<CloudWatchLevel>({ kind: "log-groups" });
-export const cloudWatchBackStackAtom = atom<CloudWatchNavFrame[]>([]);
 
 function formatBytes(bytes?: number): string {
   if (bytes == null) return "-";
@@ -35,29 +33,24 @@ export function createCloudWatchServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(cloudWatchLevelAtom);
-  const setLevel = (level: CloudWatchLevel) => store.set(cloudWatchLevelAtom, level);
-  const getBackStack = () => store.get(cloudWatchBackStackAtom);
-  const setBackStack = (stack: CloudWatchNavFrame[]) => store.set(cloudWatchBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<CloudWatchLevel, CloudWatchNavFrame>({ kind: "log-groups" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
     if (level.kind === "log-groups") {
       return [
         { key: "name", label: "Name" },
-        { key: "retention", label: "Retention", width: 14 },
-        { key: "stored", label: "Stored", width: 12 },
-        { key: "lastEvent", label: "Last Event", width: 22 },
+        { key: "retention", label: "Retention", width: 14, heatmap: { type: "numeric" } },
+        { key: "stored", label: "Stored", width: 12, heatmap: { type: "numeric" } },
+        { key: "lastEvent", label: "Last Event", width: 22, heatmap: { type: "date" } },
       ];
     }
     if (level.kind === "log-streams") {
       return [
         { key: "name", label: "Name" },
-        { key: "lastEvent", label: "Last Event", width: 22 },
-        { key: "stored", label: "Stored", width: 12 },
+        { key: "lastEvent", label: "Last Event", width: 22, heatmap: { type: "date" } },
+        { key: "stored", label: "Stored", width: 12, heatmap: { type: "numeric" } },
       ];
     }
     // log-events level
@@ -204,8 +197,6 @@ export function createCloudWatchServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "log-groups") return "logs://";
@@ -247,12 +238,49 @@ export function createCloudWatchServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "log-groups" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      const meta = row.meta as CloudWatchRowMeta | undefined;
+      if (level.kind === "log-groups") {
+        const logGroupName = meta?.type === "log-group" ? meta.logGroupName : row.id;
+        return [{ label: "Log Group", displayName: logGroupName, id: row.id }];
+      }
+      if (level.kind === "log-streams") {
+        const streamName = meta?.type === "log-stream" ? meta.logStreamName : row.id;
+        return [
+          { label: "Log Group", displayName: level.logGroupName, id: level.logGroupName },
+          { label: "Stream", displayName: streamName, id: row.id },
+        ];
+      }
+      // log-events level
+      return [
+        { label: "Log Group", displayName: level.logGroupName, id: level.logGroupName },
+        { label: "Stream", displayName: level.logStreamName, id: level.logStreamName },
+        { label: "Event", displayName: row.id, id: row.id },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        setBackStack([]);
+        setLevel({ kind: "log-groups" });
+      } else if (key.length === 2) {
+        const logGroupName = key[0]!.displayName;
+        setBackStack([{ level: { kind: "log-groups" }, selectedIndex: 0 }]);
+        setLevel({ kind: "log-streams", logGroupName });
+      } else if (key.length >= 3) {
+        const logGroupName = key[0]!.displayName;
+        const logStreamName = key[1]!.displayName;
+        setBackStack([
+          { level: { kind: "log-groups" }, selectedIndex: 0 },
+          { level: { kind: "log-streams", logGroupName }, selectedIndex: 0 },
+        ]);
+        setLevel({ kind: "log-events", logGroupName, logStreamName });
+      }
     },
     capabilities: {
       detail: detailCapability,

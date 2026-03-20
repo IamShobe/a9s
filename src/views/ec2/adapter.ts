@@ -1,10 +1,10 @@
 import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { statusCell } from "../../utils/statusColors.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type { AwsInstance, AwsVolume, EC2Level, EC2RowMeta } from "./types.js";
 import { createEC2DetailCapability } from "./capabilities/detailCapability.js";
 import { createEC2YankCapability } from "./capabilities/yankCapability.js";
@@ -18,8 +18,6 @@ interface EC2NavFrame extends NavFrame {
   level: EC2Level;
 }
 
-export const ec2LevelAtom = atom<EC2Level>({ kind: "instances" });
-export const ec2BackStackAtom = atom<EC2NavFrame[]>([]);
 
 function getInstanceName(instance: AwsInstance): string {
   return (instance.Tags ?? []).find((t) => t.Key === "Name")?.Value ?? instance.InstanceId;
@@ -29,13 +27,8 @@ export function createEC2ServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(ec2LevelAtom);
-  const setLevel = (level: EC2Level) => store.set(ec2LevelAtom, level);
-  const getBackStack = () => store.get(ec2BackStackAtom);
-  const setBackStack = (stack: EC2NavFrame[]) => store.set(ec2BackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<EC2Level, EC2NavFrame>({ kind: "instances" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -52,7 +45,7 @@ export function createEC2ServiceAdapter(
     // volumes level
     return [
       { key: "volumeId", label: "Volume ID", width: 24 },
-      { key: "size", label: "Size", width: 10 },
+      { key: "size", label: "Size", width: 10, heatmap: { type: "numeric" } },
       { key: "state", label: "State", width: 12 },
       { key: "device", label: "Device", width: 12 },
     ];
@@ -162,8 +155,6 @@ export function createEC2ServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "instances") return "ec2://";
@@ -241,13 +232,37 @@ export function createEC2ServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getRelatedResources,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "instances" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      const meta = row.meta as EC2RowMeta | undefined;
+      if (level.kind === "instances") {
+        const instanceName = typeof row.cells.name === "object"
+          ? (row.cells.name?.displayName ?? row.id)
+          : (row.cells.name ?? row.id);
+        return [{ label: "Instance", displayName: instanceName, id: row.id }];
+      }
+      // volumes level
+      return [
+        { label: "Instance", displayName: level.instanceName, id: level.instanceId },
+        { label: "Volume", displayName: row.id, id: row.id },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        setBackStack([]);
+        setLevel({ kind: "instances" });
+      } else if (key.length >= 2) {
+        const instanceId = key[0]!.id ?? key[0]!.displayName;
+        const instanceName = key[0]!.displayName;
+        setBackStack([{ level: { kind: "instances" }, selectedIndex: 0 }]);
+        setLevel({ kind: "volumes", instanceId, instanceName });
+      }
     },
     capabilities: {
       detail: detailCapability,

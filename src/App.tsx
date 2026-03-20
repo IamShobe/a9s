@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useApp } from "ink";
-import { useAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import clipboardy from "clipboardy";
 
 import { HUD } from "./components/HUD.js";
@@ -13,17 +13,22 @@ import { useAwsRegions } from "./hooks/useAwsRegions.js";
 import { useAwsProfiles } from "./hooks/useAwsProfiles.js";
 import { useMainInput } from "./hooks/useMainInput.js";
 import { useInputEventProcessor } from "./hooks/useInputEventProcessor.js";
-import { useHierarchyState } from "./hooks/useHierarchyState.js";
 import { useAppController } from "./hooks/useAppController.js";
 import { useCommandRouter } from "./hooks/useCommandRouter.js";
+import { useAdapterStack } from "./hooks/useAdapterStack.js";
 import { useDetailController } from "./hooks/useDetailController.js";
 import { useActionController } from "./hooks/useActionController.js";
 import { useUiHints } from "./hooks/useUiHints.js";
 import { useAppData } from "./hooks/useAppData.js";
+import { useTableLayout } from "./hooks/useTableLayout.js";
+import { computeOuterChrome } from "./utils/layoutBudget.js";
 import { deriveYankHeaderMarkers } from "./hooks/yankHeaderMarkers.js";
 import { AppMainView } from "./features/AppMainView.js";
 import type { ServiceId } from "./services.js";
 import type { ServiceViewResult, TableRow } from "./types.js";
+import { getCellLabel } from "./types.js";
+import { computeColumnWidths } from "./components/Table/widths.js";
+import { truncateNoPad } from "./utils/textUtils.js";
 import type { RelatedResource } from "./adapters/ServiceAdapter.js";
 import { AVAILABLE_COMMANDS } from "./constants/commands.js";
 import { buildHelpTabs, triggerToString } from "./constants/keybindings.js";
@@ -34,11 +39,9 @@ import { readFile } from "fs/promises";
 import { openConsoleUrl } from "./utils/consoleUrl.js";
 import { runAwsJsonAsync } from "./utils/aws.js";
 import { debugLog } from "./utils/debugLogger.js";
-import { summarizeRowStatuses } from "./utils/rowUtils.js";
 import { loadSearchHistory, saveSearchEntry } from "./utils/searchHistory.js";
 import { loadBookmarks, toggleBookmark } from "./utils/bookmarks.js";
 import { buildHistogram } from "./utils/histogram.js";
-import { isNumericColumn } from "./utils/heatmap.js";
 import type { HistogramBar } from "./utils/histogram.js";
 import { useFilePreview } from "./hooks/useFilePreview.js";
 import { MIN_COL_WIDTH, GAP } from "./components/FilePreviewPanel.js";
@@ -48,6 +51,7 @@ import {
   selectedProfileAtom,
   revealSecretsAtom,
   themeNameAtom,
+  bookmarkRestoreAtom,
 } from "./state/atoms.js";
 import type { ThemeName } from "./constants/theme.js";
 
@@ -65,20 +69,20 @@ function toOscColor(color: string): string {
 }
 
 interface AppProps {
-  initialService: ServiceId;
   endpointUrl: string | undefined;
 }
 
-export function App({ initialService, endpointUrl }: AppProps) {
+export function App({ endpointUrl }: AppProps) {
   const { exit } = useApp();
   const { columns: termCols, rows: termRows } = useScreenSize();
 
+  const theme = useTheme();
+  const adapterStack = useAdapterStack();
+  const [currentService, setCurrentService] = useAtom(currentlySelectedServiceAtom);
   const [selectedRegion, setSelectedRegion] = useAtom(selectedRegionAtom);
   const [selectedProfile, setSelectedProfile] = useAtom(selectedProfileAtom);
-  const [currentService, setCurrentService] = useAtom(currentlySelectedServiceAtom);
   const [revealSecrets, setRevealSecrets] = useAtom(revealSecretsAtom);
   const [themeName, setThemeName] = useAtom(themeNameAtom);
-  const theme = useTheme();
 
   // Paint the terminal's default background so uncolored cells (border chars, gaps) inherit the theme
   useEffect(() => {
@@ -102,7 +106,6 @@ export function App({ initialService, endpointUrl }: AppProps) {
   const availableRegions = useAwsRegions(selectedRegion, selectedProfile);
   const availableProfiles = useAwsProfiles();
 
-  const { reset: resetHierarchy, updateCurrentFilter, pushLevel, popLevel } = useHierarchyState();
   const { state, actions, yankFeedbackMessage } = useAppController();
 
   useEffect(() => {
@@ -116,15 +119,6 @@ export function App({ initialService, endpointUrl }: AppProps) {
     }
     process.env.AWS_PROFILE = selectedProfile;
   }, [selectedProfile]);
-
-  useEffect(() => {
-    setCurrentService(initialService);
-  }, [initialService, setCurrentService]);
-
-  const HUD_LINES = 3;
-  const MODEBAR_LINES = 1;
-  const HEADER_LINES = 2;
-  const tableHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES - HEADER_LINES - 4);
 
   // Related resources state — populated when user presses g+r on a row (must be declared before useAppData)
   const [relatedResources, setRelatedResources] = useState<RelatedResource[]>([]);
@@ -145,7 +139,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
   // Bookmark state
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(() => {
     const entries = loadBookmarks();
-    return new Set(entries.filter((e) => e.serviceId === initialService).map((e) => e.rowId));
+    return new Set(entries.filter((e) => e.serviceId === currentService).map((e) => e.rowId));
   });
 
   // Search history state
@@ -155,9 +149,6 @@ export function App({ initialService, endpointUrl }: AppProps) {
 
   // Histogram state
   const [histogramState, setHistogramState] = useState<{ columnKey: string; columnLabel: string; bars: HistogramBar[] | null } | null>(null);
-
-  // File preview state
-  const filePreview = useFilePreview(tableHeight - 3);
 
   const {
     adapter,
@@ -170,34 +161,66 @@ export function App({ initialService, endpointUrl }: AppProps) {
     refresh,
     path,
     filteredRows,
-    selectedRow,
-    navigation,
-    pickers,
   } = useAppData({
     currentService,
     endpointUrl,
     selectedRegion,
-    tableHeight,
     filterText: state.filterText,
     availableRegions,
     availableProfiles,
-    relatedResources,
     tagFilter,
     sortState,
     heatmapEnabled,
     bookmarkedIds,
   });
 
-  const isResourcesRootRef = useRef(true);
+  const contentBudget = termRows - computeOuterChrome({
+    hasPendingPrompt: state.pendingAction?.effect.type === "prompt",
+    hasPendingConfirm: state.pendingAction?.effect.type === "confirm",
+  });
 
-  const navigateToRoot = useCallback(() => {
-    isResourcesRootRef.current = true;
-    pickers.openPicker("resource");
-  }, [pickers]);
+  const {
+    dataRows,
+    navigation,
+    selectedRow,
+    pickers,
+    statusSummary,
+  } = useTableLayout({
+    contentBudget,
+    adapter,
+    filteredRows,
+    showSearchHistory,
+    searchHistoryLength: searchHistory.length,
+    relatedResources,
+  });
 
+  // File preview state
+  const filePreview = useFilePreview(contentBudget);
+
+  // Ref for restoring cursor position after adapter pop
+  const pendingIndexRef = useRef<number | null>(null);
+  // Ref for highlighting a specific row by ID after bookmark restore
+  const pendingRowIdRef = useRef<string | null>(null);
+
+  // Stable refs so jumpToBookmark can call refresh/currentService without stale closures
+  const currentServiceRef = useRef(currentService);
+  currentServiceRef.current = currentService;
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  const setBookmarkRestore = useSetAtom(bookmarkRestoreAtom);
+
+  // Restore cursor position when rows become available after adapter switch
   useEffect(() => {
-    navigateToRoot();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (pendingRowIdRef.current !== null && filteredRows.length > 0) {
+      const idx = filteredRows.findIndex((r) => r.id === pendingRowIdRef.current);
+      navigation.setIndex(idx >= 0 ? idx : 0);
+      pendingRowIdRef.current = null;
+    } else if (pendingIndexRef.current !== null && filteredRows.length > 0) {
+      navigation.setIndex(Math.min(pendingIndexRef.current, filteredRows.length - 1));
+      pendingIndexRef.current = null;
+    }
+  }, [filteredRows.length, navigation]);
 
   // Refresh bookmarked IDs when service changes
   useEffect(() => {
@@ -253,50 +276,115 @@ export function App({ initialService, endpointUrl }: AppProps) {
     };
   }, [watchInterval, refresh]);
 
+  const resetViewState = useCallback(() => {
+    actions.setFilterText("");
+    actions.setDescribeState(null);
+    actions.setSearchEntryFilter(null);
+    actions.setMode("navigate");
+    actions.setYankMode(false);
+    actions.setUploadPending(null);
+    actions.setPendingAction(null);
+    setWatchInterval(null);
+    setTagFilterState(null);
+    setSortState(null);
+    setSelectedRowIds(new Set());
+    lastToggledIndexRef.current = -1;
+    setHistogramState(null);
+    navigation.reset();
+  }, [actions, navigation]);
+
   const switchAdapter = useCallback(
     (serviceId: ServiceId) => {
-      isResourcesRootRef.current = false;
+      if (serviceId === "_resources") {
+        // Resources is always the root — clear the stack so back stops here
+        adapterStack.clear();
+      } else {
+        adapterStack.push({ adapterId: currentService, filterText: state.filterText, selectedIndex: navigation.selectedIndex });
+      }
       setCurrentService(serviceId);
-      actions.setFilterText("");
-      actions.setDescribeState(null);
-      actions.setSearchEntryFilter(null);
-      actions.setMode("navigate");
-      actions.setYankMode(false);
-      actions.setUploadPending(null);
-      actions.setPendingAction(null);
-      setWatchInterval(null);
-      setTagFilterState(null);
-      setSortState(null);
-      setSelectedRowIds(new Set());
-      lastToggledIndexRef.current = -1;
-      setHistogramState(null);
-      resetHierarchy();
-      navigation.reset();
+      resetViewState();
     },
-    [actions, navigation, resetHierarchy, setCurrentService],
+    [resetViewState, navigation, setCurrentService, adapterStack, currentService, state.filterText],
   );
 
+  /** Jump to a bookmarked item: clears the adapter stack + defers level restore. */
+  const jumpToBookmark = useCallback(
+    (entry: import("./utils/bookmarks.js").BookmarkEntry) => {
+      if (entry.key.length > 1) {
+        // Set atom for both same-service and cross-service — performFetch consumes it
+        setBookmarkRestore({ serviceId: entry.serviceId, key: entry.key });
+        if (entry.serviceId === currentServiceRef.current) {
+          // Same-service: adapter won't recreate, no useEffect fires — trigger fetch manually
+          void refreshRef.current();
+        }
+        // Cross-service: setCurrentService below triggers adapter recreation → useEffect → performFetch
+      }
+      adapterStack.clear();
+      setCurrentService(entry.serviceId as ServiceId);
+      pendingRowIdRef.current = entry.rowId;
+      resetViewState();
+    },
+    [resetViewState, setCurrentService, adapterStack, setBookmarkRestore],
+  );
+
+  const popBackToCallingAdapter = useCallback(() => {
+    const frame = adapterStack.pop();
+    if (!frame) return;
+    setCurrentService(frame.adapterId);
+    actions.setFilterText(frame.filterText);
+    actions.setMode("navigate");
+    pendingIndexRef.current = frame.selectedIndex;
+  }, [adapterStack, setCurrentService, actions]);
+
   const navigateBack = useCallback(() => {
-    if (!adapter.canGoBack()) {
-      navigateToRoot();
+    if (adapter.canGoBack()) {
+      // Intra-adapter back (e.g., S3 objects → buckets)
+      void goBack().then((restored) => {
+        actions.setDescribeState(null);
+        actions.setSearchEntryFilter(null);
+        actions.setFilterText(restored?.filterText ?? "");
+        navigation.setIndex(restored?.selectedIndex ?? 0);
+      });
       return;
     }
-    void goBack().then(() => {
-      actions.setDescribeState(null);
-      actions.setSearchEntryFilter(null);
-      const { restoredFilter, restoredIndex } = popLevel();
-      actions.setFilterText(restoredFilter);
-      navigation.setIndex(restoredIndex);
-    });
-  }, [actions, adapter, goBack, navigateToRoot, navigation, popLevel]);
+    // Inter-adapter back: pop the stack
+    if (adapterStack.isEmpty) return; // at root (_resources)
+    popBackToCallingAdapter();
+  }, [actions, adapter, goBack, navigation, adapterStack.isEmpty, popBackToCallingAdapter]);
 
   const navigateIntoSelection = useCallback(() => {
     if (!selectedRow) return;
-    if (selectedRow.meta?.type === "object") return;
+
+    // Resource adapter: enter = switch to selected service
+    if (currentService === "_resources") {
+      switchAdapter(selectedRow.id as ServiceId);
+      return;
+    }
+    // Region adapter: enter = set region + pop back
+    if (currentService === "_regions") {
+      setSelectedRegion(selectedRow.id);
+      popBackToCallingAdapter();
+      return;
+    }
+    // Profile adapter: enter = set profile + pop back
+    if (currentService === "_profiles") {
+      setSelectedProfile(selectedRow.id);
+      popBackToCallingAdapter();
+      return;
+    }
+
+    if (selectedRow.meta?.type === "object") {
+      if (adapter.capabilities?.preview?.canPreview(selectedRow)) {
+        filePreview.showPreview(selectedRow, adapter);
+      }
+      return;
+    }
+    const capturedFilter = state.filterText;
+    const capturedIndex = navigation.selectedIndex;
     void select(selectedRow).then((result: ServiceViewResult) => {
       if (result?.action === "navigate") {
         actions.setSearchEntryFilter(null);
-        pushLevel(navigation.selectedIndex, "");
+        adapter.pushUiLevel(capturedFilter, capturedIndex);
         actions.setFilterText("");
         actions.setDescribeState(null);
         navigation.reset();
@@ -309,7 +397,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
         });
       }
     });
-  }, [actions, navigation, pushLevel, select, selectedRow]);
+  }, [actions, adapter, navigation, select, selectedRow, currentService, switchAdapter, setSelectedRegion, setSelectedProfile, popBackToCallingAdapter, state.filterText]);
 
   const editSelection = useCallback(() => {
     if (!selectedRow) return;
@@ -383,7 +471,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
     () => buildHelpTabs(adapter.id, adapterBindings, uiHintsContext),
     [adapter.id, adapterBindings, uiHintsContext],
   );
-  const helpContainerHeight = Math.max(1, termRows - HUD_LINES - MODEBAR_LINES);
+  const helpContainerHeight = contentBudget;
   const helpPanel = useHelpPanel(helpTabs, helpContainerHeight);
 
   const nameOption = {
@@ -435,12 +523,11 @@ export function App({ initialService, endpointUrl }: AppProps) {
     setSelectedRegion,
     setSelectedProfile,
     switchAdapter,
-    openProfilePicker: () => pickers.openPicker("profile"),
-    openRegionPicker: () => pickers.openPicker("region"),
-    openResourcePicker: () => pickers.openPicker("resource"),
     openThemePicker: () => pickers.openPicker("theme"),
     openBookmarksPicker: () => pickers.openPicker("bookmarks"),
-    setWatch: setWatchInterval,
+    setWatch: (seconds: number) => {
+      if (!currentService.startsWith("_")) setWatchInterval(seconds);
+    },
     clearWatch: () => setWatchInterval(null),
     setTagFilter: (key, value) => setTagFilterState({ key, value }),
     clearTagFilter: () => setTagFilterState(null),
@@ -457,9 +544,8 @@ export function App({ initialService, endpointUrl }: AppProps) {
       setSearchHistoryIndex(-1);
       setSelectedRowIds(new Set());
       actions.setFilterText(value);
-      updateCurrentFilter(value);
     },
-    [actions, pickers, updateCurrentFilter, showSearchHistory],
+    [actions, pickers, showSearchHistory],
   );
 
   const handleFilterSubmit = useCallback(() => {
@@ -650,20 +736,68 @@ export function App({ initialService, endpointUrl }: AppProps) {
     actions.bumpCommandCursorToEnd();
   }, [actions, state.commandText]);
 
-  const statusSummary = useMemo(() => summarizeRowStatuses(filteredRows), [filteredRows]);
-
   const footerContent = useMemo(() => {
-    if (statusSummary.byColor.length === 0) return null;
-    const parts: React.ReactNode[] = [
-      <Text key="total" color={theme.table.columnHeaderText}> Total: {statusSummary.total}</Text>,
-    ];
-    for (const { color, count, label } of statusSummary.byColor) {
-      parts.push(
-        <Text key={color} color={color}> ● {label}: {count}</Text>
-      );
+    const statusRow = statusSummary.byColor.length === 0 ? null : (() => {
+      const parts: React.ReactNode[] = [
+        <Text key="total" color={theme.table.columnHeaderText}> Total: {statusSummary.total}</Text>,
+      ];
+      for (const { color, count, label } of statusSummary.byColor) {
+        parts.push(
+          <Text key={color} color={color}> ● {label}: {count}</Text>
+        );
+      }
+      return <Box flexDirection="row">{parts}</Box>;
+    })();
+
+    let previewRow: React.ReactNode = null;
+    if (selectedRow) {
+      const colWidths = computeColumnWidths(columns, termCols);
+      const SEP = "  ·  "; // 5 chars
+      // Collect segments that were truncated in the table
+      const segments: { label: string; value: string }[] = [];
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i]!;
+        const value = getCellLabel(selectedRow.cells[col.key]) ?? "";
+        const width = colWidths[i] ?? 0;
+        if (value.length > width - 1) {
+          segments.push({ label: col.label, value });
+        }
+      }
+      if (segments.length > 0) {
+        // Budget-based rendering: fit as many segments as possible within termCols
+        let budget = termCols;
+        const fitted: React.ReactNode[] = [];
+        for (const seg of segments) {
+          const prefixLen = seg.label.length + 2; // "Label: "
+          const sepCost = fitted.length > 0 ? SEP.length : 0;
+          const minNeeded = sepCost + prefixLen + 1; // at least 1 char of value
+          if (budget < minNeeded) break;
+
+          if (fitted.length > 0) {
+            fitted.push(<Text key={`sep-${fitted.length}`} color={theme.panel.detailFieldLabelText}>{SEP}</Text>);
+            budget -= sepCost;
+          }
+          const valueSpace = budget - prefixLen;
+          const displayValue = truncateNoPad(seg.value, valueSpace);
+          fitted.push(
+            <Text key={seg.label}>
+              <Text color={theme.panel.detailFieldLabelText}>{seg.label}:</Text>
+              {" "}{displayValue}
+            </Text>
+          );
+          budget -= prefixLen + displayValue.length;
+        }
+        if (fitted.length > 0) {
+          previewRow = <Box flexDirection="row">{fitted}</Box>;
+        }
+      }
     }
-    return <Box flexDirection="row">{parts}</Box>;
-  }, [statusSummary, theme.table.columnHeaderText]);
+
+    if (!statusRow && !previewRow) return null;
+    if (!previewRow) return statusRow;
+    if (!statusRow) return previewRow;
+    return <Box flexDirection="column">{statusRow}{previewRow}</Box>;
+  }, [statusSummary, selectedRow, columns, termCols, theme.table.columnHeaderText, theme.panel.detailFieldLabelText]);
 
   const inputRuntime = useMemo<InputRuntimeState>(
     () => ({
@@ -676,6 +810,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
       selectedRow,
       helpOpen: helpPanel.helpOpen,
       pickerMode: pickers.activePicker?.pickerMode ?? null,
+      activePickerId: pickers.activePicker?.id ?? null,
       describeOpen: Boolean(state.describeState),
       uploadPending: Boolean(state.uploadPending),
       pendingActionType: state.pendingAction?.effect.type ?? null,
@@ -702,7 +837,6 @@ export function App({ initialService, endpointUrl }: AppProps) {
       },
       picker: {
         close: () => {
-          if (isResourcesRootRef.current && pickers.activePicker?.id === "resource") return;
           if (pickers.activePicker?.id === "related") setRelatedResources([]);
           pickers.closeActivePicker();
         },
@@ -714,9 +848,6 @@ export function App({ initialService, endpointUrl }: AppProps) {
         bottom: () => pickers.activePicker?.toBottom(),
         confirm: () =>
           pickers.confirmActivePickerSelection({
-            onSelectResource: switchAdapter,
-            onSelectRegion: setSelectedRegion,
-            onSelectProfile: setSelectedProfile,
             onSelectTheme: (name: ThemeName) => {
               themePickerConfirmedRef.current = true;
               setThemeName(name);
@@ -728,9 +859,25 @@ export function App({ initialService, endpointUrl }: AppProps) {
               setRelatedResources([]);
             },
             onSelectBookmark: (entry) => {
-              switchAdapter(entry.serviceId as ServiceId);
+              jumpToBookmark(entry);
             },
           }),
+        deleteItem: () => {
+          const ap = pickers.activePicker;
+          if (ap?.id !== "bookmarks" || !ap.selectedRow) return;
+          const entry = ap.selectedRow.meta?.bookmarkEntry as import("./utils/bookmarks.js").BookmarkEntry | undefined;
+          if (!entry) return;
+          toggleBookmark(entry);
+          if (entry.serviceId === currentService) {
+            setBookmarkedIds((prev) => {
+              const next = new Set(prev);
+              next.delete(entry.rowId);
+              return next;
+            });
+          }
+          actions.pushFeedback("Removed bookmark", 1500);
+          pickers.refreshPicker("bookmarks");
+        },
       },
       mode: {
         cancelSearchOrCommand: () => {
@@ -809,12 +956,10 @@ export function App({ initialService, endpointUrl }: AppProps) {
         },
         bookmarkToggle: () => {
           if (!selectedRow) return;
-          const nameCell = selectedRow.cells.name;
-          const label = typeof nameCell === "object" ? (nameCell?.displayName ?? selectedRow.id) : (nameCell ?? selectedRow.id);
           const added = toggleBookmark({
             serviceId: currentService,
             rowId: selectedRow.id,
-            rowLabel: label,
+            key: adapter.getBookmarkKey(selectedRow),
             savedAt: new Date().toISOString(),
           });
           setBookmarkedIds((prev) => {
@@ -825,7 +970,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           actions.pushFeedback(added ? `★ Bookmarked` : `Removed bookmark`, 1500);
         },
         showHistogram: () => {
-          const numericCols = columns.filter((c) => isNumericColumn(filteredRows, c.key));
+          const numericCols = columns.filter((c) => c.heatmap && c.heatmap.type !== "date");
           const fallback = numericCols[0] ?? columns[1];
 
           let targetCol: typeof columns[number] | undefined;
@@ -864,13 +1009,7 @@ export function App({ initialService, endpointUrl }: AppProps) {
           setRevealSecrets(!revealSecrets);
         },
         previewFile: () => {
-          if (!selectedRow) return;
-          if (adapter.capabilities?.preview?.canPreview(selectedRow)) {
-            filePreview.showPreview(selectedRow, adapter);
-          } else {
-            // Fall back to reveal toggle for non-previewable rows (e.g. secrets)
-            setRevealSecrets(!revealSecrets);
-          }
+          // Now handled by Enter (navigateIntoSelection)
         },
         showDetails: () => showDetails(selectedRow),
         editSelection,
@@ -955,15 +1094,23 @@ export function App({ initialService, endpointUrl }: AppProps) {
           const visibleCols = ps.columns.slice(ps.colOffset, ps.colOffset + colsPerScreen);
           const col = visibleCols[colIndex];
           if (!col) return;
-          const filterText = ps.filterText.trim().toLowerCase();
-          const filteredRows = filterText
-            ? ps.rows.filter((r) => Object.values(r.cells).some((c) => (c?.displayName ?? "").toLowerCase().includes(filterText)))
-            : ps.rows;
-          const row = filteredRows[filePreview.previewNavigation.selectedIndex];
+          const row = filePreview.getSelectedRow();
           const value = row?.cells[col.key]?.displayName?.trim() ?? "";
           if (!value) return;
           filePreview.cancelPreviewYank();
           void clipboardy.write(value).then(() => actions.pushFeedback(`Copied ${col.label}`, 1500));
+        },
+        showDetails: () => {
+          const ps = filePreview.previewState;
+          if (!ps) return;
+          const row = filePreview.getSelectedRow();
+          if (!row) return;
+          const fields = ps.columns.map((col) => ({
+            label: col.label,
+            value: row.cells[col.key]?.displayName ?? "-",
+          }));
+          setPanelScrollOffset(0);
+          actions.setDescribeState({ row, fields, loading: false, requestId: 0 });
         },
       },
       pending: {
@@ -1017,7 +1164,8 @@ export function App({ initialService, endpointUrl }: AppProps) {
             filterText={state.filterText}
             adapter={adapter}
             termCols={termCols}
-            tableHeight={tableHeight}
+            tableHeight={dataRows}
+            contentBudget={contentBudget}
             yankHelpOpen={state.yankHelpOpen}
             yankOptions={yankOptions}
             yankHelpRow={selectedRow}
@@ -1040,11 +1188,13 @@ export function App({ initialService, endpointUrl }: AppProps) {
             {...(sortState ? { sortState } : {})}
           />
         </Box>
-        {!helpPanel.helpOpen && yankFeedbackMessage && (
-          <Box paddingX={1}>
+        <Box paddingX={1} height={1}>
+          {!helpPanel.helpOpen && yankFeedbackMessage ? (
             <Text color={theme.feedback.successText}>{yankFeedbackMessage}</Text>
-          </Box>
-        )}
+          ) : (
+            <Text> </Text>
+          )}
+        </Box>
         {state.pendingAction && state.pendingAction.effect.type === "prompt" && (
           <Box paddingX={1}>
             <Text color={theme.feedback.promptText}>{state.pendingAction.effect.label} </Text>

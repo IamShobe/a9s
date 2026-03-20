@@ -1,23 +1,50 @@
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { z } from "zod";
+import type { TableRow } from "../types.js";
 
 const BOOKMARKS_DIR = join(homedir(), ".a9s");
 const BOOKMARKS_FILE = join(BOOKMARKS_DIR, "bookmarks.json");
 const MAX_BOOKMARKS = 200;
 
-export interface BookmarkEntry {
-  serviceId: string;
-  rowId: string;
-  rowLabel: string;
-  rowArn?: string;
-  savedAt: string; // ISO date
+const BookmarkKeyPartSchema = z.object({
+  label: z.string(),
+  displayName: z.string(),
+  id: z.string(),
+});
+
+const BookmarkEntrySchema = z.object({
+  serviceId: z.string(),
+  rowId: z.string(),
+  key: z.array(BookmarkKeyPartSchema),
+  rowArn: z.string().optional(),
+  savedAt: z.string(),
+});
+
+export type BookmarkKeyPart = z.infer<typeof BookmarkKeyPartSchema>;
+export type BookmarkEntry = z.infer<typeof BookmarkEntrySchema>;
+
+export function singlePartKey(label: string, row: TableRow): BookmarkKeyPart[] {
+  const nameCell = row.cells.name;
+  const name = typeof nameCell === "object" ? (nameCell?.displayName ?? row.id) : (nameCell ?? row.id);
+  return [{ label, displayName: name, id: row.id }];
+}
+
+export function getBookmarkDisplayName(entry: BookmarkEntry): string {
+  return entry.key.map((p) => p.displayName).join(" › ");
 }
 
 function loadBookmarkData(): BookmarkEntry[] {
   try {
     const content = readFileSync(BOOKMARKS_FILE, "utf-8");
-    return JSON.parse(content) as BookmarkEntry[];
+    const parsed: unknown = JSON.parse(content);
+    const result = z.array(z.unknown()).safeParse(parsed);
+    if (!result.success) return [];
+    return result.data.flatMap((item) => {
+      const entry = BookmarkEntrySchema.safeParse(item);
+      return entry.success ? [entry.data] : [];
+    });
   } catch {
     return [];
   }

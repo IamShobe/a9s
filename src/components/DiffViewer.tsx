@@ -3,18 +3,30 @@ import { Box, Text } from "ink";
 import { useTheme } from "../contexts/ThemeContext.js";
 import { clampScrollOffset, scrollIndicators } from "../utils/scrollUtils.js";
 
+// Chrome lines: header(1) + divider(1)
+const DIFF_CHROME = 2;
+
 interface DiffViewerProps {
   oldValue: string;
   newValue: string;
   scrollOffset: number;
-  visibleLines: number;
+  availableHeight: number;
 }
 
-export function DiffViewer({ oldValue, newValue, scrollOffset, visibleLines }: DiffViewerProps) {
+export function DiffViewer({ oldValue, newValue, scrollOffset, availableHeight }: DiffViewerProps) {
   const theme = useTheme();
   const oldLines = oldValue.split("\n");
   const newLines = newValue.split("\n");
   const maxLines = Math.max(oldLines.length, newLines.length);
+
+  const baseVisible = Math.max(1, availableHeight - DIFF_CHROME);
+  const { hasMoreAbove: preAbove, hasMoreBelow: preBelow } = scrollIndicators(
+    clampScrollOffset(scrollOffset, maxLines, baseVisible),
+    maxLines,
+    baseVisible,
+  );
+  const indicatorLines = (preAbove ? 1 : 0) + (preBelow ? 1 : 0);
+  const visibleLines = Math.max(1, baseVisible - indicatorLines);
 
   const clampedOffset = clampScrollOffset(scrollOffset, maxLines, visibleLines);
   const oldDisplay = oldLines.slice(clampedOffset, clampedOffset + visibleLines).join("\n");

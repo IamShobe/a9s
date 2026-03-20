@@ -2,15 +2,17 @@ import { atom } from "jotai";
 import type { ServiceId } from "../services.js";
 import type { ThemeName } from "../constants/theme.js";
 import { loadConfig } from "../utils/config.js";
+import type { BookmarkKeyPart } from "../utils/bookmarks.js";
+
+/** A frame in the adapter navigation stack, capturing state to restore on pop. */
+export interface AdapterStackFrame {
+  adapterId: ServiceId;
+  filterText: string;
+  selectedIndex: number;
+}
 
 /** Persists across HMR / re-renders. Currently selected AWS service. */
-export const currentlySelectedServiceAtom = atom<ServiceId>("s3");
-
-/** Navigation history: parallel stacks of filter texts and selected indices per level. */
-export const hierarchyStateAtom = atom<{ filters: string[]; indices: number[] }>({
-  filters: [""],
-  indices: [0],
-});
+export const currentlySelectedServiceAtom = atom<ServiceId>("_resources");
 
 /** Selected AWS region. Falls back to env vars or us-east-1. */
 export const selectedRegionAtom = atom(
@@ -33,3 +35,10 @@ export const revealSecretsAtom = atom(false);
 
 /** Active UI theme name — initialized from ~/.config/a9s/config.json on startup. */
 export const themeNameAtom = atom<ThemeName>(loadConfig().theme ?? "monokai");
+
+/** Pending bookmark level restore — consumed by performFetch before getRows(). */
+export interface BookmarkRestoreState {
+  serviceId: string;
+  key: BookmarkKeyPart[];
+}
+export const bookmarkRestoreAtom = atom<BookmarkRestoreState | null>(null);

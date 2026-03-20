@@ -1,10 +1,9 @@
 import type { ServiceAdapter } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import { singlePartKey } from "../../utils/bookmarks.js";
 import { runAwsJsonAsync, buildRegionArgs } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom } from "jotai";
-import { getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type {
   AwsHostedZone,
   AwsResourceRecordSet,
@@ -20,20 +19,13 @@ interface Route53NavFrame extends NavFrame {
   level: Route53Level;
 }
 
-export const route53LevelAtom = atom<Route53Level>({ kind: "zones" });
-export const route53BackStackAtom = atom<Route53NavFrame[]>([]);
 
 export function createRoute53ServiceAdapter(
   endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(route53LevelAtom);
-  const setLevel = (level: Route53Level) => store.set(route53LevelAtom, level);
-  const getBackStack = () => store.get(route53BackStackAtom);
-  const setBackStack = (stack: Route53NavFrame[]) => store.set(route53BackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<Route53Level, Route53NavFrame>({ kind: "zones" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -167,8 +159,6 @@ export function createRoute53ServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "zones") return "route53://";
@@ -204,12 +194,13 @@ export function createRoute53ServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "zones" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow) {
+      return singlePartKey("Zone", row);
     },
     capabilities: {
       detail: detailCapability,

@@ -1,9 +1,9 @@
 import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import { singlePartKey } from "../../utils/bookmarks.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import { SERVICE_COLORS } from "../../constants/theme.js";
 import { debugLog } from "../../utils/debugLogger.js";
 import { statusCell } from "../../utils/statusColors.js";
@@ -25,22 +25,14 @@ import { toErrorMessage } from "../../utils/errorHelpers.js";
 import { createEventBridgeDetailCapability } from "./capabilities/detailCapability.js";
 import { createEventBridgeYankCapability } from "./capabilities/yankCapability.js";
 
-export const eventBridgeLevelAtom = atom<EventBridgeLevel>({ kind: "buses" });
-export const eventBridgeBackStackAtom = atom<EventBridgeNavFrame[]>([]);
 
 export function createEventBridgeServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
   const r = resolveRegion(region);
-
-  const getLevel = () => store.get(eventBridgeLevelAtom);
-  const setLevel = (level: EventBridgeLevel) => store.set(eventBridgeLevelAtom, level);
-  const getBackStack = () => store.get(eventBridgeBackStackAtom);
-  const setBackStack = (stack: EventBridgeNavFrame[]) =>
-    store.set(eventBridgeBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<EventBridgeLevel, EventBridgeNavFrame>({ kind: "buses" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -152,7 +144,6 @@ export function createEventBridgeServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
   const detailCapability = createEventBridgeDetailCapability(region, getLevel);
   const yankCapability = createEventBridgeYankCapability();
 
@@ -350,12 +341,13 @@ export function createEventBridgeServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getRelatedResources,
-    reset() {
-      setLevel({ kind: "buses" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow) {
+      return singlePartKey("Rule", row);
     },
     getBrowserUrl(row) {
       const meta = row.meta as EventBridgeRowMeta | undefined;

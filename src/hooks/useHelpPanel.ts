@@ -8,20 +8,9 @@ export function useHelpPanel(helpTabs: HelpTab[], helpContainerHeight: number) {
 
   const helpTabsCount = helpTabs.length;
 
-  // Rows reserved for header/footer chrome above the list
-  const SCROLL_RESERVE_ROWS = 3;
-  // Extra row for the scroll position indicator line
-  const SCROLL_INDICATOR_ROW = 1;
-
-  // Compute visible rows from container height and current tab
-  const baseHelpVisibleRows = Math.max(1, helpContainerHeight - SCROLL_RESERVE_ROWS);
-  const activeHelpItemsCount = helpTabs[helpTabIndex]?.items.length ?? 0;
-  const overflowRows = Math.max(0, activeHelpItemsCount - baseHelpVisibleRows);
-  const scrollReserveRows = Math.min(SCROLL_RESERVE_ROWS, overflowRows);
-  const helpVisibleRows =
-    overflowRows > 0
-      ? Math.max(1, baseHelpVisibleRows - scrollReserveRows - SCROLL_INDICATOR_ROW)
-      : Math.max(1, baseHelpVisibleRows - SCROLL_INDICATOR_ROW);
+  // Chrome: border(2) + title(1) + scopeLabel(1) + tabRow(1) = 5
+  const CHROME = 5;
+  const helpVisibleRows = Math.max(1, helpContainerHeight - CHROME);
 
   const clampTab = useCallback(
     (idx: number) => ((idx % helpTabsCount) + helpTabsCount) % helpTabsCount,

@@ -1,9 +1,9 @@
 import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type { AwsSQSQueueAttributes, AwsSQSMessage, SQSLevel, SQSRowMeta } from "./types.js";
 import { createSQSDetailCapability } from "./capabilities/detailCapability.js";
 import { createSQSYankCapability } from "./capabilities/yankCapability.js";
@@ -16,8 +16,6 @@ interface SQSNavFrame extends NavFrame {
   level: SQSLevel;
 }
 
-export const sqsLevelAtom = atom<SQSLevel>({ kind: "queues" });
-export const sqsBackStackAtom = atom<SQSNavFrame[]>([]);
 
 function queueNameFromUrl(url: string): string {
   return url.split("/").pop() ?? url;
@@ -27,13 +25,8 @@ export function createSQSServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(sqsLevelAtom);
-  const setLevel = (level: SQSLevel) => store.set(sqsLevelAtom, level);
-  const getBackStack = () => store.get(sqsBackStackAtom);
-  const setBackStack = (stack: SQSNavFrame[]) => store.set(sqsBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<SQSLevel, SQSNavFrame>({ kind: "queues" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -41,8 +34,8 @@ export function createSQSServiceAdapter(
       return [
         { key: "name", label: "Name", width: 36 },
         { key: "type", label: "Type", width: 10 },
-        { key: "messages", label: "Messages", width: 12 },
-        { key: "inflight", label: "In-Flight", width: 12 },
+        { key: "messages", label: "Messages", width: 12, heatmap: { type: "numeric" } },
+        { key: "inflight", label: "In-Flight", width: 12, heatmap: { type: "numeric" } },
         { key: "created", label: "Created" },
       ];
     }
@@ -50,9 +43,9 @@ export function createSQSServiceAdapter(
     return [
       { key: "messageId", label: "Message ID", width: 40 },
       { key: "body", label: "Body", width: 52 },
-      { key: "sent", label: "Sent", width: 22 },
-      { key: "size", label: "Size", width: 8 },
-      { key: "receiveCount", label: "Rcv Count" },
+      { key: "sent", label: "Sent", width: 22, heatmap: { type: "date" } },
+      { key: "size", label: "Size", width: 8, heatmap: { type: "numeric" } },
+      { key: "receiveCount", label: "Rcv Count", heatmap: { type: "numeric" } },
     ];
   };
 
@@ -185,8 +178,6 @@ export function createSQSServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "queues") return "sqs://";
@@ -242,13 +233,36 @@ export function createSQSServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getRelatedResources,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "queues" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      const meta = row.meta as SQSRowMeta | undefined;
+      if (level.kind === "queues") {
+        // row.id is the queueUrl, queueName is from cells or meta
+        const queueName = meta?.type === "queue" ? meta.queueName : queueNameFromUrl(row.id);
+        return [{ label: "Queue", displayName: queueName, id: row.id }];
+      }
+      // messages level
+      return [
+        { label: "Queue", displayName: level.queueName, id: level.queueUrl },
+        { label: "Message", displayName: row.id, id: row.id },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        setBackStack([]);
+        setLevel({ kind: "queues" });
+      } else if (key.length >= 2) {
+        const queueUrl = key[0]!.id ?? key[0]!.displayName;
+        const queueName = key[0]!.displayName;
+        setBackStack([{ level: { kind: "queues" }, selectedIndex: 0 }]);
+        setLevel({ kind: "messages", queueUrl, queueName });
+      }
     },
     capabilities: {
       detail: detailCapability,

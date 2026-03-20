@@ -1,9 +1,9 @@
 import type { ServiceAdapter, RelatedResource } from "../../adapters/ServiceAdapter.js";
 import type { ColumnDef, TableRow, SelectResult, NavFrame } from "../../types.js";
 import { textCell } from "../../types.js";
+import type { BookmarkKeyPart } from "../../utils/bookmarks.js";
 import { runAwsJsonAsync, buildRegionArgs, resolveRegion } from "../../utils/aws.js";
-import { createBackStackHelpers } from "../../adapters/backStackUtils.js";
-import { atom, getDefaultStore } from "jotai";
+import { createStackState } from "../../utils/createStackState.js";
 import type { AwsLambdaFunction, AwsLambdaVersion, LambdaLevel, LambdaRowMeta } from "./types.js";
 import { createLambdaDetailCapability } from "./capabilities/detailCapability.js";
 import { createLambdaYankCapability } from "./capabilities/yankCapability.js";
@@ -17,8 +17,6 @@ interface LambdaNavFrame extends NavFrame {
   level: LambdaLevel;
 }
 
-export const lambdaLevelAtom = atom<LambdaLevel>({ kind: "functions" });
-export const lambdaBackStackAtom = atom<LambdaNavFrame[]>([]);
 
 function formatLastModified(raw?: string): string {
   if (!raw) return "-";
@@ -30,13 +28,8 @@ export function createLambdaServiceAdapter(
   _endpointUrl?: string,
   region?: string,
 ): ServiceAdapter {
-  const store = getDefaultStore();
   const regionArgs = buildRegionArgs(region);
-
-  const getLevel = () => store.get(lambdaLevelAtom);
-  const setLevel = (level: LambdaLevel) => store.set(lambdaLevelAtom, level);
-  const getBackStack = () => store.get(lambdaBackStackAtom);
-  const setBackStack = (stack: LambdaNavFrame[]) => store.set(lambdaBackStackAtom, stack);
+  const { getLevel, setLevel, getBackStack, setBackStack, canGoBack, goBack, pushUiLevel, reset } = createStackState<LambdaLevel, LambdaNavFrame>({ kind: "functions" });
 
   const getColumns = (): ColumnDef[] => {
     const level = getLevel();
@@ -44,17 +37,17 @@ export function createLambdaServiceAdapter(
       return [
         { key: "name", label: "Name" },
         { key: "runtime", label: "Runtime", width: 15 },
-        { key: "memory", label: "Memory", width: 10 },
-        { key: "timeout", label: "Timeout", width: 10 },
-        { key: "lastModified", label: "Last Modified", width: 22 },
+        { key: "memory", label: "Memory", width: 10, heatmap: { type: "numeric" } },
+        { key: "timeout", label: "Timeout", width: 10, heatmap: { type: "numeric" } },
+        { key: "lastModified", label: "Last Modified", width: 22, heatmap: { type: "date" } },
       ];
     }
     // versions level
     return [
       { key: "version", label: "Version", width: 12 },
       { key: "description", label: "Description" },
-      { key: "codeSize", label: "Code Size", width: 12 },
-      { key: "lastModified", label: "Last Modified", width: 22 },
+      { key: "codeSize", label: "Code Size", width: 12, heatmap: { type: "numeric" } },
+      { key: "lastModified", label: "Last Modified", width: 22, heatmap: { type: "date" } },
     ];
   };
 
@@ -146,8 +139,6 @@ export function createLambdaServiceAdapter(
     return { action: "none" };
   };
 
-  const { canGoBack, goBack } = createBackStackHelpers(getLevel, setLevel, getBackStack, setBackStack);
-
   const getPath = (): string => {
     const level = getLevel();
     if (level.kind === "functions") return "lambda://";
@@ -200,13 +191,36 @@ export function createLambdaServiceAdapter(
     onSelect,
     canGoBack,
     goBack,
+    pushUiLevel,
     getPath,
     getContextLabel,
     getRelatedResources,
     getBrowserUrl,
-    reset() {
-      setLevel({ kind: "functions" });
-      setBackStack([]);
+    reset,
+    getBookmarkKey(row: TableRow): BookmarkKeyPart[] {
+      const level = getLevel();
+      const meta = row.meta as LambdaRowMeta | undefined;
+      if (level.kind === "functions") {
+        const functionName = meta?.type === "function" ? meta.functionName : row.id;
+        return [{ label: "Function", displayName: functionName, id: row.id }];
+      }
+      // versions level
+      const version = meta?.type === "version" ? meta.version : row.id;
+      return [
+        { label: "Function", displayName: level.functionName, id: level.functionArn },
+        { label: "Version", displayName: version, id: row.id },
+      ];
+    },
+    restoreFromKey(key: BookmarkKeyPart[]): void {
+      if (key.length === 1) {
+        setBackStack([]);
+        setLevel({ kind: "functions" });
+      } else if (key.length >= 2) {
+        const functionName = key[0]!.displayName;
+        const functionArn = key[0]!.id ?? key[0]!.displayName;
+        setBackStack([{ level: { kind: "functions" }, selectedIndex: 0 }]);
+        setLevel({ kind: "versions", functionName, functionArn });
+      }
     },
     capabilities: {
       detail: detailCapability,
