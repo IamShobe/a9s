@@ -67,29 +67,33 @@ export function createSNSServiceAdapter(
         const topics = listData.Topics ?? [];
         if (topics.length === 0) return [];
 
-        const rows: TableRow[] = [];
-        for (const topic of topics) {
-          const topicName = topicNameFromArn(topic.TopicArn);
-          let confirmed = "-";
-          let pending = "-";
-          let fifo = "No";
-          try {
-            const attrData = await runAwsJsonAsync<{ Attributes: AwsSNSTopicAttributes }>([
+        const attrResults = await Promise.allSettled(
+          topics.map((topic) =>
+            runAwsJsonAsync<{ Attributes: AwsSNSTopicAttributes }>([
               "sns",
               "get-topic-attributes",
               "--topic-arn",
               topic.TopicArn,
               ...regionArgs,
-            ]);
-            const attrs = attrData.Attributes ?? {};
+            ]),
+          ),
+        );
+
+        return topics.map((topic, i) => {
+          const topicName = topicNameFromArn(topic.TopicArn);
+          let confirmed = "-";
+          let pending = "-";
+          let fifo = "No";
+
+          const result = attrResults[i]!;
+          if (result.status === "fulfilled") {
+            const attrs = result.value.Attributes ?? {};
             confirmed = attrs.SubscriptionsConfirmed ?? "-";
             pending = attrs.SubscriptionsPending ?? "-";
             fifo = attrs.FifoTopic === "true" ? "Yes" : "No";
-          } catch {
-            // ignore per-topic attribute fetch failures
           }
 
-          rows.push({
+          return {
             id: topic.TopicArn,
             cells: {
               name: textCell(topicName),
@@ -103,9 +107,8 @@ export function createSNSServiceAdapter(
               topicArn: topic.TopicArn,
               topicName,
             } satisfies SNSRowMeta,
-          });
-        }
-        return rows;
+          };
+        });
       } catch (e) {
         debugLog("sns", "getRows (topics) failed", e);
         return [];
@@ -188,16 +191,37 @@ export function createSNSServiceAdapter(
   const yankCapability = createSNSYankCapability();
   const actionCapability = createSNSActionCapability(region, getLevel);
 
-  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+  const getRelatedResources = async (row: TableRow): Promise<RelatedResource[]> => {
     const level = getLevel();
     if (level.kind !== "topics") return [];
     const meta = row.meta as SNSRowMeta | undefined;
-    if (!meta) return [];
-    const name = meta.topicName ?? topicNameFromArn(meta.topicArn ?? row.id);
-    return [
-      { serviceId: "sqs", label: `SQS subscriptions for ${name}` },
-      { serviceId: "lambda", label: `Lambda subscriptions for ${name}` },
-    ];
+    if (!meta || meta.type !== "topic") return [];
+
+    try {
+      const data = await runAwsJsonAsync<{
+        Subscriptions: Array<{ Protocol: string; Endpoint: string; SubscriptionArn: string }>;
+      }>([
+        "sns",
+        "list-subscriptions-by-topic",
+        "--topic-arn",
+        meta.topicArn,
+        ...regionArgs,
+      ]);
+
+      const results: RelatedResource[] = [];
+      for (const sub of data.Subscriptions ?? []) {
+        if (sub.Protocol === "sqs") {
+          const name = sub.Endpoint.split(":").pop() ?? sub.Endpoint;
+          results.push({ serviceId: "sqs", label: `SQS: ${name}`, filterHint: name });
+        } else if (sub.Protocol === "lambda") {
+          const name = sub.Endpoint.split(":function:")[1] ?? sub.Endpoint.split(":").pop() ?? sub.Endpoint;
+          results.push({ serviceId: "lambda", label: `Lambda: ${name}`, filterHint: name });
+        }
+      }
+      return results;
+    } catch {
+      return [];
+    }
   };
 
   const getBrowserUrl = (row: TableRow): string | null => {

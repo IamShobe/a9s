@@ -63,6 +63,7 @@ interface AppMainViewProps {
   histogramState?: { columnKey: string; columnLabel: string; bars: HistogramBar[] | null } | null;
   filePreviewState?: FilePreviewState | null;
   filePreviewNavigation?: ReturnType<typeof useNavigation>;
+  filePreviewYankMode?: boolean;
   onPreviewFilterChange?: (text: string) => void;
   onPreviewFilterSubmit?: () => void;
 }
@@ -99,6 +100,7 @@ export function AppMainView({
   histogramState,
   filePreviewState,
   filePreviewNavigation,
+  filePreviewYankMode = false,
   onPreviewFilterChange,
   onPreviewFilterSubmit,
 }: AppMainViewProps) {
@@ -270,9 +272,10 @@ export function AppMainView({
         previewState={filePreviewState}
         navigation={filePreviewNavigation}
         termCols={termCols}
-        tableHeight={tableHeight}
+        tableHeight={tableHeight - 3}
         onFilterChange={onPreviewFilterChange ?? (() => {})}
         onFilterSubmit={onPreviewFilterSubmit ?? (() => {})}
+        previewYankMode={filePreviewYankMode}
       />
     );
   }

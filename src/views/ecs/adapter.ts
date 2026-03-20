@@ -155,6 +155,7 @@ export function createECSServiceAdapter(
             serviceArn: svc.serviceArn,
             serviceName: svc.serviceName,
             clusterArn,
+            ...(svc.taskDefinition !== undefined && { taskDefinition: svc.taskDefinition }),
           } satisfies ECSRowMeta,
         }));
       } catch (e) {
@@ -270,15 +271,39 @@ export function createECSServiceAdapter(
   const editCapability = createECSEditCapability(region, getLevel);
   const actionCapability = createECSActionCapability(region, getLevel);
 
-  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+  const getRelatedResources = async (row: TableRow): Promise<RelatedResource[]> => {
     const meta = row.meta as ECSRowMeta | undefined;
     if (!meta || meta.type !== "service") return [];
     const clusterName = meta.clusterArn.split("/").pop() ?? meta.clusterArn;
-    const { serviceName } = meta;
+    const { serviceName, taskDefinition: taskDefArn } = meta;
     if (!clusterName || !serviceName) return [];
+
+    let cloudwatchFilterHint = `/ecs/${clusterName}/${serviceName}`; // fallback
+    if (taskDefArn) {
+      try {
+        const data = await runAwsJsonAsync<{
+          taskDefinition: {
+            containerDefinitions: Array<{
+              logConfiguration?: { logDriver?: string; options?: Record<string, string> };
+            }>;
+          };
+        }>(["ecs", "describe-task-definition", "--task-definition", taskDefArn, ...regionArgs]);
+        const containers = data.taskDefinition?.containerDefinitions ?? [];
+        for (const container of containers) {
+          const logOpts = container.logConfiguration;
+          if (logOpts?.logDriver === "awslogs" && logOpts.options?.["awslogs-group"]) {
+            cloudwatchFilterHint = logOpts.options["awslogs-group"];
+            break;
+          }
+        }
+      } catch {
+        // keep fallback hint
+      }
+    }
+
     return [
-      { serviceId: "cloudwatch", label: `CloudWatch logs for ${serviceName}`, filterHint: `/ecs/${clusterName}/${serviceName}` },
-      { serviceId: "elb", label: `Load balancers for ${serviceName}` },
+      { serviceId: "cloudwatch", label: `CloudWatch logs for ${serviceName}`, filterHint: cloudwatchFilterHint },
+      { serviceId: "elb", label: `Load balancers for ${serviceName}`, filterHint: serviceName },
     ];
   };
 

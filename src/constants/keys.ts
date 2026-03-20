@@ -20,6 +20,8 @@ export const KB = {
   PREVIEW_FILE: "preview_file", // v (CSV/Parquet files)
   PREVIEW_NEXT_PAGE: "preview_next_page", // ] in preview
   PREVIEW_PREV_PAGE: "preview_prev_page", // [ in preview
+  PREVIEW_COL_LEFT: "preview_col_left", // < in preview
+  PREVIEW_COL_RIGHT: "preview_col_right", // > in preview
   PREVIEW_FILTER: "preview_filter", // / in preview
   PREVIEW_CLOSE: "preview_close", // Esc in preview
   QUIT: "quit", // q

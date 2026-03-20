@@ -63,11 +63,11 @@ export const DynamoDBYankOptions: YankOptionDef<
     isRelevant: (row) => row.meta.type === "item-field",
     resolve: async (row) => {
       if (row.meta.type !== "item-field") return null;
-      return row.meta.fieldValue;
+      return row.meta.fieldValueFull;
     },
   },
   {
-    trigger: { type: "key", char: "k" },
+    trigger: { type: "key", char: "n" },
     label: "Copy attribute name",
     feedback: "Copied attribute name",
     isRelevant: (row) => row.meta.type === "item-field",

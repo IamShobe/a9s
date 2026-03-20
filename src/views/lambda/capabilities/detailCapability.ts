@@ -39,6 +39,10 @@ export function createLambdaDetailCapability(
         const fields: DetailField[] = [
           { label: "Function Name", value: fn.FunctionName },
           { label: "ARN", value: fn.FunctionArn },
+          { label: "Role", value: fn.Role ?? "-" },
+          { label: "Architecture", value: (fn.Architectures ?? []).join(", ") || "-" },
+          { label: "Package Type", value: fn.PackageType ?? "-" },
+          { label: "Code Size", value: fn.CodeSize != null ? (fn.CodeSize >= 1048576 ? `${(fn.CodeSize / 1048576).toFixed(1)} MB` : `${(fn.CodeSize / 1024).toFixed(1)} KB`) : "-" },
           { label: "Runtime", value: fn.Runtime ?? "-" },
           { label: "Handler", value: fn.Handler ?? "-" },
           { label: "Memory", value: fn.MemorySize != null ? `${fn.MemorySize} MB` : "-" },
@@ -60,6 +64,10 @@ export function createLambdaDetailCapability(
           fields.push({
             label: "Subnets",
             value: (fn.VpcConfig.SubnetIds ?? []).join(", ") || "-",
+          });
+          fields.push({
+            label: "Security Groups",
+            value: (fn.VpcConfig.SecurityGroupIds ?? []).join(", ") || "-",
           });
         }
 

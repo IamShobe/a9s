@@ -261,7 +261,7 @@ export function createELBServiceAdapter(
     const name = meta.lbName ?? row.id;
     return [
       { serviceId: "cloudwatch", label: `CloudWatch metrics for ${name}`, filterHint: name },
-      { serviceId: "ec2", label: `EC2 targets for ${name}` },
+      { serviceId: "ec2", label: `EC2 targets for ${name}`, filterHint: name },
     ];
   };
 

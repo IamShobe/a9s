@@ -166,7 +166,7 @@ export function createS3ServiceAdapter(endpointUrl?: string, region?: string): S
       const bucketName = row.id;
       return [
         { serviceId: "cloudwatch", label: `CloudWatch metrics for ${bucketName}`, filterHint: bucketName },
-        { serviceId: "eventbridge", label: `EventBridge rules for ${bucketName}` },
+        { serviceId: "eventbridge", label: `EventBridge rules for ${bucketName}`, filterHint: bucketName },
       ];
     }
     return [];

@@ -66,6 +66,9 @@ importers:
       ink-testing-library:
         specifier: ^4.0.0
         version: 4.0.0(@types/react@19.2.14)
+      nodejs-polars:
+        specifier: ^0.24.1
+        version: 0.24.1
       oxfmt:
         specifier: ^0.36.0
         version: 0.36.0
@@ -1394,6 +1397,62 @@ packages:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
+
+  nodejs-polars-android-arm64@0.24.1:
+    resolution: {integrity: sha512-5ww2Dhp8L6vCBQivCYLjiFBvY+zn8/3jG/Ou0yxhseERMGpwvAktC83AQHmWyqUPQ3tM4P5FrTv1RzB2FcuuQQ==}
+    engines: {node: '>= 16'}
+    cpu: [arm64]
+    os: [android]
+
+  nodejs-polars-darwin-arm64@0.24.1:
+    resolution: {integrity: sha512-Xt0xgio+UBhAw7fNdomIJLS/hrLlU7F8wT9nQdOc1L50IACKxwEA/biXzDwUq/XqtjZuys1InnGa8TBnR6bPdw==}
+    engines: {node: '>= 16'}
+    cpu: [arm64]
+    os: [darwin]
+
+  nodejs-polars-darwin-x64@0.24.1:
+    resolution: {integrity: sha512-MPUPrwnAMlYjPYlW5+exvGWZ19fCkTnAHqXsKbHsMHm+IidV5kJknFI5OIFTtOaZOslv/rCTEV0nwV0Bouz+qA==}
+    engines: {node: '>= 16'}
+    cpu: [x64]
+    os: [darwin]
+
+  nodejs-polars-linux-arm64-gnu@0.24.1:
+    resolution: {integrity: sha512-xl/zCjKPZqQVapYTYdB7V33AHb1RC6bJqWj7W6XEt1pHTUzEEn1+JHN5+XZS/cLAR4Rrrar6EaJkvYeugOz1dw==}
+    engines: {node: '>= 16'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  nodejs-polars-linux-arm64-musl@0.24.1:
+    resolution: {integrity: sha512-pOy3P/7Y7sJjxl2GGer25/x8+UkAVNGcAOkuFCdKFk4mqkKTZdg5jm11R1v1Ips8G913WZuUtGlJeXHL+8Ah2g==}
+    engines: {node: '>= 16'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  nodejs-polars-linux-x64-gnu@0.24.1:
+    resolution: {integrity: sha512-/URt0YxFmHjJK6bGjdTs96UWFJUT+shZPUz2pWbrlhvLwmPnxRE2Nxffr1/QXMGxwDmafRUKnmih6nJPrvwP8A==}
+    engines: {node: '>= 16'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  nodejs-polars-linux-x64-musl@0.24.1:
+    resolution: {integrity: sha512-kV+fvt2GPeeSYjRcghai6R/MLu2pXNApEWYacG4lX+vbiwMsYYtL3YprIFLIOMsacZISWI2+bTfYpt+ZGVYcgg==}
+    engines: {node: '>= 16'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  nodejs-polars-win32-x64-msvc@0.24.1:
+    resolution: {integrity: sha512-TOzhYWyDh8Bfksuh0sni/W2ifnbAov+uRTEgcuZQslwt1MJvzGNRfw+5IfGCNH/TreS9JkXxR7R3LG+IPp11VA==}
+    engines: {node: '>= 16'}
+    cpu: [x64]
+    os: [win32]
+
+  nodejs-polars@0.24.1:
+    resolution: {integrity: sha512-V5n/y6G2/yfLR8U95nH1M0S4ykL4AvqzxAreOJL9sG9d8KPVfh+oXfs0aw8sa56WqtxP6op04T7Yw8HANg5Xqw==}
+    engines: {node: '>= 20'}
 
   npm-run-path@4.0.1:
     resolution: {integrity: sha512-S48WzZW777zhNIrn7gxOlISNAqi9ZC/uQFnRdbeIHhZhCA6UqpkOT8T1G7BvfdgP4Er8gF4sUbaS0i7QvIfCWw==}
@@ -3206,6 +3265,41 @@ snapshots:
   mimic-fn@2.1.0: {}
 
   nanoid@3.3.11: {}
+
+  nodejs-polars-android-arm64@0.24.1:
+    optional: true
+
+  nodejs-polars-darwin-arm64@0.24.1:
+    optional: true
+
+  nodejs-polars-darwin-x64@0.24.1:
+    optional: true
+
+  nodejs-polars-linux-arm64-gnu@0.24.1:
+    optional: true
+
+  nodejs-polars-linux-arm64-musl@0.24.1:
+    optional: true
+
+  nodejs-polars-linux-x64-gnu@0.24.1:
+    optional: true
+
+  nodejs-polars-linux-x64-musl@0.24.1:
+    optional: true
+
+  nodejs-polars-win32-x64-msvc@0.24.1:
+    optional: true
+
+  nodejs-polars@0.24.1:
+    optionalDependencies:
+      nodejs-polars-android-arm64: 0.24.1
+      nodejs-polars-darwin-arm64: 0.24.1
+      nodejs-polars-darwin-x64: 0.24.1
+      nodejs-polars-linux-arm64-gnu: 0.24.1
+      nodejs-polars-linux-arm64-musl: 0.24.1
+      nodejs-polars-linux-x64-gnu: 0.24.1
+      nodejs-polars-linux-x64-musl: 0.24.1
+      nodejs-polars-win32-x64-msvc: 0.24.1
 
   npm-run-path@4.0.1:
     dependencies:

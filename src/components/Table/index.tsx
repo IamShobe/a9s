@@ -75,9 +75,8 @@ const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filte
   columns.forEach((col, i) => {
     if (i > 0)
       parts.push(
-        <Text key={`sep-${i}`} color={theme.table.rowSeparatorText}>
-          {" "}
-          │{" "}
+        <Text key={`sep-${i}`} color={isSelected ? theme.table.selectedRowText : theme.table.rowSeparatorText} {...(isSelected ? { backgroundColor: theme.table.selectedRowBg } : {})}>
+          {" "}│{" "}
         </Text>,
       );
 
@@ -92,7 +91,7 @@ const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filte
 
     if (isSelected) {
       parts.push(
-        <Text key={`cell-${i}`} color={theme.table.selectedRowText} bold>
+        <Text key={`cell-${i}`} color={theme.table.selectedRowText} backgroundColor={theme.table.selectedRowBg} bold>
           {highlighted}
         </Text>,
       );
@@ -102,7 +101,7 @@ const Row = React.memo(function Row({ row, isSelected, columns, colWidths, filte
     }
   });
 
-  return isSelected ? <Box backgroundColor={theme.table.selectedRowBg}>{parts}</Box> : <Box>{parts}</Box>;
+  return <Text>{parts}</Text>;
 });
 
 export const Table = React.memo(function Table({
@@ -189,7 +188,7 @@ export const Table = React.memo(function Table({
         );
       }
     });
-    return <Box>{parts}</Box>;
+    return <Text>{parts}</Text>;
   };
 
   const renderDivider = () => (
@@ -232,20 +231,18 @@ export const Table = React.memo(function Table({
       )}
       {renderHeader()}
       {renderDivider()}
-      <Box flexDirection="column" flexGrow={1}>
-        {visibleRows.map((row, i) => (
-          <Row
-            key={row.id}
-            row={row}
-            isSelected={i === adjustedSelected}
-            columns={columns}
-            colWidths={colWidths}
-            filterText={filterText}
-            isMultiSelected={multiSelectedIds?.has(row.id) ?? false}
-            isBookmarked={bookmarkedIds?.has(row.id) ?? false}
-          />
-        ))}
-      </Box>
+      {visibleRows.map((row, i) => (
+        <Row
+          key={row.id}
+          row={row}
+          isSelected={i === adjustedSelected}
+          columns={columns}
+          colWidths={colWidths}
+          filterText={filterText}
+          isMultiSelected={multiSelectedIds?.has(row.id) ?? false}
+          isBookmarked={bookmarkedIds?.has(row.id) ?? false}
+        />
+      ))}
       {footerContent && (
         <>
           <Text color={theme.table.rowSeparatorText}>

@@ -204,7 +204,7 @@ export const KEYBINDINGS: KeyBinding[] = [
     label: "Preview CSV/Parquet file",
     shortLabel: "view",
     priority: 30,
-    showIf: (ctx) => ctx.hasPreviewableRow,
+    showIf: (ctx) => ctx.hasPreviewableRow && !ctx.hasHiddenSecrets,
   },
   {
     action: KB.REVEAL_TOGGLE,
@@ -268,7 +268,7 @@ export const KEYBINDINGS: KeyBinding[] = [
     action: KB.HISTOGRAM,
     trigger: { type: "key", char: "i" },
     scope: "navigate",
-    label: "Show column histogram",
+    label: "Show column histogram (i again = next column)",
     shortLabel: "histogram",
   },
   {
@@ -494,6 +494,20 @@ export const KEYBINDINGS: KeyBinding[] = [
     scope: "preview",
     label: "Previous page",
     shortLabel: "prev page",
+  },
+  {
+    action: KB.PREVIEW_COL_RIGHT,
+    trigger: { type: "any", of: [{ type: "key", char: ">" }, { type: "special", name: "rightArrow" }] },
+    scope: "preview",
+    label: "Scroll columns right",
+    shortLabel: "col →",
+  },
+  {
+    action: KB.PREVIEW_COL_LEFT,
+    trigger: { type: "any", of: [{ type: "key", char: "<" }, { type: "special", name: "leftArrow" }] },
+    scope: "preview",
+    label: "Scroll columns left",
+    shortLabel: "← col",
   },
   {
     action: KB.PREVIEW_FILTER,

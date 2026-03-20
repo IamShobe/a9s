@@ -67,10 +67,18 @@ export interface InputEventActions {
   preview: {
     close: () => void;
     openFilter: () => void;
+    closeFilter: () => void;
     nextPage: () => void;
     prevPage: () => void;
     scrollUp: () => void;
     scrollDown: () => void;
+    colLeft: () => void;
+    colRight: () => void;
+    toTop: () => void;
+    toBottom: () => void;
+    enterYank: () => void;
+    cancelYank: () => void;
+    yankColumn: (colIndex: number) => void;
   };
   scroll: {
     up: () => void;
@@ -247,7 +255,7 @@ export function translateRawInputEvent(
     if (runtime.previewFilterActive) {
       // In filter mode — only Esc is captured here; text input is handled by the panel
       if (key.escape) {
-        return { event: { scope: "modal", type: "closePreview" }, resetChord: true };
+        return { event: { scope: "modal", type: "closePreviewFilter" }, resetChord: true };
       }
       return { event: null, resetChord: false };
     }
@@ -260,8 +268,17 @@ export function translateRawInputEvent(
     if (input === "[") {
       return { event: { scope: "preview", type: "prevPage" }, resetChord: true };
     }
+    if (input === ">" || key.rightArrow) {
+      return { event: { scope: "preview", type: "colRight" }, resetChord: true };
+    }
+    if (input === "<" || key.leftArrow) {
+      return { event: { scope: "preview", type: "colLeft" }, resetChord: true };
+    }
     if (input === "/") {
       return { event: { scope: "modal", type: "openPreviewFilter" }, resetChord: true };
+    }
+    if (input === "y") {
+      return { event: { scope: "modal", type: "enterPreviewYank" }, resetChord: true };
     }
     const scrollAction = deps.resolve(input, key, "navigate");
     if (scrollAction === KB.MOVE_DOWN) {
@@ -270,7 +287,13 @@ export function translateRawInputEvent(
     if (scrollAction === KB.MOVE_UP) {
       return { event: { scope: "preview", type: "scrollUp" }, resetChord: false };
     }
-    return { event: null, resetChord: true };
+    if (scrollAction === KB.GO_TOP) {
+      return { event: { scope: "preview", type: "toTop" }, resetChord: true };
+    }
+    if (scrollAction === KB.GO_BOTTOM) {
+      return { event: { scope: "preview", type: "toBottom" }, resetChord: true };
+    }
+    return { event: null, resetChord: false };
   }
 
   if (runtime.yankMode) {
@@ -511,8 +534,17 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
         case "closePreview":
           actions.preview.close();
           return;
+        case "closePreviewFilter":
+          actions.preview.closeFilter();
+          return;
         case "openPreviewFilter":
           actions.preview.openFilter();
+          return;
+        case "enterPreviewYank":
+          actions.preview.enterYank();
+          return;
+        case "cancelPreviewYank":
+          actions.preview.cancelYank();
           return;
       }
       return;
@@ -622,6 +654,21 @@ export function applyInputEvent(event: InputEvent, actions: InputEventActions): 
         case "scrollUp":
           actions.preview.scrollUp();
           return;
+        case "colLeft":
+          actions.preview.colLeft();
+          return;
+        case "colRight":
+          actions.preview.colRight();
+          return;
+        case "toTop":
+          actions.preview.toTop();
+          return;
+        case "toBottom":
+          actions.preview.toBottom();
+          return;
+        case "yankColumn":
+          actions.preview.yankColumn(event.colIndex);
+          return;
       }
       return;
     case "scroll":
@@ -712,6 +759,19 @@ export function useInputEventProcessor({
             if (!value) return;
             void writeClipboard(value).then(() => pushYankFeedback(option.feedback));
           });
+          return;
+        }
+
+        if (runtime.filePreviewOpen && runtime.previewYankMode) {
+          resetAllChords();
+          if (event.key.escape) {
+            actions.preview.cancelYank();
+            return;
+          }
+          if (event.input.length === 1 && event.input >= "a" && event.input <= "z") {
+            actions.preview.yankColumn(event.input.charCodeAt(0) - 97);
+            return;
+          }
           return;
         }
 

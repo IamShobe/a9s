@@ -24,6 +24,7 @@ export const DynamoDBRowMetaSchema = z.discriminatedUnion("type", [
     itemIndex: z.number(),
     fieldName: z.string(),
     fieldValue: z.string(),
+    fieldValueFull: z.string(),
     fieldType: z.string(),
     fieldRawValue: z.unknown().optional(),
   }),

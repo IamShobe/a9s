@@ -93,6 +93,7 @@ export function createEC2ServiceAdapter(
               state: inst.State?.Name ?? "",
               publicIp: inst.PublicIpAddress ?? "",
               privateIp: inst.PrivateIpAddress ?? "",
+              vpcId: inst.VpcId ?? "",
             } satisfies EC2RowMeta,
             tags,
             ...ageBandProps(inst.LaunchTime),
@@ -180,22 +181,42 @@ export function createEC2ServiceAdapter(
   const editCapability = createEC2EditCapability(region, getLevel);
   const actionCapability = createEC2ActionCapability(region, getLevel);
 
-  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+  const getRelatedResources = async (row: TableRow): Promise<RelatedResource[]> => {
     const meta = row.meta as EC2RowMeta | undefined;
-    if (!meta) return [];
-    if (meta.type === "instance") {
-      return [
-        {
+    if (!meta || meta.type !== "instance") return [];
+
+    const results: RelatedResource[] = [];
+
+    // CloudWatch: query log groups matching instanceId pattern; omit if none found
+    try {
+      const cwData = await runAwsJsonAsync<{ logGroups: Array<{ logGroupName: string }> }>([
+        "logs",
+        "describe-log-groups",
+        "--log-group-name-pattern",
+        meta.instanceId,
+        ...regionArgs,
+      ]);
+      if ((cwData.logGroups ?? []).length > 0) {
+        results.push({
           serviceId: "cloudwatch",
           label: `CloudWatch logs for ${meta.instanceName || meta.instanceId}`,
-        },
-        {
-          serviceId: "vpc",
-          label: "VPC / Security Groups",
-        },
-      ];
+          filterHint: meta.instanceId,
+        });
+      }
+    } catch {
+      // CloudWatch not available or no groups — omit entry
     }
-    return [];
+
+    // VPC: use vpcId filterHint if available
+    if (meta.vpcId) {
+      results.push({
+        serviceId: "vpc",
+        label: `VPC for ${meta.instanceName || meta.instanceId}`,
+        filterHint: meta.vpcId,
+      });
+    }
+
+    return results;
   };
 
   const getBrowserUrl = (row: TableRow): string | null => {

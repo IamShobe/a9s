@@ -259,7 +259,7 @@ export function createApiGatewayServiceAdapter(
     const name = meta.apiName ?? meta.apiId ?? row.id;
     return [
       { serviceId: "cloudwatch", label: `CloudWatch logs for ${name}`, filterHint: `/aws/apigateway/${meta.apiId ?? row.id}` },
-      { serviceId: "lambda", label: `Lambda integrations for ${name}` },
+      { serviceId: "lambda", label: `Lambda integrations for ${name}`, filterHint: name },
     ];
   };
 

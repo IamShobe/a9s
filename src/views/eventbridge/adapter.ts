@@ -297,18 +297,48 @@ export function createEventBridgeServiceAdapter(
     },
   };
 
-  const getRelatedResources = (row: TableRow): RelatedResource[] => {
+  function targetToRelated(targetArn: string): RelatedResource | null {
+    if (targetArn.includes(":function:")) {
+      const name = targetArn.split(":function:")[1] ?? "";
+      return { serviceId: "lambda", label: `Lambda: ${name}`, filterHint: name };
+    }
+    if (targetArn.match(/arn:aws:sqs:/)) {
+      const name = targetArn.split(":").pop() ?? "";
+      return { serviceId: "sqs", label: `SQS: ${name}`, filterHint: name };
+    }
+    if (targetArn.includes(":sns:")) {
+      const name = targetArn.split(":").pop() ?? "";
+      return { serviceId: "sns", label: `SNS: ${name}`, filterHint: name };
+    }
+    if (targetArn.includes(":log-group:")) {
+      const name = targetArn.split(":log-group:")[1] ?? "";
+      return { serviceId: "cloudwatch", label: `CloudWatch: ${name}`, filterHint: name };
+    }
+    return null;
+  }
+
+  const getRelatedResources = async (row: TableRow): Promise<RelatedResource[]> => {
     const level = getLevel();
     if (level.kind !== "rules") return [];
     const meta = row.meta as EventBridgeRowMeta | undefined;
-    if (!meta) return [];
-    const name = meta.ruleName ?? row.id;
-    return [
-      { serviceId: "lambda", label: `Lambda targets for ${name}` },
-      { serviceId: "sqs", label: `SQS targets for ${name}` },
-      { serviceId: "sns", label: `SNS targets for ${name}` },
-      { serviceId: "cloudwatch", label: `CloudWatch for ${name}` },
-    ];
+    if (!meta || meta.type !== "rule") return [];
+
+    try {
+      const data = await runAwsJsonAsync<{ Targets: Array<{ Id: string; Arn: string }> }>([
+        "events",
+        "list-targets-by-rule",
+        "--rule",
+        meta.ruleName,
+        "--event-bus-name",
+        meta.busName,
+        ...regionArgs,
+      ]);
+      return (data.Targets ?? [])
+        .map((t) => targetToRelated(t.Arn))
+        .filter((r): r is RelatedResource => r !== null);
+    } catch {
+      return [];
+    }
   };
 
   return {

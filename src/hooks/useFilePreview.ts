@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { ColumnDef, TableRow } from "../types.js";
 import type { ServiceAdapter } from "../adapters/ServiceAdapter.js";
 import { useNavigation } from "./useNavigation.js";
@@ -13,10 +13,12 @@ export interface FilePreviewState {
   totalRows: number;
   totalPages: number;
   currentPage: number;
+  colOffset: number;
   isLoading: boolean;
   error: string | null;
   filterText: string;
   filterActive: boolean;
+  previewYankMode: boolean;
 }
 
 interface UseFilePreviewReturn {
@@ -26,9 +28,13 @@ interface UseFilePreviewReturn {
   closePreview: () => void;
   nextPage: () => void;
   prevPage: () => void;
+  colScrollLeft: () => void;
+  colScrollRight: () => void;
   setFilterText: (text: string) => void;
   openFilter: () => void;
   closeFilter: () => void;
+  enterPreviewYank: () => void;
+  cancelPreviewYank: () => void;
 }
 
 export function useFilePreview(tableHeight: number): UseFilePreviewReturn {
@@ -38,6 +44,9 @@ export function useFilePreview(tableHeight: number): UseFilePreviewReturn {
     previewState?.rows.length ?? 0,
     tableHeight,
   );
+
+  const resetRef = useRef(previewNavigation.reset);
+  resetRef.current = previewNavigation.reset;
 
   const loadPage = useCallback(
     async (row: TableRow, adapter: ServiceAdapter, page: number) => {
@@ -55,12 +64,14 @@ export function useFilePreview(tableHeight: number): UseFilePreviewReturn {
           totalRows: result.totalRows,
           totalPages: result.totalPages,
           currentPage: result.page,
+          colOffset: prev?.colOffset ?? 0,
           isLoading: false,
           error: null,
           filterText: prev?.filterText ?? "",
           filterActive: prev?.filterActive ?? false,
+          previewYankMode: false,
         }));
-        previewNavigation.reset();
+        resetRef.current();
       } catch (err) {
         debugLog("useFilePreview", "load error", err);
         setPreviewState((prev) =>
@@ -70,8 +81,7 @@ export function useFilePreview(tableHeight: number): UseFilePreviewReturn {
         );
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [previewNavigation.reset],
+    [],
   );
 
   // Keep a ref to the current row/adapter for page navigation
@@ -90,10 +100,12 @@ export function useFilePreview(tableHeight: number): UseFilePreviewReturn {
         totalRows: 0,
         totalPages: 1,
         currentPage: 0,
+        colOffset: 0,
         isLoading: true,
         error: null,
         filterText: "",
         filterActive: false,
+        previewYankMode: false,
       });
       previewNavigation.reset();
       void loadPage(row, adapter, 0);
@@ -120,6 +132,20 @@ export function useFilePreview(tableHeight: number): UseFilePreviewReturn {
     void loadPage(pageContext.row, pageContext.adapter, prev);
   }, [previewState, pageContext, loadPage]);
 
+  const colScrollLeft = useCallback(() => {
+    setPreviewState((prev) =>
+      prev ? { ...prev, colOffset: Math.max(0, prev.colOffset - 1) } : null,
+    );
+  }, []);
+
+  const colScrollRight = useCallback((colsPerScreen = 5) => {
+    setPreviewState((prev) => {
+      if (!prev) return null;
+      const maxOffset = Math.max(0, prev.columns.length - colsPerScreen);
+      return { ...prev, colOffset: Math.min(maxOffset, prev.colOffset + 1) };
+    });
+  }, []);
+
   const setFilterText = useCallback((text: string) => {
     setPreviewState((prev) => (prev ? { ...prev, filterText: text } : null));
     previewNavigation.reset();
@@ -133,6 +159,14 @@ export function useFilePreview(tableHeight: number): UseFilePreviewReturn {
     setPreviewState((prev) => (prev ? { ...prev, filterActive: false } : null));
   }, []);
 
+  const enterPreviewYank = useCallback(() => {
+    setPreviewState((prev) => (prev ? { ...prev, previewYankMode: true } : null));
+  }, []);
+
+  const cancelPreviewYank = useCallback(() => {
+    setPreviewState((prev) => (prev ? { ...prev, previewYankMode: false } : null));
+  }, []);
+
   return {
     previewState,
     previewNavigation,
@@ -140,8 +174,12 @@ export function useFilePreview(tableHeight: number): UseFilePreviewReturn {
     closePreview,
     nextPage,
     prevPage,
+    colScrollLeft,
+    colScrollRight,
     setFilterText,
     openFilter,
     closeFilter,
+    enterPreviewYank,
+    cancelPreviewYank,
   };
 }

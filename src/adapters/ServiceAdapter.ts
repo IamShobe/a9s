@@ -39,7 +39,7 @@ export interface ServiceAdapter {
   reset?(): void;
 
   /** Return related resources for a selected row (e.g. Lambda → CloudWatch log group). */
-  getRelatedResources?(row: TableRow): RelatedResource[];
+  getRelatedResources?(row: TableRow): RelatedResource[] | Promise<RelatedResource[]>;
 
   /** Return an AWS console URL for the selected row, or null if not supported. */
   getBrowserUrl?(row: TableRow): string | null;

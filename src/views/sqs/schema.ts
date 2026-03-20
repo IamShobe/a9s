@@ -8,6 +8,7 @@ export const SQSRowMetaSchema = z.object({
   isFifo: z.boolean().optional(),
   messageId: z.string().optional(),
   receiptHandle: z.string().optional(),
+  messageBody: z.string().optional(),
 });
 
 export type SQSRowMetaFlat = z.infer<typeof SQSRowMetaSchema>;

@@ -15,6 +15,9 @@ function makeAsyncBuffer(buf: ArrayBuffer): AsyncBuffer {
   };
 }
 
+// Module-level cache keyed on "bucket/key" → parsed rows + headers
+const previewCache = new Map<string, { allRows: Record<string, unknown>[]; headers: string[]; fileName: string }>();
+
 export function createS3PreviewCapability(
   client: S3Client,
   getLevel: () => S3Level,
@@ -27,19 +30,15 @@ export function createS3PreviewCapability(
     return lower.endsWith(".csv") || lower.endsWith(".parquet");
   };
 
-  const getPage = async (
-    row: TableRow,
-    page: number,
-    pageSize: number,
-  ): Promise<PreviewPageResult> => {
-    const level = getLevel();
-    if (level.kind !== "objects") throw new Error("Not in objects level");
+  const fetchAndCache = async (bucket: string, key: string): Promise<{ allRows: Record<string, unknown>[]; headers: string[]; fileName: string }> => {
+    const cacheKey = `${bucket}/${key}`;
+    const cached = previewCache.get(cacheKey);
+    if (cached) return cached;
 
-    const key = row.meta?.key as string;
     const fileName = key.split("/").pop() ?? key;
     const isParquet = key.toLowerCase().endsWith(".parquet");
 
-    const response = await client.send(new GetObjectCommand({ Bucket: level.bucket, Key: key }));
+    const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
     if (!response.Body) throw new Error("Empty response body");
     const bytes = await response.Body.transformToByteArray();
 
@@ -68,6 +67,22 @@ export function createS3PreviewCapability(
       allRows = result.data as Record<string, unknown>[];
       headers = result.meta.fields ?? [];
     }
+
+    const entry = { allRows, headers, fileName };
+    previewCache.set(cacheKey, entry);
+    return entry;
+  };
+
+  const getPage = async (
+    row: TableRow,
+    page: number,
+    pageSize: number,
+  ): Promise<PreviewPageResult> => {
+    const level = getLevel();
+    if (level.kind !== "objects") throw new Error("Not in objects level");
+
+    const key = row.meta?.key as string;
+    const { allRows, headers, fileName } = await fetchAndCache(level.bucket, key);
 
     const totalRows = allRows.length;
     const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));

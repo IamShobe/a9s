@@ -25,6 +25,7 @@ const baseRuntime: InputRuntimeState = {
   histogramOpen: false,
   filePreviewOpen: false,
   previewFilterActive: false,
+  previewYankMode: false,
 };
 
 describe("translateRawInputEvent", () => {
@@ -188,10 +189,18 @@ describe("applyInputEvent", () => {
       preview: {
         close: vi.fn(),
         openFilter: vi.fn(),
+        closeFilter: vi.fn(),
         nextPage: vi.fn(),
         prevPage: vi.fn(),
         scrollUp: vi.fn(),
         scrollDown: vi.fn(),
+        colLeft: vi.fn(),
+        colRight: vi.fn(),
+        toTop: vi.fn(),
+        toBottom: vi.fn(),
+        enterYank: vi.fn(),
+        cancelYank: vi.fn(),
+        yankColumn: vi.fn(),
       },
       scroll: {
         up: vi.fn(),

@@ -114,6 +114,29 @@ function truncateLargeValue(str: string): string {
 }
 
 /**
+ * Format a DynamoDB value for copying — no truncation.
+ */
+export function formatDynamoValueForCopy(attr: DynamoDBAttributeValue): string {
+  const type = getDynamoType(attr);
+  const raw = unwrapDynamoValue(attr);
+
+  const key = Object.keys(attr)[0] as keyof DynamoDBAttributeValue;
+  const value = attr[key];
+
+  if (type === "NULL") return "null";
+  if (type === "BOOL") return String(value);
+  if (type === "N") return String(value);
+  if (type === "S") return String(value);
+  if (type === "B") return `<binary: ${(value as string)?.length ?? 0} bytes>`;
+  if (type === "SS") return ((value as string[]) ?? []).join(", ");
+  if (type === "NS") return ((value as string[]) ?? []).join(", ");
+  if (type === "BS") return `<${((value as string[]) ?? []).length} binary values>`;
+  if (type === "M" || type === "L") return JSON.stringify(raw, null, 2);
+
+  return String(raw);
+}
+
+/**
  * Format billing mode: "On-Demand" or "Provisioned (R:X W:Y)"
  */
 export function formatBillingMode(table: AwsDynamoDBTableDescription): string {

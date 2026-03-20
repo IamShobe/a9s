@@ -40,6 +40,6 @@ export const SQSYankOptions: YankOptionDef<SQSMeta, Record<string, never>>[] = [
     label: "Copy body",
     feedback: "Copied body",
     isRelevant: (row) => row.meta.type === "message",
-    resolve: async (row) => row.cells["body"]?.displayName ?? null,
+    resolve: async (row) => row.meta.messageBody ?? null,
   },
 ];

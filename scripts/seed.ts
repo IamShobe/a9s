@@ -4,6 +4,7 @@ import {
   PutObjectCommand,
   ListBucketsCommand,
 } from "@aws-sdk/client-s3";
+import pl from "nodejs-polars";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { writeFile, readFile, mkdir, rm } from "node:fs/promises";
@@ -1964,72 +1965,104 @@ async function seedPreviewFiles() {
     }
   }
 
-  // --- Parquet files (generated via Python if available) ---
-  const parquetScript = `
-import sys
-try:
-    import pandas as pd
-except ImportError:
-    sys.exit(1)
+  // --- Parquet files (generated via nodejs-polars) ---
+  const pick = <T>(arr: T[], i: number): T => arr[i % arr.length]!;
 
-import json, tempfile, os
+  // employees_wide.parquet — 30 columns, 100 rows
+  const n = 100;
+  const depts = ["Engineering", "Marketing", "Sales", "HR", "Finance", "Legal", "Product", "Design"];
+  const roles = ["Senior", "Staff", "Principal", "Junior", "Lead", "Manager", "Director", "IC"];
+  const levels = ["L3", "L4", "L5", "L6", "L7", "L8"];
+  const cities = ["New York", "San Francisco", "London", "Berlin", "Tokyo", "Sydney", "Toronto", "Paris"];
+  const countries = ["US", "UK", "DE", "JP", "AU", "CA", "FR", "SG"];
+  const timezones = ["America/New_York", "America/Los_Angeles", "Europe/London", "Europe/Berlin", "Asia/Tokyo", "Australia/Sydney"];
+  const costCenters = ["CC-ENG", "CC-MKTG", "CC-SALES", "CC-G&A", "CC-PROD"];
+  const equipmentTiers = ["Standard", "Premium", "Executive"];
 
-data = {
-    "employee_id": list(range(1, 21)),
-    "name": ["Alice","Bob","Charlie","Diana","Eve","Frank","Grace","Hank","Iris","Jack",
-             "Kate","Liam","Mia","Noah","Olivia","Paul","Quinn","Rachel","Sam","Tina"],
-    "department": ["Engineering","Marketing","Engineering","Sales","HR","Engineering",
-                   "Marketing","Sales","HR","Engineering","Engineering","Marketing",
-                   "Sales","HR","Engineering","Marketing","Sales","HR","Engineering","Marketing"],
-    "salary": [95000,72000,105000,88000,65000,112000,76000,91000,68000,98000,
-               102000,74000,85000,63000,115000,78000,92000,67000,99000,71000],
-    "years_at_company": [3,7,1,5,9,2,6,4,8,3,1,5,7,2,4,6,3,8,2,5],
-    "active": [True]*15 + [False]*5,
-}
-df = pd.DataFrame(data)
-path = sys.argv[1]
-df.to_parquet(path, index=False)
-print(f"wrote {len(df)} rows to {path}")
-`;
+  const empDf = pl.DataFrame({
+    employee_id:       Array.from({length: n}, (_, i) => i + 1001),
+    name:              Array.from({length: n}, (_, i) => `Employee ${i + 1}`),
+    email:             Array.from({length: n}, (_, i) => `emp${i + 1}@acme.com`),
+    department:        Array.from({length: n}, (_, i) => pick(depts, i)),
+    team:              Array.from({length: n}, (_, i) => `team-${(i % 8) + 1}`),
+    role:              Array.from({length: n}, (_, i) => pick(roles, i)),
+    level:             Array.from({length: n}, (_, i) => pick(levels, i)),
+    salary:            Array.from({length: n}, (_, i) => 60000 + (i % 10) * 10000 + (i % 5) * 5000),
+    bonus_pct:         Array.from({length: n}, (_, i) => 5 + (i % 20)),
+    years_at_company:  Array.from({length: n}, (_, i) => (i % 15) + 1),
+    vacation_days:     Array.from({length: n}, (_, i) => 15 + (i % 10)),
+    sick_days_ytd:     Array.from({length: n}, (_, i) => i % 8),
+    active:            Array.from({length: n}, (_, i) => i % 10 !== 0),
+    hire_date:         Array.from({length: n}, (_, i) => `202${i % 4}-${String((i % 12) + 1).padStart(2, "0")}-01`),
+    birth_date:        Array.from({length: n}, (_, i) => `${1970 + (i % 30)}-${String((i % 12) + 1).padStart(2, "0")}-15`),
+    office:            Array.from({length: n}, (_, i) => `Office-${(i % 5) + 1}`),
+    city:              Array.from({length: n}, (_, i) => pick(cities, i)),
+    country:           Array.from({length: n}, (_, i) => pick(countries, i)),
+    timezone:          Array.from({length: n}, (_, i) => pick(timezones, i)),
+    phone:             Array.from({length: n}, (_, i) => `+1-555-${String(1000 + i).padStart(4, "0")}`),
+    github_username:   Array.from({length: n}, (_, i) => `emp${i + 1}`),
+    slack_handle:      Array.from({length: n}, (_, i) => `@emp${i + 1}`),
+    performance_score: Array.from({length: n}, (_, i) => parseFloat((3.0 + (i % 20) * 0.1).toFixed(1))),
+    projects_count:    Array.from({length: n}, (_, i) => (i % 8) + 1),
+    certifications:    Array.from({length: n}, (_, i) => i % 5),
+    last_review_date:  Array.from({length: n}, (_, i) => `2025-${String((i % 12) + 1).padStart(2, "0")}-01`),
+    next_review_date:  Array.from({length: n}, (_, i) => `2026-${String((i % 12) + 1).padStart(2, "0")}-01`),
+    cost_center:       Array.from({length: n}, (_, i) => pick(costCenters, i)),
+    equipment_tier:    Array.from({length: n}, (_, i) => pick(equipmentTiers, i)),
+    notes:             Array.from({length: n}, (_, i) => i % 3 === 0 ? `Note for emp ${i + 1}` : ""),
+  });
 
-  const parquetDataScript = `
-import sys
-try:
-    import pandas as pd
-except ImportError:
-    sys.exit(1)
+  // metrics.parquet — 30 columns, 500 rows
+  const m = 500;
+  const metrics = ["cpu_usage", "memory_usage", "disk_io", "network_in", "network_out"];
+  const regions = ["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1"];
+  const envs = ["prod", "staging", "dev"];
+  const datacenters = ["dc-1", "dc-2", "dc-3", "dc-4"];
+  const oses = ["linux", "windows", "macos"];
+  const clusters = ["k8s-prod", "k8s-staging", "ecs-prod", "ecs-staging"];
 
-import numpy as np
+  const metricDf = pl.DataFrame({
+    timestamp:        Array.from({length: m}, (_, i) => `2024-01-01T${String(i % 24).padStart(2,"0")}:00:00Z`),
+    metric:           Array.from({length: m}, (_, i) => pick(metrics, i)),
+    value:            Array.from({length: m}, (_, i) => parseFloat((Math.abs(Math.sin(i * 0.1) * 100)).toFixed(2))),
+    host:             Array.from({length: m}, (_, i) => `server-${String((i % 10) + 1).padStart(2, "0")}`),
+    region:           Array.from({length: m}, (_, i) => pick(regions, i)),
+    environment:      Array.from({length: m}, (_, i) => pick(envs, i)),
+    datacenter:       Array.from({length: m}, (_, i) => pick(datacenters, i)),
+    os:               Array.from({length: m}, (_, i) => pick(oses, i)),
+    cluster:          Array.from({length: m}, (_, i) => pick(clusters, i)),
+    instance_type:    Array.from({length: m}, (_, i) => `t3.${["micro","small","medium","large"][i % 4]}`),
+    cpu_cores:        Array.from({length: m}, (_, i) => [1, 2, 4, 8, 16][i % 5]!),
+    ram_gb:           Array.from({length: m}, (_, i) => [1, 2, 4, 8, 16, 32][i % 6]!),
+    disk_gb:          Array.from({length: m}, (_, i) => [20, 50, 100, 200, 500][i % 5]!),
+    p50_ms:           Array.from({length: m}, (_, i) => parseFloat((5 + (i % 50) * 0.5).toFixed(1))),
+    p95_ms:           Array.from({length: m}, (_, i) => parseFloat((20 + (i % 100) * 0.8).toFixed(1))),
+    p99_ms:           Array.from({length: m}, (_, i) => parseFloat((50 + (i % 200) * 1.2).toFixed(1))),
+    requests_per_sec: Array.from({length: m}, (_, i) => (i % 1000) + 1),
+    error_rate:       Array.from({length: m}, (_, i) => parseFloat(((i % 10) * 0.01).toFixed(3))),
+    bytes_in:         Array.from({length: m}, (_, i) => (i % 10000) * 1024),
+    bytes_out:        Array.from({length: m}, (_, i) => (i % 8000) * 512),
+    connections:      Array.from({length: m}, (_, i) => (i % 500) + 10),
+    queue_depth:      Array.from({length: m}, (_, i) => i % 100),
+    cache_hit_rate:   Array.from({length: m}, (_, i) => parseFloat((0.5 + (i % 50) * 0.01).toFixed(2))),
+    uptime_seconds:   Array.from({length: m}, (_, i) => i * 3600),
+    restart_count:    Array.from({length: m}, (_, i) => i % 5),
+    alert_level:      Array.from({length: m}, (_, i) => ["ok","warn","critical"][i % 3]!),
+    scrape_interval:  Array.from({length: m}, (_, i) => [10, 15, 30, 60][i % 4]!),
+    retention_days:   Array.from({length: m}, (_, i) => [7, 14, 30, 90][i % 4]!),
+    job_id:           Array.from({length: m}, (_, i) => `job-${String(i + 1).padStart(4, "0")}`),
+    service:          Array.from({length: m}, (_, i) => `svc-${String((i % 20) + 1).padStart(2, "0")}`),
+  });
 
-n = 500
-data = {
-    "timestamp": pd.date_range("2024-01-01", periods=n, freq="h").astype(str).tolist(),
-    "metric": ["cpu_usage","memory_usage","disk_io","network_in","network_out"] * 100,
-    "value": [round(float(v), 2) for v in (list(range(n)))],
-    "host": [f"server-{(i % 10) + 1:02d}" for i in range(n)],
-    "region": (["us-east-1","us-west-2","eu-west-1","ap-southeast-1"] * 125)[:n],
-}
-df = pd.DataFrame(data)
-path = sys.argv[1]
-df.to_parquet(path, index=False)
-print(f"wrote {len(df)} rows to {path}")
-`;
-
-  const parquetUploads: Array<{ key: string; script: string }> = [
-    { key: "preview/employees.parquet", script: parquetScript },
-    { key: "preview/metrics.parquet", script: parquetDataScript },
+  const parquetUploads = [
+    { key: "preview/employees_wide.parquet", df: empDf },
+    { key: "preview/metrics.parquet", df: metricDf },
   ];
 
   for (const upload of parquetUploads) {
     const tmpPath = join(tmpdir(), `a9s_seed_${Date.now()}_${upload.key.replace(/\//g, "_")}`);
     try {
-      // Write python script to temp file and run it
-      const scriptPath = tmpPath + ".py";
-      await writeFile(scriptPath, upload.script);
-      const { stdout } = await execFileAsync("python3", [scriptPath, tmpPath], { timeout: 15000 });
-      console.log(`  Generated parquet: ${stdout.trim()}`);
-
-      // Read generated parquet and upload
+      upload.df.writeParquet(tmpPath);
       const parquetBytes = await readFile(tmpPath);
       await client.send(
         new PutObjectCommand({
@@ -2039,18 +2072,9 @@ print(f"wrote {len(df)} rows to {path}")
           ContentType: "application/octet-stream",
         }),
       );
-      console.log(`  Uploaded Parquet: ${upload.key}`);
-
-      // Clean up temp files
-      await Promise.allSettled([rm(tmpPath), rm(scriptPath)]);
+      console.log(`  Uploaded Parquet: ${upload.key} (${upload.df.shape.height} rows × ${upload.df.shape.width} cols)`);
     } catch (e: unknown) {
-      const msg = (e as Error).message ?? String(e);
-      if (msg.includes("python3") || msg.includes("No such file") || msg.includes("exit code 1")) {
-        console.log(`  Skipping ${upload.key}: python3/pandas not available`);
-      } else {
-        console.log(`  Warning generating ${upload.key}: ${msg}`);
-      }
-      await rm(tmpPath).catch(() => {});
+      console.log(`  Warning uploading ${upload.key}: ${(e as Error).message}`);
     }
   }
 }

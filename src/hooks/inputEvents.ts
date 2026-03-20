@@ -17,6 +17,7 @@ export interface InputRuntimeState {
   histogramOpen: boolean;
   filePreviewOpen: boolean;
   previewFilterActive: boolean;
+  previewYankMode: boolean;
 }
 
 export type InputEvent =
@@ -39,7 +40,10 @@ export type InputEvent =
         | "cancelPendingPrompt"
         | "closeHistogram"
         | "closePreview"
-        | "openPreviewFilter";
+        | "closePreviewFilter"
+        | "openPreviewFilter"
+        | "enterPreviewYank"
+        | "cancelPreviewYank";
     }
   | { scope: "pending"; type: "submit"; confirmed: boolean }
   | { scope: "upload"; type: "decision"; confirmed: boolean }
@@ -77,7 +81,8 @@ export type InputEvent =
         | "showHistogram"
         | "previewFile";
     }
-  | { scope: "preview"; type: "nextPage" | "prevPage" | "scrollUp" | "scrollDown" }
+  | { scope: "preview"; type: "nextPage" | "prevPage" | "scrollUp" | "scrollDown" | "colLeft" | "colRight" | "toTop" | "toBottom" }
+  | { scope: "preview"; type: "yankColumn"; colIndex: number }
   | { scope: "scroll"; type: "up" | "down" }
   | { scope: "adapterAction"; type: "run"; actionId: string; row: TableRow | null };
 
