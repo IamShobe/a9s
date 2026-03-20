@@ -231,18 +231,20 @@ export const Table = React.memo(function Table({
       )}
       {renderHeader()}
       {renderDivider()}
-      {visibleRows.map((row, i) => (
-        <Row
-          key={row.id}
-          row={row}
-          isSelected={i === adjustedSelected}
-          columns={columns}
-          colWidths={colWidths}
-          filterText={filterText}
-          isMultiSelected={multiSelectedIds?.has(row.id) ?? false}
-          isBookmarked={bookmarkedIds?.has(row.id) ?? false}
-        />
-      ))}
+      <Box flexDirection="column" flexGrow={1}>
+        {visibleRows.map((row, i) => (
+          <Row
+            key={row.id}
+            row={row}
+            isSelected={i === adjustedSelected}
+            columns={columns}
+            colWidths={colWidths}
+            filterText={filterText}
+            isMultiSelected={multiSelectedIds?.has(row.id) ?? false}
+            isBookmarked={bookmarkedIds?.has(row.id) ?? false}
+          />
+        ))}
+      </Box>
       {footerContent && (
         <>
           <Text color={theme.table.rowSeparatorText}>
