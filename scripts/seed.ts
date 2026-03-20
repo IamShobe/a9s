@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { writeFile, mkdir, rm } from "node:fs/promises";
+import { writeFile, readFile, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -1893,6 +1893,168 @@ async function seedEventBridge() {
   }
 }
 
+async function seedPreviewFiles() {
+  console.log("\nSeeding preview test files (CSV/Parquet):");
+
+  const PREVIEW_BUCKET = "ml-datasets";
+
+  // --- CSV files ---
+  const csvFiles = [
+    {
+      key: "preview/users.csv",
+      content: [
+        "user_id,name,email,age,country,plan,monthly_spend",
+        "1,Alice Johnson,alice@example.com,32,US,pro,149.99",
+        "2,Bob Smith,bob@example.com,45,UK,starter,29.99",
+        "3,Charlie Brown,charlie@example.com,28,CA,pro,149.99",
+        "4,Diana Prince,diana@example.com,36,AU,enterprise,499.00",
+        "5,Eve Adams,eve@example.com,24,US,starter,29.99",
+        "6,Frank Castle,frank@example.com,41,DE,pro,149.99",
+        "7,Grace Hopper,grace@example.com,89,US,enterprise,499.00",
+        "8,Hank Pym,hank@example.com,53,US,starter,29.99",
+        "9,Iris West,iris@example.com,31,US,pro,149.99",
+        "10,Jack Frost,jack@example.com,27,NO,starter,29.99",
+      ].join("\n"),
+    },
+    {
+      key: "preview/products.csv",
+      content: [
+        "product_id,name,category,price,stock,sku,rating",
+        "P001,Widget Alpha,Electronics,19.99,250,SKU-WA001,4.5",
+        "P002,Gadget Beta,Electronics,34.99,80,SKU-GB002,3.8",
+        "P003,Thingamajig Gamma,Hardware,8.50,500,SKU-TG003,4.9",
+        "P004,Doohickey Delta,Hardware,12.00,320,SKU-DD004,4.1",
+        "P005,Gizmo Epsilon,Electronics,99.99,15,SKU-GE005,4.7",
+        "P006,Contraption Zeta,Software,249.00,999,SKU-CZ006,4.3",
+        "P007,Apparatus Eta,Software,59.99,999,SKU-AE007,3.9",
+        "P008,Device Theta,Hardware,74.50,42,SKU-DT008,4.6",
+      ].join("\n"),
+    },
+    {
+      key: "preview/orders.csv",
+      content: [
+        "order_id,user_id,product_id,quantity,unit_price,total,status,created_at",
+        "ORD-001,1,P001,2,19.99,39.98,completed,2024-01-15T10:00:00Z",
+        "ORD-002,2,P005,1,99.99,99.99,shipped,2024-01-16T14:30:00Z",
+        "ORD-003,3,P003,10,8.50,85.00,completed,2024-01-17T09:00:00Z",
+        "ORD-004,1,P006,1,249.00,249.00,pending,2024-01-18T11:45:00Z",
+        "ORD-005,4,P002,3,34.99,104.97,completed,2024-01-19T16:00:00Z",
+        "ORD-006,5,P004,5,12.00,60.00,cancelled,2024-01-20T08:30:00Z",
+        "ORD-007,6,P007,2,59.99,119.98,shipped,2024-01-21T13:15:00Z",
+        "ORD-008,7,P008,1,74.50,74.50,completed,2024-01-22T10:00:00Z",
+        "ORD-009,2,P001,4,19.99,79.96,completed,2024-01-23T15:00:00Z",
+        "ORD-010,3,P006,2,249.00,498.00,pending,2024-01-24T12:00:00Z",
+      ].join("\n"),
+    },
+  ];
+
+  for (const file of csvFiles) {
+    try {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: PREVIEW_BUCKET,
+          Key: file.key,
+          Body: file.content,
+          ContentType: "text/csv",
+        }),
+      );
+      console.log(`  Uploaded CSV: ${file.key}`);
+    } catch (e: unknown) {
+      console.log(`  Warning uploading ${file.key}: ${(e as Error).message}`);
+    }
+  }
+
+  // --- Parquet files (generated via Python if available) ---
+  const parquetScript = `
+import sys
+try:
+    import pandas as pd
+except ImportError:
+    sys.exit(1)
+
+import json, tempfile, os
+
+data = {
+    "employee_id": list(range(1, 21)),
+    "name": ["Alice","Bob","Charlie","Diana","Eve","Frank","Grace","Hank","Iris","Jack",
+             "Kate","Liam","Mia","Noah","Olivia","Paul","Quinn","Rachel","Sam","Tina"],
+    "department": ["Engineering","Marketing","Engineering","Sales","HR","Engineering",
+                   "Marketing","Sales","HR","Engineering","Engineering","Marketing",
+                   "Sales","HR","Engineering","Marketing","Sales","HR","Engineering","Marketing"],
+    "salary": [95000,72000,105000,88000,65000,112000,76000,91000,68000,98000,
+               102000,74000,85000,63000,115000,78000,92000,67000,99000,71000],
+    "years_at_company": [3,7,1,5,9,2,6,4,8,3,1,5,7,2,4,6,3,8,2,5],
+    "active": [True]*15 + [False]*5,
+}
+df = pd.DataFrame(data)
+path = sys.argv[1]
+df.to_parquet(path, index=False)
+print(f"wrote {len(df)} rows to {path}")
+`;
+
+  const parquetDataScript = `
+import sys
+try:
+    import pandas as pd
+except ImportError:
+    sys.exit(1)
+
+import numpy as np
+
+n = 500
+data = {
+    "timestamp": pd.date_range("2024-01-01", periods=n, freq="h").astype(str).tolist(),
+    "metric": ["cpu_usage","memory_usage","disk_io","network_in","network_out"] * 100,
+    "value": [round(float(v), 2) for v in (list(range(n)))],
+    "host": [f"server-{(i % 10) + 1:02d}" for i in range(n)],
+    "region": (["us-east-1","us-west-2","eu-west-1","ap-southeast-1"] * 125)[:n],
+}
+df = pd.DataFrame(data)
+path = sys.argv[1]
+df.to_parquet(path, index=False)
+print(f"wrote {len(df)} rows to {path}")
+`;
+
+  const parquetUploads: Array<{ key: string; script: string }> = [
+    { key: "preview/employees.parquet", script: parquetScript },
+    { key: "preview/metrics.parquet", script: parquetDataScript },
+  ];
+
+  for (const upload of parquetUploads) {
+    const tmpPath = join(tmpdir(), `a9s_seed_${Date.now()}_${upload.key.replace(/\//g, "_")}`);
+    try {
+      // Write python script to temp file and run it
+      const scriptPath = tmpPath + ".py";
+      await writeFile(scriptPath, upload.script);
+      const { stdout } = await execFileAsync("python3", [scriptPath, tmpPath], { timeout: 15000 });
+      console.log(`  Generated parquet: ${stdout.trim()}`);
+
+      // Read generated parquet and upload
+      const parquetBytes = await readFile(tmpPath);
+      await client.send(
+        new PutObjectCommand({
+          Bucket: PREVIEW_BUCKET,
+          Key: upload.key,
+          Body: parquetBytes,
+          ContentType: "application/octet-stream",
+        }),
+      );
+      console.log(`  Uploaded Parquet: ${upload.key}`);
+
+      // Clean up temp files
+      await Promise.allSettled([rm(tmpPath), rm(scriptPath)]);
+    } catch (e: unknown) {
+      const msg = (e as Error).message ?? String(e);
+      if (msg.includes("python3") || msg.includes("No such file") || msg.includes("exit code 1")) {
+        console.log(`  Skipping ${upload.key}: python3/pandas not available`);
+      } else {
+        console.log(`  Warning generating ${upload.key}: ${msg}`);
+      }
+      await rm(tmpPath).catch(() => {});
+    }
+  }
+}
+
 async function main() {
   console.log("Checking LocalStack connection...");
   await checkLocalStack();
@@ -2005,6 +2167,12 @@ async function main() {
     await seedEventBridge();
   } catch (e) {
     console.error(`\nEventBridge seeding failed: ${(e as Error).message}`);
+  }
+
+  try {
+    await seedPreviewFiles();
+  } catch (e) {
+    console.error(`\nPreview files seeding failed: ${(e as Error).message}`);
   }
 
   // RDS: skipped — LocalStack Community does not support RDS (Pro only).
