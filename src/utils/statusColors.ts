@@ -33,6 +33,10 @@ const DIRECT_STATUS_COLORS: Record<string, string> = {
   impaired: "red",
   "insufficient-data": "red",
 
+  // CloudFront distribution statuses
+  deployed: "green",
+  inprogress: "yellow",
+
   // SNS subscription states
   confirmed: "green",
   pendingconfirmation: "yellow",

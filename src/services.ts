@@ -19,6 +19,7 @@ import { createECRServiceAdapter } from "./views/ecr/adapter.js";
 import { createStepFunctionsServiceAdapter } from "./views/stepfunctions/adapter.js";
 import { createEventBridgeServiceAdapter } from "./views/eventbridge/adapter.js";
 import { createApiGatewayServiceAdapter } from "./views/apigateway/adapter.js";
+import { createCloudFrontServiceAdapter } from "./views/cloudfront/adapter.js";
 
 export const SERVICE_REGISTRY = {
   s3: (endpointUrl?: string, region?: string) => createS3ServiceAdapter(endpointUrl, region),
@@ -49,6 +50,8 @@ export const SERVICE_REGISTRY = {
     createEventBridgeServiceAdapter(undefined, region),
   apigateway: (_endpointUrl?: string, region?: string) =>
     createApiGatewayServiceAdapter(undefined, region),
+  cloudfront: (_endpointUrl?: string, region?: string) =>
+    createCloudFrontServiceAdapter(undefined, region),
 } as const;
 
 export type AwsServiceId = keyof typeof SERVICE_REGISTRY;
